@@ -1118,6 +1118,7 @@ MAX_AUTO_APPLY_PER_RUN=20
 
 ### Code Quality
 
+- Follow TDD for backend and frontend feature work: write the failing test first, implement the smallest viable change, then refactor with the test suite green.
 - Python uses `from __future__ import annotations`, full typing, and Pydantic v2 schemas.
 - TypeScript runs with `strict: true`, no `any`, and no ignore directives.
 - Async functions must handle exceptions intentionally.
