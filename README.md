@@ -47,8 +47,8 @@ Placeholders:
 
 | Layer | Technology | Why This Choice |
 |---|---|---|
-| Frontend | Next.js 14 App Router + TypeScript | Server Components, streaming UI, App Router layout nesting, strong DX for a portfolio-grade SaaS |
-| Styling | TailwindCSS + shadcn/ui | Fast iteration with production-ready primitives and consistent design system building blocks |
+| Frontend | Vue 3 + Vite + TypeScript + Vue Router + Vuex | Fast SPA iteration, explicit state management, typed routing, and a clean foundation for real-time dashboards |
+| Styling | TailwindCSS + custom design system | Fast iteration with enough flexibility to craft a premium, non-template SaaS UI |
 | Backend API | FastAPI (Python 3.11+) | Async-native, ideal for SSE, background orchestration, and strict schema validation with Pydantic v2 |
 | Database | PostgreSQL 16 + pgvector | Single operational store for relational data plus vector similarity, simplifying joins and ranking |
 | ORM | SQLAlchemy 2.0 (async) + Alembic | Strong async support, migrations, typed models, and mature Python ecosystem |
@@ -61,15 +61,15 @@ Placeholders:
 | Scraping | Apify SDK + SerpAPI + direct scrapers | Multi-source discovery with a compliant LinkedIn path and flexible fallback coverage |
 | Email Monitoring | Gmail API (OAuth2) | Reliable inbox monitoring for recruiter replies without credential scraping |
 | Encryption | Fernet (`cryptography`) | Strong symmetric encryption for credential vault and sensitive stored blobs |
-| Deployment | Railway (backend + workers) + Vercel (frontend) | Portfolio-friendly deployment with low DevOps friction and credible production story |
+| Deployment | Railway (backend + workers) + Vercel or Netlify (frontend) | Portfolio-friendly deployment with low DevOps friction and credible production story |
 | Containerisation | Docker + Docker Compose | Consistent local development, worker parity, and deployment portability |
-| Auth | NextAuth.js + FastAPI JWT | Session-aware frontend auth plus explicit API token model and refresh flow |
+| Auth | Vue Router guards + FastAPI JWT | Clear SPA auth boundaries with explicit API token and refresh-token handling |
 
 ## High-Level Architecture
 
 ```mermaid
 flowchart TD
-    U["User"] --> UI["Next.js UI"]
+    U["User"] --> UI["Vue UI"]
     UI --> API["FastAPI API"]
     API --> RPA["Resume Parser Agent"]
     RPA --> DB1["PostgreSQL<br/>resume + embeddings"]
@@ -735,7 +735,7 @@ Checkpoint:
 - Add reusable auth dependencies in FastAPI
 - Build Fernet encryption service for the vault
 - Add register, login, refresh, and delete-account endpoints
-- Integrate NextAuth.js on the frontend with protected routes
+- Integrate Vue Router auth guards and authenticated API client flows on the frontend
 
 Checkpoint:
 
@@ -959,55 +959,64 @@ applyiq/
 │   ├── Dockerfile.worker
 │   └── requirements.txt
 ├── frontend/
-│   ├── app/
-│   │   ├── (auth)/
-│   │   │   ├── login/page.tsx
-│   │   │   └── register/page.tsx
-│   │   ├── (dashboard)/
-│   │   │   ├── layout.tsx
-│   │   │   ├── dashboard/page.tsx
-│   │   │   ├── resume/page.tsx
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   │   ├── ui/
 │   │   │   ├── pipeline/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── [runId]/
-│   │   │   │       ├── page.tsx
-│   │   │   │       └── approve/page.tsx
-│   │   │   ├── jobs/page.tsx
+│   │   │   │   ├── PipelineGraph.vue
+│   │   │   │   ├── NodeStatus.vue
+│   │   │   │   └── ApprovalGate.vue
 │   │   │   ├── applications/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── [id]/page.tsx
-│   │   │   ├── vault/page.tsx
-│   │   │   └── settings/page.tsx
-│   │   ├── api/auth/[...nextauth]/route.ts
-│   │   └── page.tsx
-│   ├── components/
-│   │   ├── ui/
-│   │   ├── pipeline/
-│   │   │   ├── PipelineGraph.tsx
-│   │   │   ├── NodeStatus.tsx
-│   │   │   └── ApprovalGate.tsx
-│   │   ├── applications/
-│   │   │   ├── KanbanBoard.tsx
-│   │   │   ├── ApplicationCard.tsx
-│   │   │   └── ApplicationDetail.tsx
-│   │   ├── resume/
-│   │   │   ├── ResumeUpload.tsx
-│   │   │   ├── ProfileDisplay.tsx
-│   │   │   └── PreferencesForm.tsx
-│   │   ├── jobs/
-│   │   │   ├── JobsTable.tsx
-│   │   │   ├── MatchScoreCard.tsx
-│   │   │   └── SemanticSearch.tsx
-│   │   └── dashboard/
-│   │       ├── StatsRow.tsx
-│   │       └── ActivityFeed.tsx
-│   ├── lib/
-│   │   ├── api.ts
-│   │   ├── hooks/
+│   │   │   │   ├── KanbanBoard.vue
+│   │   │   │   ├── ApplicationCard.vue
+│   │   │   │   └── ApplicationDetail.vue
+│   │   │   ├── resume/
+│   │   │   │   ├── ResumeUpload.vue
+│   │   │   │   ├── ProfileDisplay.vue
+│   │   │   │   └── PreferencesForm.vue
+│   │   │   ├── jobs/
+│   │   │   │   ├── JobsTable.vue
+│   │   │   │   ├── MatchScoreCard.vue
+│   │   │   │   └── SemanticSearch.vue
+│   │   │   └── dashboard/
+│   │   │       ├── StatsRow.vue
+│   │   │       └── ActivityFeed.vue
+│   │   ├── router/
+│   │   │   └── index.ts
+│   │   ├── store/
+│   │   │   ├── index.ts
+│   │   │   └── modules/
+│   │   │       ├── auth.ts
+│   │   │       ├── pipeline.ts
+│   │   │       └── applications.ts
+│   │   ├── views/
+│   │   │   ├── auth/
+│   │   │   │   ├── LoginView.vue
+│   │   │   │   └── RegisterView.vue
+│   │   │   ├── DashboardView.vue
+│   │   │   ├── ResumeView.vue
+│   │   │   ├── PipelineView.vue
+│   │   │   ├── PipelineApprovalView.vue
+│   │   │   ├── JobsView.vue
+│   │   │   ├── ApplicationsView.vue
+│   │   │   ├── ApplicationDetailView.vue
+│   │   │   ├── VaultView.vue
+│   │   │   └── SettingsView.vue
+│   │   ├── services/
+│   │   │   ├── api.ts
+│   │   │   ├── sse.ts
+│   │   │   └── auth.ts
+│   │   ├── composables/
 │   │   │   ├── usePipelineSSE.ts
 │   │   │   └── useNotifications.ts
-│   │   └── utils.ts
-│   ├── types/
+│   │   ├── types/
+│   │   ├── App.vue
+│   │   ├── main.ts
+│   │   └── styles.css
+│   ├── index.html
+│   ├── vite.config.ts
+│   ├── tsconfig.json
 │   └── Dockerfile
 ├── docker-compose.yml
 ├── docker-compose.prod.yml
@@ -1066,9 +1075,8 @@ CELERY_BROKER_URL=redis://redis:6379/1
 CELERY_RESULT_BACKEND=redis://redis:6379/2
 
 # Frontend
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXTAUTH_SECRET=
-NEXTAUTH_URL=http://localhost:3000
+VITE_API_URL=http://localhost:8000
+VITE_APP_NAME=ApplyIQ
 
 # Sentry
 SENTRY_DSN_BACKEND=
@@ -1088,7 +1096,7 @@ MAX_AUTO_APPLY_PER_RUN=20
 - Celery Beat over Gmail webhooks because polling is simpler to implement and good enough for a four-hour monitoring cadence.
 - Approval gate before auto-apply with no exceptions because ethical automation and candidate safety matter more than maximizing blind throughput.
 - `manual_required` instead of CAPTCHA bypass because CAPTCHA solving is brittle, ethically questionable, and likely to violate platform rules.
-- Generated API types from FastAPI OpenAPI because eliminating type drift makes the full-stack architecture feel intentionally engineered rather than improvised.
+- Generated TypeScript types from FastAPI OpenAPI because eliminating type drift makes the full-stack architecture feel intentionally engineered rather than improvised.
 
 ## Demo Script
 
