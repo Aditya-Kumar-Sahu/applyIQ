@@ -26,20 +26,21 @@ def create_app(
     resolved_settings = settings or get_settings()
     configure_logging(resolved_settings.log_level)
     logger = structlog.get_logger(__name__)
+    database = DatabaseManager(resolved_settings.database_url)
+    redis = RedisManager(resolved_settings.redis_url)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        if health_reporter is None:
-            app.state.database = DatabaseManager(resolved_settings.database_url)
-            app.state.redis = RedisManager(resolved_settings.redis_url)
         logger.info("app.startup", environment=resolved_settings.environment)
         yield
-        if health_reporter is None:
-            await app.state.database.dispose()
-            await app.state.redis.close()
+        await app.state.database.dispose()
+        await app.state.redis.close()
         logger.info("app.shutdown")
 
     app = FastAPI(title=resolved_settings.app_name, lifespan=lifespan)
+    app.state.settings = resolved_settings
+    app.state.database = database
+    app.state.redis = redis
     app.add_middleware(
         CORSMiddleware,
         allow_origins=resolved_settings.cors_origins,

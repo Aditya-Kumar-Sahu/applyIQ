@@ -7,6 +7,7 @@
         This is the Vue/Vuex starter surface for the real-time command centre we will expand in the
         next phases.
       </p>
+      <p v-if="currentUser" class="lede">Signed in as {{ currentUser.full_name }} ({{ currentUser.email }})</p>
     </section>
 
     <section class="stats-grid">
@@ -25,4 +26,7 @@ import { store } from "../store";
 
 const headline = computed(() => store.getters.headline as string);
 const stats = computed(() => store.getters.dashboardStats as { label: string; value: string }[]);
+const currentUser = computed(
+  () => store.getters.authUser as { full_name: string; email: string } | null,
+);
 </script>

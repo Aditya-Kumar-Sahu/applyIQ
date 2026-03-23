@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: DEFAULT_CORS_ORIGINS.copy())
     database_url: str = "postgresql+asyncpg://applyiq:password@db:5432/applyiq"
     redis_url: str = "redis://redis:6379/0"
+    jwt_secret_key: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
+    access_cookie_name: str = "applyiq_access_token"
+    refresh_cookie_name: str = "applyiq_refresh_token"
+    fernet_secret_key: str = "wWKJg6WVKwwhFVWG2yt30YIOCwVDDDeWGPAHDLcGRID="
+    encryption_pepper: str = "applyiq-pepper"
 
 
 @lru_cache(maxsize=1)
