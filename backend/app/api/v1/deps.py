@@ -4,6 +4,7 @@ from typing import AsyncIterator
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import EncryptionService, decode_token
@@ -53,7 +54,14 @@ async def get_current_user(
     if payload.get("type") != "access":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
-    statement = select(User).where(User.id == payload["sub"])
+    statement = (
+        select(User)
+        .where(User.id == payload["sub"])
+        .options(
+            selectinload(User.resume_profile),
+            selectinload(User.search_preferences),
+        )
+    )
     user = await session.scalar(statement)
 
     if user is None or not user.is_active:

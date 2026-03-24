@@ -10,6 +10,7 @@
         <RouterLink v-if="!isAuthenticated" to="/login">Login</RouterLink>
         <RouterLink v-if="!isAuthenticated" to="/register">Register</RouterLink>
         <RouterLink to="/dashboard">Dashboard</RouterLink>
+        <RouterLink v-if="isAuthenticated" to="/resume">Resume</RouterLink>
       </nav>
     </header>
 

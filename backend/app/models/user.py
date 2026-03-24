@@ -28,3 +28,13 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    resume_profile: Mapped["ResumeProfile | None"] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    search_preferences: Mapped["SearchPreference | None"] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )

@@ -133,6 +133,45 @@ h3 {
   gap: 1rem;
 }
 
+.resume-grid {
+  align-items: start;
+}
+
+.upload-box {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px dashed var(--border);
+  border-radius: 1rem;
+  color: var(--muted);
+}
+
+.upload-box input {
+  width: 100%;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.chip {
+  display: inline-flex;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(201, 109, 24, 0.12);
+  color: var(--ink);
+}
+
+.score-number {
+  margin: 0;
+  font-size: 3rem;
+  color: var(--accent);
+}
+
 .auth-panel {
   max-width: 34rem;
 }
@@ -150,6 +189,16 @@ h3 {
 }
 
 .auth-form input {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+  font: inherit;
+}
+
+.auth-form select {
   width: 100%;
   padding: 0.9rem 1rem;
   border: 1px solid var(--border);

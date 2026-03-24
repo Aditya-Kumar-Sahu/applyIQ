@@ -1,15 +1,18 @@
-PYTHON ?= python
+COMPOSE ?= docker compose
 
-.PHONY: backend-test backend-run compose-up compose-down
+.PHONY: backend-test frontend-build migrate compose-up compose-down
 
 backend-test:
-	$(PYTHON) -m pytest backend/tests
+	$(COMPOSE) run --rm backend python -m pytest tests
 
-backend-run:
-	cd backend && uvicorn app.main:app --reload
+frontend-build:
+	$(COMPOSE) run --rm frontend npm run build
+
+migrate:
+	$(COMPOSE) run --rm backend alembic upgrade head
 
 compose-up:
-	docker compose up --build
+	$(COMPOSE) up --build backend frontend db redis
 
 compose-down:
-	docker compose down
+	$(COMPOSE) down
