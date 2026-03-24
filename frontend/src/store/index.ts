@@ -1,6 +1,7 @@
 import { createStore } from "vuex";
 
 import { ApiError } from "../services/api";
+import type { JobDetail, RankedJob } from "../services/jobs";
 
 export type DashboardStat = {
   label: string;
@@ -86,6 +87,10 @@ export type RootState = {
   profileCompleteness: ProfileCompleteness | null;
   resumeStatus: "idle" | "loading" | "ready";
   resumeError: string | null;
+  jobs: RankedJob[];
+  selectedJob: JobDetail | null;
+  jobsStatus: "idle" | "loading" | "ready";
+  jobsError: string | null;
 };
 
 export const store = createStore<RootState>({
@@ -105,6 +110,10 @@ export const store = createStore<RootState>({
     profileCompleteness: null,
     resumeStatus: "idle",
     resumeError: null,
+    jobs: [],
+    selectedJob: null,
+    jobsStatus: "idle",
+    jobsError: null,
   },
   getters: {
     dashboardStats: (state: RootState) => state.stats,
@@ -118,6 +127,10 @@ export const store = createStore<RootState>({
     profileCompleteness: (state: RootState) => state.profileCompleteness,
     resumeStatus: (state: RootState) => state.resumeStatus,
     resumeError: (state: RootState) => state.resumeError,
+    jobs: (state: RootState) => state.jobs,
+    selectedJob: (state: RootState) => state.selectedJob,
+    jobsStatus: (state: RootState) => state.jobsStatus,
+    jobsError: (state: RootState) => state.jobsError,
   },
   mutations: {
     setStats(state: RootState, stats: DashboardStat[]) {
@@ -161,6 +174,22 @@ export const store = createStore<RootState>({
     setResumeError(state: RootState, message: string) {
       state.resumeError = message;
       state.resumeStatus = "ready";
+    },
+    setJobsLoading(state: RootState) {
+      state.jobsStatus = "loading";
+      state.jobsError = null;
+    },
+    setJobs(state: RootState, jobs: RankedJob[]) {
+      state.jobs = jobs;
+      state.jobsStatus = "ready";
+      state.jobsError = null;
+    },
+    setSelectedJob(state: RootState, job: JobDetail | null) {
+      state.selectedJob = job;
+    },
+    setJobsError(state: RootState, message: string) {
+      state.jobsError = message;
+      state.jobsStatus = "ready";
     },
   },
   actions: {
@@ -250,6 +279,49 @@ export const store = createStore<RootState>({
       } catch (error) {
         commit("setResumeError", error instanceof Error ? error.message : "Unable to save preferences");
         throw error;
+      }
+    },
+    async fetchJobs({ commit }) {
+      commit("setJobsLoading");
+
+      try {
+        const { getJobs, getJobDetail } = await import("../services/jobs");
+        const jobsResponse = await getJobs();
+        commit("setJobs", jobsResponse.items);
+        if (jobsResponse.items.length > 0) {
+          const detail = await getJobDetail(jobsResponse.items[0].job_id);
+          commit("setSelectedJob", detail);
+        } else {
+          commit("setSelectedJob", null);
+        }
+      } catch (error) {
+        commit("setJobsError", error instanceof Error ? error.message : "Unable to load jobs");
+      }
+    },
+    async searchJobs({ commit }, query: string) {
+      commit("setJobsLoading");
+
+      try {
+        const { searchJobs, getJobDetail } = await import("../services/jobs");
+        const jobsResponse = await searchJobs(query);
+        commit("setJobs", jobsResponse.items);
+        if (jobsResponse.items.length > 0) {
+          const detail = await getJobDetail(jobsResponse.items[0].job_id);
+          commit("setSelectedJob", detail);
+        } else {
+          commit("setSelectedJob", null);
+        }
+      } catch (error) {
+        commit("setJobsError", error instanceof Error ? error.message : "Unable to search jobs");
+      }
+    },
+    async fetchJobDetail({ commit }, jobId: string) {
+      try {
+        const { getJobDetail } = await import("../services/jobs");
+        const detail = await getJobDetail(jobId);
+        commit("setSelectedJob", detail);
+      } catch (error) {
+        commit("setJobsError", error instanceof Error ? error.message : "Unable to load job detail");
       }
     },
   },

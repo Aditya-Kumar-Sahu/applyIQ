@@ -75,7 +75,8 @@ The detailed implementation blueprint lives in [PLAN.md](./PLAN.md).
 - Phase 2: Auth and User Management complete
 - Phase 3: Resume Pipeline complete
 - Phase 4: Job Scraping Engine complete
-- Next target: Phase 5, Match and Rank Engine
+- Phase 5: Match and Rank Engine complete
+- Next target: Phase 6, LangGraph Pipeline Orchestration
 
 ## Getting Started
 

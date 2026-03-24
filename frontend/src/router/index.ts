@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 
 import DashboardView from "../views/DashboardView.vue";
 import HomeView from "../views/HomeView.vue";
+import JobsView from "../views/JobsView.vue";
 import LoginView from "../views/LoginView.vue";
 import RegisterView from "../views/RegisterView.vue";
 import ResumeView from "../views/ResumeView.vue";
@@ -25,6 +26,12 @@ export const router = createRouter({
       path: "/resume",
       name: "resume",
       component: ResumeView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: "/jobs",
+      name: "jobs",
+      component: JobsView,
       meta: { requiresAuth: true },
     },
     {
