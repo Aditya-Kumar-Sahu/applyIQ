@@ -4,6 +4,7 @@ import DashboardView from "../views/DashboardView.vue";
 import HomeView from "../views/HomeView.vue";
 import JobsView from "../views/JobsView.vue";
 import LoginView from "../views/LoginView.vue";
+import PipelineView from "../views/PipelineView.vue";
 import RegisterView from "../views/RegisterView.vue";
 import ResumeView from "../views/ResumeView.vue";
 import { store } from "../store";
@@ -32,6 +33,12 @@ export const router = createRouter({
       path: "/jobs",
       name: "jobs",
       component: JobsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: "/pipeline",
+      name: "pipeline",
+      component: PipelineView,
       meta: { requiresAuth: true },
     },
     {

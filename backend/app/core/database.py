@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 
 class DatabaseManager:
@@ -17,7 +18,10 @@ class DatabaseManager:
     def engine(self) -> AsyncEngine:
         if self._engine is None:
             connect_args = {"check_same_thread": False} if self._database_url.startswith("sqlite") else {}
-            self._engine = create_async_engine(self._database_url, pool_pre_ping=True, connect_args=connect_args)
+            engine_kwargs = {"pool_pre_ping": True, "connect_args": connect_args}
+            if self._database_url.startswith("sqlite"):
+                engine_kwargs["poolclass"] = NullPool
+            self._engine = create_async_engine(self._database_url, **engine_kwargs)
         return self._engine
 
     @property

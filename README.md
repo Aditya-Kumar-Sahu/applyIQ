@@ -76,7 +76,8 @@ The detailed implementation blueprint lives in [PLAN.md](./PLAN.md).
 - Phase 3: Resume Pipeline complete
 - Phase 4: Job Scraping Engine complete
 - Phase 5: Match and Rank Engine complete
-- Next target: Phase 6, LangGraph Pipeline Orchestration
+- Phase 6: LangGraph Pipeline Orchestration complete
+- Next target: Phase 7, Cover Letter Generation
 
 ## Getting Started
 
@@ -95,6 +96,7 @@ Services:
 
 - Frontend: `http://localhost:3000`
 - Backend API: `http://localhost:8001`
+- Celery worker: runs inside Docker Compose as `worker`
 - PostgreSQL: `localhost:5433`
 - Redis: `localhost:6380`
 

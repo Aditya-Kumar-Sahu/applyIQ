@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: DEFAULT_CORS_ORIGINS.copy())
     database_url: str = "postgresql+asyncpg://applyiq:password@db:5432/applyiq"
     redis_url: str = "redis://redis:6379/0"
+    celery_broker_url: str = "redis://redis:6379/1"
+    celery_result_backend: str = "redis://redis:6379/2"
     jwt_secret_key: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15

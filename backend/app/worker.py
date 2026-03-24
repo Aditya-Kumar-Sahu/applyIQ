@@ -7,4 +7,8 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-celery_app = Celery("applyiq", broker=settings.redis_url, backend=settings.redis_url)
+celery_app = Celery(
+    "applyiq",
+    broker=settings.celery_broker_url,
+    backend=settings.celery_result_backend,
+)

@@ -2,6 +2,11 @@ import { createStore } from "vuex";
 
 import { ApiError } from "../services/api";
 import type { JobDetail, RankedJob } from "../services/jobs";
+import type {
+  PipelineResults,
+  PipelineRunSummary,
+  PipelineStartPayload,
+} from "../services/pipeline";
 
 export type DashboardStat = {
   label: string;
@@ -91,7 +96,25 @@ export type RootState = {
   selectedJob: JobDetail | null;
   jobsStatus: "idle" | "loading" | "ready";
   jobsError: string | null;
+  pipelineRun: PipelineRunSummary | null;
+  pipelineResults: PipelineResults | null;
+  pipelineStatus: "idle" | "loading" | "ready";
+  pipelineError: string | null;
 };
+
+function buildStats(state: RootState): DashboardStat[] {
+  const pendingApprovalCount =
+    state.pipelineResults?.applications.filter((application) => application.status === "pending_approval").length ?? 0;
+  const appliedCount =
+    state.pipelineResults?.applications.filter((application) => application.status === "approved").length ?? 0;
+
+  return [
+    { label: "Jobs Found", value: String(state.pipelineRun?.jobs_found ?? state.pipelineResults?.jobs_found ?? 0) },
+    { label: "Pending Approval", value: String(pendingApprovalCount) },
+    { label: "Applied", value: String(appliedCount) },
+    { label: "Replies", value: "0" },
+  ];
+}
 
 export const store = createStore<RootState>({
   state: {
@@ -114,6 +137,10 @@ export const store = createStore<RootState>({
     selectedJob: null,
     jobsStatus: "idle",
     jobsError: null,
+    pipelineRun: null,
+    pipelineResults: null,
+    pipelineStatus: "idle",
+    pipelineError: null,
   },
   getters: {
     dashboardStats: (state: RootState) => state.stats,
@@ -131,6 +158,10 @@ export const store = createStore<RootState>({
     selectedJob: (state: RootState) => state.selectedJob,
     jobsStatus: (state: RootState) => state.jobsStatus,
     jobsError: (state: RootState) => state.jobsError,
+    pipelineRun: (state: RootState) => state.pipelineRun,
+    pipelineResults: (state: RootState) => state.pipelineResults,
+    pipelineStatus: (state: RootState) => state.pipelineStatus,
+    pipelineError: (state: RootState) => state.pipelineError,
   },
   mutations: {
     setStats(state: RootState, stats: DashboardStat[]) {
@@ -190,6 +221,26 @@ export const store = createStore<RootState>({
     setJobsError(state: RootState, message: string) {
       state.jobsError = message;
       state.jobsStatus = "ready";
+    },
+    setPipelineLoading(state: RootState) {
+      state.pipelineStatus = "loading";
+      state.pipelineError = null;
+    },
+    setPipelineRun(state: RootState, pipelineRun: PipelineRunSummary | null) {
+      state.pipelineRun = pipelineRun;
+      state.pipelineStatus = "ready";
+      state.pipelineError = null;
+      state.stats = buildStats(state);
+    },
+    setPipelineResults(state: RootState, pipelineResults: PipelineResults | null) {
+      state.pipelineResults = pipelineResults;
+      state.pipelineStatus = "ready";
+      state.pipelineError = null;
+      state.stats = buildStats(state);
+    },
+    setPipelineError(state: RootState, message: string) {
+      state.pipelineError = message;
+      state.pipelineStatus = "ready";
     },
   },
   actions: {
@@ -322,6 +373,97 @@ export const store = createStore<RootState>({
         commit("setSelectedJob", detail);
       } catch (error) {
         commit("setJobsError", error instanceof Error ? error.message : "Unable to load job detail");
+      }
+    },
+    async startPipeline({ commit, dispatch }, payload: PipelineStartPayload) {
+      commit("setPipelineLoading");
+
+      try {
+        const { startPipeline } = await import("../services/pipeline");
+        const pipelineRun = await startPipeline(payload);
+        commit("setPipelineRun", pipelineRun);
+        await dispatch("loadPipeline", pipelineRun.run_id);
+      } catch (error) {
+        commit("setPipelineError", error instanceof Error ? error.message : "Unable to start pipeline");
+        throw error;
+      }
+    },
+    async loadPipeline({ commit, state }, runId?: string) {
+      const resolvedRunId = runId ?? state.pipelineRun?.run_id;
+      if (!resolvedRunId) {
+        return;
+      }
+
+      commit("setPipelineLoading");
+
+      try {
+        const { getPipelineResults, getPipelineStatus } = await import("../services/pipeline");
+        const [pipelineResults, pipelineStatus] = await Promise.all([
+          getPipelineResults(resolvedRunId),
+          getPipelineStatus(resolvedRunId),
+        ]);
+
+        commit("setPipelineRun", {
+          run_id: pipelineResults.run_id,
+          status: pipelineResults.status,
+          current_node: pipelineStatus.current_node,
+          jobs_found: pipelineResults.jobs_found,
+          jobs_matched: pipelineResults.jobs_matched,
+          applications_submitted: pipelineResults.applications_submitted,
+          pending_approvals_count: pipelineResults.applications.filter(
+            (application) => application.status === "pending_approval",
+          ).length,
+        });
+        commit("setPipelineResults", pipelineResults);
+      } catch (error) {
+        commit("setPipelineError", error instanceof Error ? error.message : "Unable to load pipeline");
+      }
+    },
+    async editPipelineCoverLetter(
+      { dispatch, state },
+      payload: { runId?: string; applicationId: string; coverLetterText: string },
+    ) {
+      const resolvedRunId = payload.runId ?? state.pipelineRun?.run_id;
+      if (!resolvedRunId) {
+        throw new Error("No pipeline run available");
+      }
+
+      const { editCoverLetter } = await import("../services/pipeline");
+      await editCoverLetter(resolvedRunId, payload.applicationId, payload.coverLetterText);
+      await dispatch("loadPipeline", resolvedRunId);
+    },
+    async rejectPipelineApplications(
+      { dispatch, state },
+      payload: { runId?: string; applicationIds: string[] },
+    ) {
+      const resolvedRunId = payload.runId ?? state.pipelineRun?.run_id;
+      if (!resolvedRunId) {
+        throw new Error("No pipeline run available");
+      }
+
+      const { rejectPipeline } = await import("../services/pipeline");
+      await rejectPipeline(resolvedRunId, payload.applicationIds);
+      await dispatch("loadPipeline", resolvedRunId);
+    },
+    async approvePipelineApplications(
+      { commit, dispatch, state },
+      payload: { runId?: string; applicationIds: string[] },
+    ) {
+      const resolvedRunId = payload.runId ?? state.pipelineRun?.run_id;
+      if (!resolvedRunId) {
+        throw new Error("No pipeline run available");
+      }
+
+      commit("setPipelineLoading");
+
+      try {
+        const { approvePipeline } = await import("../services/pipeline");
+        const pipelineRun = await approvePipeline(resolvedRunId, payload.applicationIds);
+        commit("setPipelineRun", pipelineRun);
+        await dispatch("loadPipeline", resolvedRunId);
+      } catch (error) {
+        commit("setPipelineError", error instanceof Error ? error.message : "Unable to resume pipeline");
+        throw error;
       }
     },
   },

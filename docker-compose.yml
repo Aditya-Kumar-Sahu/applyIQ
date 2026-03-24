@@ -32,6 +32,20 @@ services:
       backend:
         condition: service_started
 
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   db:
     image: pgvector/pgvector:pg16
     environment:
