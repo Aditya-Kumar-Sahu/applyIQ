@@ -1,5 +1,6 @@
 <template>
   <main class="grid">
+    <h1 class="page-hero">Autonomous job hunting, with a human approval gate.</h1>
     <section class="hero-card">
       <p class="eyebrow">Portfolio flagship</p>
       <h2>Your job search, on autopilot.</h2>

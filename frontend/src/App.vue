@@ -3,7 +3,6 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">ApplyIQ</p>
-        <h1>Autonomous job hunting, with a human approval gate.</h1>
       </div>
       <nav class="nav">
         <RouterLink to="/">Overview</RouterLink>
