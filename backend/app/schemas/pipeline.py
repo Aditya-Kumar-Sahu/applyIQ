@@ -23,6 +23,12 @@ class PipelineApplicationItem(BaseModel):
     word_count: int
     cover_letter_version: int
     status: str
+    ats_provider: str | None = None
+    confirmation_url: str | None = None
+    confirmation_number: str | None = None
+    screenshot_urls: list[str] = Field(default_factory=list)
+    failure_reason: str | None = None
+    manual_required_reason: str | None = None
 
 
 class PipelineRunData(BaseModel):

@@ -1,3 +1,10 @@
+# ─────────────────────────────────────────────────────────────────────
+# ApplyIQ — Production Docker Compose Overrides
+# ─────────────────────────────────────────────────────────────────────
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ─────────────────────────────────────────────────────────────────────
+
 services:
   backend:
     build:

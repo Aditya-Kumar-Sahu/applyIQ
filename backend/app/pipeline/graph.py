@@ -10,9 +10,11 @@ from app.models.user import User
 from app.pipeline.checkpointer import PipelineCheckpointer
 from app.pipeline.nodes import approval_gate_node, auto_apply_node, fetch_jobs_node, rank_jobs_node, track_applications_node
 from app.pipeline.state import ApplyIQState
+from app.services.auto_apply_service import AutoApplyService
 from app.services.cover_letter_service import CoverLetterService
 from app.services.match_rank_service import MatchRankService
 from app.services.scrape_service import ScrapeService
+from app.services.vault_service import VaultService
 
 
 class PipelineGraphRunner:
@@ -24,12 +26,16 @@ class PipelineGraphRunner:
         checkpointer: PipelineCheckpointer,
         encryption_service,
         cover_letter_service: CoverLetterService,
+        auto_apply_service: AutoApplyService,
+        vault_service: VaultService,
     ) -> None:
         self._scrape_service = scrape_service
         self._match_service = match_service
         self._checkpointer = checkpointer
         self._encryption_service = encryption_service
         self._cover_letter_service = cover_letter_service
+        self._auto_apply_service = auto_apply_service
+        self._vault_service = vault_service
 
     async def run_until_approval(
         self,
@@ -82,6 +88,7 @@ class PipelineGraphRunner:
         *,
         session: AsyncSession,
         pipeline_run: PipelineRun,
+        user: User,
         run_id: str,
     ) -> ApplyIQState:
         checkpoint_state = await self._checkpointer.load(run_id)
@@ -103,6 +110,10 @@ class PipelineGraphRunner:
                 state,
                 session=session,
                 pipeline_run=pipeline_run,
+                user=user,
+                auto_apply_service=self._auto_apply_service,
+                vault_service=self._vault_service,
+                encryption_service=self._encryption_service,
             )
 
         async def track_applications(state: ApplyIQState) -> ApplyIQState:

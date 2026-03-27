@@ -28,6 +28,12 @@ export type PipelineApplication = {
   word_count: number;
   cover_letter_version: number;
   status: string;
+  ats_provider: string | null;
+  confirmation_url: string | null;
+  confirmation_number: string | null;
+  screenshot_urls: string[];
+  failure_reason: string | null;
+  manual_required_reason: string | null;
 };
 
 export type PipelineResults = {

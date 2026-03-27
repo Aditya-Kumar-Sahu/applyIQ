@@ -133,6 +133,25 @@
           />
         </label>
 
+        <div v-if="application.status !== 'pending_approval'" class="apply-outcome">
+          <p class="job-meta">ATS: {{ application.ats_provider ?? "pending" }}</p>
+          <p v-if="application.confirmation_number" class="job-meta">
+            Confirmation: {{ application.confirmation_number }}
+          </p>
+          <p v-if="application.manual_required_reason" class="auth-error">{{ application.manual_required_reason }}</p>
+          <p v-if="application.failure_reason" class="auth-error">{{ application.failure_reason }}</p>
+          <a
+            v-if="application.confirmation_url"
+            class="button-link secondary-button"
+            :href="application.confirmation_url"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open confirmation
+          </a>
+          <p class="job-meta">Screenshots captured: {{ application.screenshot_urls.length }}</p>
+        </div>
+
         <div class="action-row compact-actions">
           <button
             class="button-link secondary-button"

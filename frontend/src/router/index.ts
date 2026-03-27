@@ -7,6 +7,7 @@ import LoginView from "../views/LoginView.vue";
 import PipelineView from "../views/PipelineView.vue";
 import RegisterView from "../views/RegisterView.vue";
 import ResumeView from "../views/ResumeView.vue";
+import VaultView from "../views/VaultView.vue";
 import { store } from "../store";
 
 export const router = createRouter({
@@ -39,6 +40,12 @@ export const router = createRouter({
       path: "/pipeline",
       name: "pipeline",
       component: PipelineView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: "/vault",
+      name: "vault",
+      component: VaultView,
       meta: { requiresAuth: true },
     },
     {

@@ -88,6 +88,12 @@ class PipelineService:
                     word_count=application.cover_letter_word_count,
                     cover_letter_version=application.cover_letter_version,
                     status=application.status,
+                    ats_provider=application.ats_provider,
+                    confirmation_url=application.confirmation_url,
+                    confirmation_number=application.confirmation_number,
+                    screenshot_urls=application.screenshot_urls,
+                    failure_reason=application.failure_reason,
+                    manual_required_reason=application.manual_required_reason,
                 )
             )
 
@@ -120,7 +126,7 @@ class PipelineService:
                 application.status = "approved"
 
         await session.commit()
-        await self._graph_runner.resume_after_approval(session=session, pipeline_run=pipeline_run, run_id=run_id)
+        await self._graph_runner.resume_after_approval(session=session, pipeline_run=pipeline_run, user=user, run_id=run_id)
         await session.refresh(pipeline_run)
 
         pending_count = len([application for application in applications if application.status == "pending_approval"])

@@ -1,3 +1,12 @@
+# ─────────────────────────────────────────────────────────────────────
+# ApplyIQ — Local Development Docker Compose
+# ─────────────────────────────────────────────────────────────────────
+# Usage:
+#   docker compose up -d          # start all services
+#   docker compose logs -f api    # tail backend logs
+#   docker compose down -v        # stop and remove volumes
+# ─────────────────────────────────────────────────────────────────────
+
 services:
   backend:
     build:

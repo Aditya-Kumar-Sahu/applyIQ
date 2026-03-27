@@ -19,11 +19,13 @@ from app.schemas.pipeline import (
     RejectData,
 )
 from app.scrapers.deduplicator import JobDeduplicator
+from app.services.auto_apply_service import AutoApplyService
 from app.services.cover_letter_service import CoverLetterService
 from app.services.embedding_service import EmbeddingService
 from app.services.match_rank_service import MatchRankService
 from app.services.pipeline_service import PipelineService
 from app.services.scrape_service import ScrapeService
+from app.services.vault_service import VaultService
 
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
@@ -40,6 +42,8 @@ def _build_pipeline_service(request: Request, encryption_service) -> PipelineSer
         checkpointer=PipelineCheckpointer(request.app.state.redis),
         encryption_service=encryption_service,
         cover_letter_service=cover_letter_service,
+        auto_apply_service=AutoApplyService(),
+        vault_service=VaultService(),
     )
     return PipelineService(
         graph_runner=graph_runner,

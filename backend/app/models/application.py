@@ -25,10 +25,12 @@ class Application(Base):
     cover_letter_version: Mapped[int] = mapped_column(Integer, default=1)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ats_provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
     confirmation_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     confirmation_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     screenshot_urls: Mapped[list[str]] = mapped_column(JSON, default=list)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    manual_required_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

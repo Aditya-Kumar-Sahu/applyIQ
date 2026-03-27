@@ -132,6 +132,10 @@ async def auto_apply_node(
     *,
     session: AsyncSession,
     pipeline_run: PipelineRun,
+    user: User,
+    auto_apply_service,
+    vault_service,
+    encryption_service,
 ) -> ApplyIQState:
     applications = list(
         await session.scalars(
@@ -144,10 +148,44 @@ async def auto_apply_node(
     approved_items: list[dict[str, str]] = []
     for application in applications:
         application.approved_at = application.approved_at or datetime.now(timezone.utc)
+        job = await session.scalar(select(Job).where(Job.id == application.job_id))
+        if job is None:
+            application.status = "failed"
+            application.failure_reason = "Job record not found for auto-apply"
+            approved_items.append({"id": application.id, "status": application.status})
+            continue
+
+        credential = await vault_service.resolve_credential(
+            session=session,
+            user_id=user.id,
+            site_names=[job.source, auto_apply_service.detect_ats(job)],
+            encryption_service=encryption_service,
+        )
+        result = auto_apply_service.apply(
+            application=application,
+            job=job,
+            has_credentials=credential is not None,
+        )
+
+        application.ats_provider = result.ats_provider
+        application.confirmation_url = result.confirmation_url
+        application.confirmation_number = result.confirmation_number
+        application.screenshot_urls = result.screenshot_urls
+        application.failure_reason = result.failure_reason
+        application.manual_required_reason = result.manual_required_reason
+
+        if result.status == "success":
+            application.status = "applied"
+            application.applied_at = datetime.now(timezone.utc)
+        elif result.status == "manual_required":
+            application.status = "manual_required"
+        else:
+            application.status = "failed"
+
         approved_items.append({"id": application.id, "status": application.status})
 
     pipeline_run.current_node = "auto_apply_node"
-    pipeline_run.applications_submitted = len(applications)
+    pipeline_run.applications_submitted = len([application for application in applications if application.status == "applied"])
     await session.commit()
 
     state["approved_applications"] = approved_items

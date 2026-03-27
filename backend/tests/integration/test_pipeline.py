@@ -38,7 +38,7 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
                 "target_role": "ML Engineer",
                 "location": "Remote",
                 "limit_per_source": 10,
-                "sources": ["linkedin", "indeed", "remotive"],
+                "sources": ["indeed"],
             },
         )
 
@@ -119,7 +119,11 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         assert completed_results.status_code == 200
         completed_payload = completed_results.json()["data"]
         assert completed_payload["status"] == "complete"
-        assert any(app["status"] == "approved" for app in completed_payload["applications"])
+        applied_application = next(app for app in completed_payload["applications"] if app["id"] == application_id)
+        assert applied_application["status"] == "applied"
+        assert applied_application["ats_provider"] == "indeed_apply"
+        assert applied_application["confirmation_url"]
+        assert len(applied_application["screenshot_urls"]) == 2
         assert any(app["status"] == "rejected" for app in completed_payload["applications"])
 
 

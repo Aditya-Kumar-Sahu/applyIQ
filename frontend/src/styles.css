@@ -177,6 +177,7 @@ h3 {
 }
 
 .pipeline-form input,
+.pipeline-form select,
 .cover-letter-field textarea {
   width: 100%;
   padding: 0.9rem 1rem;
@@ -282,6 +283,15 @@ h3 {
   display: grid;
   gap: 1rem;
   padding: 1.2rem;
+}
+
+.apply-outcome {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: rgba(19, 34, 56, 0.04);
 }
 
 .approval-card.approved {
