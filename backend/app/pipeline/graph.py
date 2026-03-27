@@ -10,6 +10,7 @@ from app.models.user import User
 from app.pipeline.checkpointer import PipelineCheckpointer
 from app.pipeline.nodes import approval_gate_node, auto_apply_node, fetch_jobs_node, rank_jobs_node, track_applications_node
 from app.pipeline.state import ApplyIQState
+from app.services.cover_letter_service import CoverLetterService
 from app.services.match_rank_service import MatchRankService
 from app.services.scrape_service import ScrapeService
 
@@ -22,11 +23,13 @@ class PipelineGraphRunner:
         match_service: MatchRankService,
         checkpointer: PipelineCheckpointer,
         encryption_service,
+        cover_letter_service: CoverLetterService,
     ) -> None:
         self._scrape_service = scrape_service
         self._match_service = match_service
         self._checkpointer = checkpointer
         self._encryption_service = encryption_service
+        self._cover_letter_service = cover_letter_service
 
     async def run_until_approval(
         self,
@@ -61,6 +64,7 @@ class PipelineGraphRunner:
                 user=user,
                 checkpointer=self._checkpointer,
                 encryption_service=self._encryption_service,
+                cover_letter_service=self._cover_letter_service,
             )
 
         graph = StateGraph(ApplyIQState)

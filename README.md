@@ -77,7 +77,8 @@ The detailed implementation blueprint lives in [PLAN.md](./PLAN.md).
 - Phase 4: Job Scraping Engine complete
 - Phase 5: Match and Rank Engine complete
 - Phase 6: LangGraph Pipeline Orchestration complete
-- Next target: Phase 7, Cover Letter Generation
+- Phase 7: Cover Letter Generation complete
+- Next target: Phase 8, Auto-Apply Engine
 
 ## Getting Started
 

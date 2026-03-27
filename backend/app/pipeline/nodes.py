@@ -6,10 +6,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.application import Application
+from app.models.job import Job
 from app.models.pipeline_run import PipelineRun
 from app.models.user import User
 from app.pipeline.checkpointer import PipelineCheckpointer
 from app.pipeline.state import ApplyIQState
+from app.schemas.resume import ParsedResumeProfile
+from app.services.cover_letter_service import CoverLetterService
 from app.scrapers.base import ScrapeQuery
 from app.services.match_rank_service import MatchRankService
 from app.services.scrape_service import ScrapeService
@@ -68,16 +71,34 @@ async def approval_gate_node(
     user: User,
     checkpointer: PipelineCheckpointer,
     encryption_service,
+    cover_letter_service: CoverLetterService,
 ) -> ApplyIQState:
+    if user.resume_profile is None:
+        raise ValueError("Resume profile is required before generating cover letters")
+
+    resume = ParsedResumeProfile.model_validate(user.resume_profile.parsed_profile)
     pending_approvals: list[dict[str, str | int | float]] = []
-    for ranked_job in state["ranked_jobs"]:
+    for index, ranked_job in enumerate(state["ranked_jobs"], start=1):
+        job = await session.scalar(select(Job).where(Job.id == str(ranked_job["job_id"])))
+        if job is None:
+            continue
+
+        draft = cover_letter_service.generate(
+            job=job,
+            resume=resume,
+            matched_skills=[str(skill) for skill in ranked_job.get("matched_skills", [])],
+            tone="formal" if index % 2 else "conversational",
+            variant=index,
+        )
         application = Application(
             user_id=user.id,
             job_id=str(ranked_job["job_id"]),
             pipeline_run_id=pipeline_run.id,
             status="pending_approval",
             match_score=float(ranked_job["match_score"]),
-            cover_letter_text=_generate_cover_letter(str(ranked_job["company_name"]), str(ranked_job["title"])),
+            cover_letter_text=draft.cover_letter,
+            cover_letter_tone=draft.tone,
+            cover_letter_word_count=draft.word_count,
         )
         session.add(application)
         await session.flush()
@@ -89,6 +110,8 @@ async def approval_gate_node(
                 "company_name": str(ranked_job["company_name"]),
                 "match_score": float(ranked_job["match_score"]),
                 "cover_letter_text": application.cover_letter_text,
+                "tone": application.cover_letter_tone,
+                "word_count": application.cover_letter_word_count,
                 "cover_letter_version": application.cover_letter_version,
                 "status": application.status,
             }
@@ -146,14 +169,6 @@ async def track_applications_node(
     state["current_node"] = "track_applications_node"
     state["applied_applications"] = state["approved_applications"]
     return state
-
-
-def _generate_cover_letter(company_name: str, title: str) -> str:
-    return (
-        f"{company_name} stands out for the way it is building in this market. "
-        f"My recent work shipping ML and backend systems maps well to the {title} role, "
-        "and I would be excited to bring that execution focus here."
-    )
 
 
 def _serialize_state(state: ApplyIQState) -> str:

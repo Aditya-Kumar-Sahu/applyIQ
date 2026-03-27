@@ -24,6 +24,8 @@ export type PipelineApplication = {
   company_name: string;
   match_score: number;
   cover_letter_text: string;
+  tone: string;
+  word_count: number;
   cover_letter_version: number;
   status: string;
 };
@@ -47,6 +49,8 @@ export type RejectResult = {
 export type CoverLetterEditResult = {
   application_id: string;
   cover_letter_text: string;
+  tone: string;
+  word_count: number;
   cover_letter_version: number;
 };
 
@@ -105,5 +109,11 @@ export async function editCoverLetter(
   return apiRequest<CoverLetterEditResult>(`/api/v1/pipeline/${runId}/application/${applicationId}/cover-letter`, {
     method: "PUT",
     body: JSON.stringify({ cover_letter_text: coverLetterText }),
+  });
+}
+
+export async function regenerateCoverLetter(runId: string, applicationId: string): Promise<CoverLetterEditResult> {
+  return apiRequest<CoverLetterEditResult>(`/api/v1/pipeline/${runId}/application/${applicationId}/cover-letter/regenerate`, {
+    method: "POST",
   });
 }

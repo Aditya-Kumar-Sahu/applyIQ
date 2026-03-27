@@ -119,6 +119,7 @@
           <div>
             <h3>{{ application.title }}</h3>
             <p class="job-meta">{{ application.company_name }} / {{ percent(application.match_score) }} match</p>
+            <p class="job-meta">{{ application.tone }} tone / {{ application.word_count }} words</p>
           </div>
           <span class="status-pill">{{ application.status.replaceAll("_", " ") }}</span>
         </div>
@@ -133,6 +134,14 @@
         </label>
 
         <div class="action-row compact-actions">
+          <button
+            class="button-link secondary-button"
+            type="button"
+            :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
+            @click="regenerate(application.id)"
+          >
+            Regenerate
+          </button>
           <button
             class="button-link secondary-button"
             type="button"
@@ -250,6 +259,10 @@ async function saveDraft(applicationId: string) {
     applicationId,
     coverLetterText,
   });
+}
+
+async function regenerate(applicationId: string) {
+  await store.dispatch("regeneratePipelineCoverLetter", { applicationId });
 }
 
 async function rejectOne(applicationId: string) {

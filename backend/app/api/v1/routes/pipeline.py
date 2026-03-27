@@ -19,6 +19,7 @@ from app.schemas.pipeline import (
     RejectData,
 )
 from app.scrapers.deduplicator import JobDeduplicator
+from app.services.cover_letter_service import CoverLetterService
 from app.services.embedding_service import EmbeddingService
 from app.services.match_rank_service import MatchRankService
 from app.services.pipeline_service import PipelineService
@@ -29,6 +30,7 @@ router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
 
 def _build_pipeline_service(request: Request, encryption_service) -> PipelineService:
+    cover_letter_service = CoverLetterService()
     graph_runner = PipelineGraphRunner(
         scrape_service=ScrapeService(
             embedding_service=EmbeddingService(),
@@ -37,8 +39,13 @@ def _build_pipeline_service(request: Request, encryption_service) -> PipelineSer
         match_service=MatchRankService(embedding_service=EmbeddingService()),
         checkpointer=PipelineCheckpointer(request.app.state.redis),
         encryption_service=encryption_service,
+        cover_letter_service=cover_letter_service,
     )
-    return PipelineService(graph_runner=graph_runner, encryption_service=encryption_service)
+    return PipelineService(
+        graph_runner=graph_runner,
+        encryption_service=encryption_service,
+        cover_letter_service=cover_letter_service,
+    )
 
 
 @router.post("/start", response_model=Envelope[PipelineRunData], status_code=status.HTTP_202_ACCEPTED)
@@ -128,5 +135,27 @@ async def edit_cover_letter(
         run_id=run_id,
         application_id=application_id,
         payload=payload,
+    )
+    return Envelope(success=True, data=data, error=None)
+
+
+@router.post(
+    "/{run_id}/application/{application_id}/cover-letter/regenerate",
+    response_model=Envelope[CoverLetterEditData],
+)
+async def regenerate_cover_letter(
+    run_id: str,
+    application_id: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+    encryption_service=Depends(get_encryption_service),
+) -> Envelope[CoverLetterEditData]:
+    service = _build_pipeline_service(request, encryption_service)
+    data = await service.regenerate_cover_letter(
+        session=session,
+        user=current_user,
+        run_id=run_id,
+        application_id=application_id,
     )
     return Envelope(success=True, data=data, error=None)

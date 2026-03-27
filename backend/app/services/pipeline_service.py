@@ -8,10 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.application import Application
 from app.models.job import Job
+from app.models.job_match import JobMatch
 from app.models.pipeline_run import PipelineRun
 from app.models.user import User
 from app.pipeline.graph import PipelineGraphRunner
 from app.pipeline.state import ApplyIQState
+from app.schemas.resume import ParsedResumeProfile
+from app.services.cover_letter_service import CoverLetterService
 from app.schemas.pipeline import (
     CoverLetterEditData,
     CoverLetterEditPayload,
@@ -24,9 +27,10 @@ from app.schemas.pipeline import (
 
 
 class PipelineService:
-    def __init__(self, *, graph_runner: PipelineGraphRunner, encryption_service) -> None:
+    def __init__(self, *, graph_runner: PipelineGraphRunner, encryption_service, cover_letter_service: CoverLetterService) -> None:
         self._graph_runner = graph_runner
         self._encryption_service = encryption_service
+        self._cover_letter_service = cover_letter_service
 
     async def start_run(self, *, session: AsyncSession, user: User, payload: PipelineStartRequest) -> PipelineRunData:
         pipeline_run = PipelineRun(user_id=user.id, status="running", current_node="pending")
@@ -80,6 +84,8 @@ class PipelineService:
                     company_name=job.company_name if job else "Unknown Company",
                     match_score=application.match_score,
                     cover_letter_text=application.cover_letter_text,
+                    tone=application.cover_letter_tone,
+                    word_count=application.cover_letter_word_count,
                     cover_letter_version=application.cover_letter_version,
                     status=application.status,
                 )
@@ -167,12 +173,67 @@ class PipelineService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
 
         application.cover_letter_text = payload.cover_letter_text
+        application.cover_letter_tone = "edited"
+        application.cover_letter_word_count = self._cover_letter_service.word_count(payload.cover_letter_text)
         application.cover_letter_version += 1
         await session.commit()
 
         return CoverLetterEditData(
             application_id=application.id,
             cover_letter_text=application.cover_letter_text,
+            tone=application.cover_letter_tone,
+            word_count=application.cover_letter_word_count,
+            cover_letter_version=application.cover_letter_version,
+        )
+
+    async def regenerate_cover_letter(
+        self,
+        *,
+        session: AsyncSession,
+        user: User,
+        run_id: str,
+        application_id: str,
+    ) -> CoverLetterEditData:
+        await self._get_run(session=session, user=user, run_id=run_id)
+        application = await session.scalar(
+            select(Application).where(
+                Application.pipeline_run_id == run_id,
+                Application.user_id == user.id,
+                Application.id == application_id,
+            )
+        )
+        if application is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+        if user.resume_profile is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Resume profile not found")
+
+        job = await session.scalar(select(Job).where(Job.id == application.job_id))
+        if job is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+
+        job_match = await session.scalar(
+            select(JobMatch).where(JobMatch.user_id == user.id, JobMatch.job_id == application.job_id)
+        )
+        resume = ParsedResumeProfile.model_validate(user.resume_profile.parsed_profile)
+        draft = self._cover_letter_service.generate(
+            job=job,
+            resume=resume,
+            matched_skills=job_match.matched_skills if job_match else [],
+            tone=self._cover_letter_service.next_tone(application.cover_letter_tone),
+            variant=application.cover_letter_version + 1,
+        )
+
+        application.cover_letter_text = draft.cover_letter
+        application.cover_letter_tone = draft.tone
+        application.cover_letter_word_count = draft.word_count
+        application.cover_letter_version += 1
+        await session.commit()
+
+        return CoverLetterEditData(
+            application_id=application.id,
+            cover_letter_text=application.cover_letter_text,
+            tone=application.cover_letter_tone,
+            word_count=application.cover_letter_word_count,
             cover_letter_version=application.cover_letter_version,
         )
 

@@ -432,6 +432,19 @@ export const store = createStore<RootState>({
       await editCoverLetter(resolvedRunId, payload.applicationId, payload.coverLetterText);
       await dispatch("loadPipeline", resolvedRunId);
     },
+    async regeneratePipelineCoverLetter(
+      { dispatch, state },
+      payload: { runId?: string; applicationId: string },
+    ) {
+      const resolvedRunId = payload.runId ?? state.pipelineRun?.run_id;
+      if (!resolvedRunId) {
+        throw new Error("No pipeline run available");
+      }
+
+      const { regenerateCoverLetter } = await import("../services/pipeline");
+      await regenerateCoverLetter(resolvedRunId, payload.applicationId);
+      await dispatch("loadPipeline", resolvedRunId);
+    },
     async rejectPipelineApplications(
       { dispatch, state },
       payload: { runId?: string; applicationIds: string[] },

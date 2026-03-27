@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
+import re
 
 import anyio
 from docx import Document
@@ -61,9 +62,30 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         results_payload = results_response.json()["data"]
         assert results_payload["status"] == "paused_at_gate"
         assert len(results_payload["applications"]) == 5
+        assert len({application["cover_letter_text"] for application in results_payload["applications"]}) == 5
+
+        for application in results_payload["applications"]:
+            assert application["company_name"] in application["cover_letter_text"]
+            assert application["word_count"] <= 250
+            assert application["tone"] in {"formal", "conversational"}
+            assert "I am writing to express my interest" not in application["cover_letter_text"]
+            assert "I believe I would be a great fit" not in application["cover_letter_text"]
+            assert "Please find attached" not in application["cover_letter_text"]
+            assert re.search(r"\d", application["cover_letter_text"])
 
         application_id = results_payload["applications"][0]["id"]
+        original_cover_letter = results_payload["applications"][0]["cover_letter_text"]
         rejected_application_id = results_payload["applications"][1]["id"]
+
+        regenerate_response = client.post(
+            f"/api/v1/pipeline/{run_id}/application/{application_id}/cover-letter/regenerate"
+        )
+
+        assert regenerate_response.status_code == 200
+        regenerated_payload = regenerate_response.json()["data"]
+        assert regenerated_payload["cover_letter_version"] == 2
+        assert regenerated_payload["cover_letter_text"] != original_cover_letter
+        assert regenerated_payload["tone"] in {"formal", "conversational"}
 
         edit_response = client.put(
             f"/api/v1/pipeline/{run_id}/application/{application_id}/cover-letter",
@@ -71,7 +93,8 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         )
 
         assert edit_response.status_code == 200
-        assert edit_response.json()["data"]["cover_letter_version"] == 2
+        assert edit_response.json()["data"]["cover_letter_version"] == 3
+        assert edit_response.json()["data"]["tone"] == "edited"
 
         reject_response = client.post(
             f"/api/v1/pipeline/{run_id}/reject",

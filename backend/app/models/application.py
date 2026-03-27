@@ -20,6 +20,8 @@ class Application(Base):
     status: Mapped[str] = mapped_column(String(30), index=True, default="pending_approval")
     match_score: Mapped[float] = mapped_column(Float, default=0.0)
     cover_letter_text: Mapped[str] = mapped_column(Text, default="")
+    cover_letter_tone: Mapped[str] = mapped_column(String(30), default="formal")
+    cover_letter_word_count: Mapped[int] = mapped_column(Integer, default=0)
     cover_letter_version: Mapped[int] = mapped_column(Integer, default=1)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -19,6 +19,8 @@ class PipelineApplicationItem(BaseModel):
     company_name: str
     match_score: float
     cover_letter_text: str
+    tone: str
+    word_count: int
     cover_letter_version: int
     status: str
 
@@ -56,6 +58,8 @@ class CoverLetterEditPayload(BaseModel):
 class CoverLetterEditData(BaseModel):
     application_id: str
     cover_letter_text: str
+    tone: str
+    word_count: int
     cover_letter_version: int
 
 
