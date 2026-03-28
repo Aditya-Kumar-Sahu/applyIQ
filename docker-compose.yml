@@ -1,12 +1,3 @@
-# ─────────────────────────────────────────────────────────────────────
-# ApplyIQ — Local Development Docker Compose
-# ─────────────────────────────────────────────────────────────────────
-# Usage:
-#   docker compose up -d          # start all services
-#   docker compose logs -f api    # tail backend logs
-#   docker compose down -v        # stop and remove volumes
-# ─────────────────────────────────────────────────────────────────────
-
 services:
   backend:
     build:
@@ -17,6 +8,36 @@ services:
       - .env
     ports:
       - "8001:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    env_file:
+      - .env
+    command: celery -A app.worker:celery_app worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    env_file:
+      - .env
+    command: celery -A app.worker:celery_app beat --loglevel=info
     volumes:
       - ./backend:/app
     depends_on:
@@ -40,20 +61,6 @@ services:
     depends_on:
       backend:
         condition: service_started
-
-  worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.worker
-    env_file:
-      - .env
-    volumes:
-      - ./backend:/app
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
   db:
     image: pgvector/pgvector:pg16

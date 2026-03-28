@@ -15,4 +15,6 @@ screenshots/
 dist/
 build/
 *.log
+celerybeat-schedule
+backend/celerybeat-schedule
 PLAN.md

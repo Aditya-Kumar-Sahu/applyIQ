@@ -11,3 +11,7 @@ def test_settings_defaults() -> None:
     assert settings.api_v1_prefix == "/api/v1"
     assert settings.cors_origins == ["http://localhost:3000"]
     assert settings.project_slug == "applyiq"
+    assert settings.release_version == "dev"
+    assert settings.enable_auto_apply is True
+    assert settings.max_auto_apply_per_run == 20
+    assert settings.sentry_dsn_backend is None

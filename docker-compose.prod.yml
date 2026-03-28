@@ -1,10 +1,3 @@
-# ─────────────────────────────────────────────────────────────────────
-# ApplyIQ — Production Docker Compose Overrides
-# ─────────────────────────────────────────────────────────────────────
-# Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-# ─────────────────────────────────────────────────────────────────────
-
 services:
   backend:
     build:
@@ -12,8 +5,10 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -26,6 +21,22 @@ services:
       dockerfile: Dockerfile.worker
     env_file:
       - .env
+    command: celery -A app.worker:celery_app worker --loglevel=info
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    env_file:
+      - .env
+    command: celery -A app.worker:celery_app beat --loglevel=info
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -35,9 +46,12 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
+    env_file:
+      - .env
     ports:
-      - "3000:3000"
+      - "3000:80"
+    restart: unless-stopped
 
   db:
     image: pgvector/pgvector:pg16
@@ -47,6 +61,7 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U applyiq -d applyiq"]
       interval: 10s
@@ -57,6 +72,7 @@ services:
     image: redis:7-alpine
     volumes:
       - redis_prod_data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

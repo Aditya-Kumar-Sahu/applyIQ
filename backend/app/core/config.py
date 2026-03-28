@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     log_level: str = "INFO"
+    release_version: str = "dev"
     cors_origins: list[str] = Field(default_factory=lambda: DEFAULT_CORS_ORIGINS.copy())
     database_url: str = "postgresql+asyncpg://applyiq:password@db:5432/applyiq"
     redis_url: str = "redis://redis:6379/0"
@@ -31,6 +32,11 @@ class Settings(BaseSettings):
     refresh_cookie_name: str = "applyiq_refresh_token"
     fernet_secret_key: str = "wWKJg6WVKwwhFVWG2yt30YIOCwVDDDeWGPAHDLcGRID="
     encryption_pepper: str = "applyiq-pepper"
+    sentry_dsn_backend: str | None = None
+    sentry_traces_sample_rate: float = 0.0
+    sentry_profiles_sample_rate: float = 0.0
+    enable_auto_apply: bool = True
+    max_auto_apply_per_run: int = 20
 
 
 @lru_cache(maxsize=1)

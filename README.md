@@ -80,7 +80,7 @@ The detailed implementation blueprint lives in [PLAN.md](./PLAN.md).
 - Phase 7: Cover Letter Generation complete
 - Phase 8: Auto-Apply Engine complete
 - Phase 9: Gmail Integration and Response Tracking complete
-- Next target: Phase 10, Polish, Testing, and Production Deployment
+- Phase 10: Polish, Testing, and Production Deployment complete
 
 ## Getting Started
 
@@ -106,19 +106,28 @@ Services:
 ### Run migrations
 
 ```powershell
-docker compose run --rm backend alembic upgrade head
+docker compose run --rm --build backend alembic upgrade head
 ```
 
 ### Run backend tests
 
 ```powershell
-docker compose run --rm backend python -m pytest tests
+docker compose run --rm --build backend python -m pytest tests
 ```
 
 ### Run frontend build verification
 
 ```powershell
-docker compose run --rm frontend npm run build
+docker compose run --rm --build frontend npm run build
+```
+
+### Build production images
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build backend
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build worker
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build beat
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend
 ```
 
 ### Health check

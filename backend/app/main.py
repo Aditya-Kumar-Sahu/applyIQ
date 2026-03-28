@@ -14,6 +14,7 @@ from app.core.constants import DEGRADED_STATUS, DOWN_STATUS, HEALTHY_STATUS, UP_
 from app.core.database import DatabaseManager
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
+from app.core.observability import configure_observability
 from app.core.redis import RedisManager
 
 HealthReporter = Callable[[], Awaitable[dict[str, str]]]
@@ -25,6 +26,7 @@ def create_app(
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     configure_logging(resolved_settings.log_level)
+    configure_observability(resolved_settings)
     logger = structlog.get_logger(__name__)
     database = DatabaseManager(resolved_settings.database_url)
     redis = RedisManager(resolved_settings.redis_url)
