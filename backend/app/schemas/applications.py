@@ -30,6 +30,30 @@ class ApplicationsListData(BaseModel):
     items: list[ApplicationListItem] = Field(default_factory=list)
 
 
+class SourcePerformanceItem(BaseModel):
+    source: str
+    total_applications: int
+    replied_count: int
+    response_rate: float
+
+
+class TitlePerformanceItem(BaseModel):
+    title: str
+    total_applications: int
+    replied_count: int
+    response_rate: float
+
+
+class ApplicationsStatsData(BaseModel):
+    total_applications: int
+    total_applied: int
+    total_replied: int
+    response_rate: float
+    avg_hours_to_first_reply: float | None = None
+    source_breakdown: list[SourcePerformanceItem] = Field(default_factory=list)
+    top_titles: list[TitlePerformanceItem] = Field(default_factory=list)
+
+
 class ApplicationDetailData(BaseModel):
     id: str
     job_id: str

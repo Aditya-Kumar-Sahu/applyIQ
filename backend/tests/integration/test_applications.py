@@ -86,6 +86,19 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path)
         assert notifications_response.headers["content-type"].startswith("text/event-stream")
         assert "interview_request" in notifications_response.text
 
+        stats_response = client.get("/api/v1/applications/stats")
+
+        assert stats_response.status_code == 200
+        stats_payload = stats_response.json()["data"]
+        assert stats_payload["total_applications"] >= 1
+        assert stats_payload["total_applied"] >= 1
+        assert stats_payload["total_replied"] >= 1
+        assert stats_payload["response_rate"] > 0
+        assert stats_payload["avg_hours_to_first_reply"] is not None
+        assert stats_payload["avg_hours_to_first_reply"] >= 0
+        assert any(item["source"] == "indeed" for item in stats_payload["source_breakdown"])
+        assert any(item["title"] == tracked_application["title"] for item in stats_payload["top_titles"])
+
 
 async def _create_all_tables(engine) -> None:
     async with engine.begin() as connection:

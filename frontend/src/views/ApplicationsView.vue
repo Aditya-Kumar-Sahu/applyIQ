@@ -9,6 +9,16 @@
 
       <p v-if="error" class="auth-error">{{ error }}</p>
 
+      <div v-if="stats" class="detail-block">
+        <p class="eyebrow muted">Velocity Snapshot</p>
+        <p class="job-meta">Applied: {{ stats.total_applied }} / {{ stats.total_applications }}</p>
+        <p class="job-meta">Replies: {{ stats.total_replied }} ({{ percent(stats.response_rate) }})</p>
+        <p class="job-meta">
+          Avg. time to first reply:
+          {{ stats.avg_hours_to_first_reply === null ? "n/a" : `${stats.avg_hours_to_first_reply.toFixed(1)} hours` }}
+        </p>
+      </div>
+
       <div v-if="applications.length === 0" class="empty-state">
         <p class="lede">No applications yet. Approve and auto-apply to at least one job first.</p>
       </div>
@@ -69,6 +79,32 @@
     </section>
 
     <section class="panel">
+      <p class="eyebrow">Performance Breakdown</p>
+      <div v-if="stats === null" class="empty-state">
+        <p class="lede">No stats yet.</p>
+      </div>
+      <template v-else>
+        <div class="detail-block">
+          <p class="eyebrow muted">By Source</p>
+          <article v-for="item in stats.source_breakdown" :key="item.source" class="approval-card">
+            <h3>{{ item.source }}</h3>
+            <p class="job-meta">Applications: {{ item.total_applications }}</p>
+            <p class="job-meta">Replies: {{ item.replied_count }} ({{ percent(item.response_rate) }})</p>
+          </article>
+        </div>
+
+        <div class="detail-block">
+          <p class="eyebrow muted">Top Titles</p>
+          <article v-for="item in stats.top_titles" :key="item.title" class="approval-card">
+            <h3>{{ item.title }}</h3>
+            <p class="job-meta">Applications: {{ item.total_applications }}</p>
+            <p class="job-meta">Replies: {{ item.replied_count }} ({{ percent(item.response_rate) }})</p>
+          </article>
+        </div>
+      </template>
+    </section>
+
+    <section class="panel">
       <p class="eyebrow">Notifications</p>
       <div v-if="notifications.length === 0" class="empty-state">
         <p class="lede">No recruiter notifications yet.</p>
@@ -89,17 +125,20 @@ import { onMounted, ref } from "vue";
 import type {
   ApplicationDetail,
   ApplicationListItem,
+  ApplicationsStats,
   NotificationItem,
 } from "../services/applications";
-import { getApplicationDetail, getApplications, getNotifications } from "../services/applications";
+import { getApplicationDetail, getApplications, getApplicationsStats, getNotifications } from "../services/applications";
 
 const applications = ref<ApplicationListItem[]>([]);
 const selectedApplication = ref<ApplicationDetail | null>(null);
 const notifications = ref<NotificationItem[]>([]);
+const stats = ref<ApplicationsStats | null>(null);
 const error = ref<string | null>(null);
 
 onMounted(async () => {
   await loadApplications();
+  await loadStats();
   await loadNotifications();
 });
 
@@ -122,6 +161,14 @@ async function loadNotifications() {
     notifications.value = response.items;
   } catch (loadError) {
     error.value = loadError instanceof Error ? loadError.message : "Unable to load notifications";
+  }
+}
+
+async function loadStats() {
+  try {
+    stats.value = await getApplicationsStats();
+  } catch (loadError) {
+    error.value = loadError instanceof Error ? loadError.message : "Unable to load application stats";
   }
 }
 

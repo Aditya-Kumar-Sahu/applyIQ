@@ -39,6 +39,30 @@ export type ApplicationsListResponse = {
   items: ApplicationListItem[];
 };
 
+export type SourcePerformanceItem = {
+  source: string;
+  total_applications: number;
+  replied_count: number;
+  response_rate: number;
+};
+
+export type TitlePerformanceItem = {
+  title: string;
+  total_applications: number;
+  replied_count: number;
+  response_rate: number;
+};
+
+export type ApplicationsStats = {
+  total_applications: number;
+  total_applied: number;
+  total_replied: number;
+  response_rate: number;
+  avg_hours_to_first_reply: number | null;
+  source_breakdown: SourcePerformanceItem[];
+  top_titles: TitlePerformanceItem[];
+};
+
 export type NotificationItem = {
   application_id: string;
   company_name: string;
@@ -58,6 +82,10 @@ export async function getApplications(): Promise<ApplicationsListResponse> {
 
 export async function getApplicationDetail(applicationId: string): Promise<ApplicationDetail> {
   return apiRequest<ApplicationDetail>(`/api/v1/applications/${applicationId}`);
+}
+
+export async function getApplicationsStats(): Promise<ApplicationsStats> {
+  return apiRequest<ApplicationsStats>("/api/v1/applications/stats");
 }
 
 export async function getNotifications(): Promise<NotificationsResponse> {

@@ -21,6 +21,7 @@ This repository is being built as a flagship AI/ML portfolio system. It is desig
 - generates tailored cover letters
 - auto-applies only after approval
 - tracks applications and recruiter replies
+- surfaces application velocity analytics (response rate, source performance, top-performing titles)
 - supports interview-prep workflows for shortlisted roles
 
 ## Tech Stack
@@ -81,6 +82,7 @@ The detailed implementation blueprint lives in [PLAN.md](./PLAN.md).
 - Phase 8: Auto-Apply Engine complete
 - Phase 9: Gmail Integration and Response Tracking complete
 - Phase 10: Polish, Testing, and Production Deployment complete
+- Phase 11: Application Velocity Dashboard stretch goal complete
 
 ## Getting Started
 
@@ -166,6 +168,7 @@ Important variables:
 8. Auto-Apply Engine
 9. Gmail Integration and Response Tracking
 10. Polish, Testing, and Production Deployment
+11. Application Velocity Dashboard and analytics
 
 ## Safety and Compliance
 
