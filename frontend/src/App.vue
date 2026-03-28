@@ -11,6 +11,7 @@
         <RouterLink to="/dashboard">Dashboard</RouterLink>
         <RouterLink v-if="isAuthenticated" to="/resume">Resume</RouterLink>
         <RouterLink v-if="isAuthenticated" to="/jobs">Jobs</RouterLink>
+        <RouterLink v-if="isAuthenticated" to="/applications">Applications</RouterLink>
         <RouterLink v-if="isAuthenticated" to="/pipeline">Pipeline</RouterLink>
         <RouterLink v-if="isAuthenticated" to="/vault">Vault</RouterLink>
       </nav>

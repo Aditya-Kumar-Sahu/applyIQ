@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+
+class EmailMonitorData(BaseModel):
+    gmail_thread_id: str
+    sender: str
+    subject: str
+    snippet: str
+    latest_classification: str
+    last_checked_at: datetime
+    is_resolved: bool
+
+
+class ApplicationListItem(BaseModel):
+    id: str
+    job_id: str
+    title: str
+    company_name: str
+    status: str
+    match_score: float
+    applied_at: datetime | None
+    latest_email_classification: str | None = None
+
+
+class ApplicationsListData(BaseModel):
+    items: list[ApplicationListItem] = Field(default_factory=list)
+
+
+class ApplicationDetailData(BaseModel):
+    id: str
+    job_id: str
+    title: str
+    company_name: str
+    status: str
+    match_score: float
+    cover_letter_text: str
+    ats_provider: str | None = None
+    confirmation_url: str | None = None
+    screenshot_urls: list[str] = Field(default_factory=list)
+    email_monitor: EmailMonitorData | None = None

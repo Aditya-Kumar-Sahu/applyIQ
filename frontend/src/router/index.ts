@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 
+import ApplicationsView from "../views/ApplicationsView.vue";
 import DashboardView from "../views/DashboardView.vue";
 import HomeView from "../views/HomeView.vue";
 import JobsView from "../views/JobsView.vue";
@@ -34,6 +35,12 @@ export const router = createRouter({
       path: "/jobs",
       name: "jobs",
       component: JobsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: "/applications",
+      name: "applications",
+      component: ApplicationsView,
       meta: { requiresAuth: true },
     },
     {
