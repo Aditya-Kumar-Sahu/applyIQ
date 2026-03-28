@@ -29,6 +29,7 @@ class PipelineApplicationItem(BaseModel):
     screenshot_urls: list[str] = Field(default_factory=list)
     failure_reason: str | None = None
     manual_required_reason: str | None = None
+    selected_variant_id: str | None = None
 
 
 class PipelineRunData(BaseModel):
@@ -63,6 +64,32 @@ class CoverLetterEditPayload(BaseModel):
 
 class CoverLetterEditData(BaseModel):
     application_id: str
+    cover_letter_text: str
+    tone: str
+    word_count: int
+    cover_letter_version: int
+
+
+class CoverLetterVariantItem(BaseModel):
+    variant_id: str
+    cover_letter_text: str
+    tone: str
+    word_count: int
+
+
+class CoverLetterABTestData(BaseModel):
+    application_id: str
+    cover_letter_version: int
+    variants: list[CoverLetterVariantItem] = Field(default_factory=list)
+
+
+class CoverLetterVariantSelectPayload(BaseModel):
+    variant_id: str = Field(min_length=1, max_length=1)
+
+
+class CoverLetterVariantSelectData(BaseModel):
+    application_id: str
+    selected_variant_id: str
     cover_letter_text: str
     tone: str
     word_count: int

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
+from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -16,8 +18,12 @@ from app.pipeline.state import ApplyIQState
 from app.schemas.resume import ParsedResumeProfile
 from app.services.cover_letter_service import CoverLetterService
 from app.schemas.pipeline import (
+    CoverLetterABTestData,
     CoverLetterEditData,
     CoverLetterEditPayload,
+    CoverLetterVariantItem,
+    CoverLetterVariantSelectData,
+    CoverLetterVariantSelectPayload,
     PipelineApplicationItem,
     PipelineResultsData,
     PipelineRunData,
@@ -76,6 +82,8 @@ class PipelineService:
         items: list[PipelineApplicationItem] = []
         for application in applications:
             job = await session.scalar(select(Job).where(Job.id == application.job_id))
+            notes = _load_notes(application.notes)
+            selected_variant_id = _selected_variant_id(notes)
             items.append(
                 PipelineApplicationItem(
                     id=application.id,
@@ -94,6 +102,7 @@ class PipelineService:
                     screenshot_urls=application.screenshot_urls,
                     failure_reason=application.failure_reason,
                     manual_required_reason=application.manual_required_reason,
+                    selected_variant_id=selected_variant_id,
                 )
             )
 
@@ -192,6 +201,128 @@ class PipelineService:
             cover_letter_version=application.cover_letter_version,
         )
 
+    async def generate_cover_letter_ab_test(
+        self,
+        *,
+        session: AsyncSession,
+        user: User,
+        run_id: str,
+        application_id: str,
+    ) -> CoverLetterABTestData:
+        await self._get_run(session=session, user=user, run_id=run_id)
+        application = await session.scalar(
+            select(Application).where(
+                Application.pipeline_run_id == run_id,
+                Application.user_id == user.id,
+                Application.id == application_id,
+            )
+        )
+        if application is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+        if user.resume_profile is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Resume profile not found")
+
+        job = await session.scalar(select(Job).where(Job.id == application.job_id))
+        if job is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+
+        job_match = await session.scalar(
+            select(JobMatch).where(JobMatch.user_id == user.id, JobMatch.job_id == application.job_id)
+        )
+        resume = ParsedResumeProfile.model_validate(user.resume_profile.parsed_profile)
+        matched_skills = job_match.matched_skills if job_match else []
+
+        draft_a = self._cover_letter_service.generate(
+            job=job,
+            resume=resume,
+            matched_skills=matched_skills,
+            tone="formal",
+            variant=application.cover_letter_version + 1,
+        )
+        draft_b = self._cover_letter_service.generate(
+            job=job,
+            resume=resume,
+            matched_skills=matched_skills,
+            tone="conversational",
+            variant=application.cover_letter_version + 2,
+        )
+
+        variants = [
+            CoverLetterVariantItem(
+                variant_id="A",
+                cover_letter_text=draft_a.cover_letter,
+                tone=draft_a.tone,
+                word_count=draft_a.word_count,
+            ),
+            CoverLetterVariantItem(
+                variant_id="B",
+                cover_letter_text=draft_b.cover_letter,
+                tone=draft_b.tone,
+                word_count=draft_b.word_count,
+            ),
+        ]
+
+        notes = _load_notes(application.notes)
+        notes["ab_test"] = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "selected_variant_id": _selected_variant_id(notes),
+            "variants": [variant.model_dump() for variant in variants],
+        }
+        application.notes = _dump_notes(notes)
+        await session.commit()
+
+        return CoverLetterABTestData(
+            application_id=application.id,
+            cover_letter_version=application.cover_letter_version,
+            variants=variants,
+        )
+
+    async def select_cover_letter_variant(
+        self,
+        *,
+        session: AsyncSession,
+        user: User,
+        run_id: str,
+        application_id: str,
+        payload: CoverLetterVariantSelectPayload,
+    ) -> CoverLetterVariantSelectData:
+        await self._get_run(session=session, user=user, run_id=run_id)
+        application = await session.scalar(
+            select(Application).where(
+                Application.pipeline_run_id == run_id,
+                Application.user_id == user.id,
+                Application.id == application_id,
+            )
+        )
+        if application is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+
+        notes = _load_notes(application.notes)
+        variants = _ab_variants(notes)
+        requested_variant = payload.variant_id.upper()
+        variant = next((item for item in variants if str(item.get("variant_id", "")).upper() == requested_variant), None)
+        if variant is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="A/B variant not found")
+
+        application.cover_letter_text = str(variant["cover_letter_text"])
+        application.cover_letter_tone = str(variant["tone"])
+        application.cover_letter_word_count = int(variant["word_count"])
+        application.cover_letter_version += 1
+
+        notes.setdefault("ab_test", {})
+        notes["ab_test"]["selected_variant_id"] = requested_variant
+        application.notes = _dump_notes(notes)
+        await session.commit()
+
+        return CoverLetterVariantSelectData(
+            application_id=application.id,
+            selected_variant_id=requested_variant,
+            cover_letter_text=application.cover_letter_text,
+            tone=application.cover_letter_tone,
+            word_count=application.cover_letter_word_count,
+            cover_letter_version=application.cover_letter_version,
+        )
+
     async def regenerate_cover_letter(
         self,
         *,
@@ -254,3 +385,46 @@ class PipelineService:
         if pipeline_run is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pipeline run not found")
         return pipeline_run
+
+
+def _load_notes(raw_notes: str | None) -> dict[str, Any]:
+    if raw_notes is None or raw_notes.strip() == "":
+        return {}
+    try:
+        parsed = json.loads(raw_notes)
+    except json.JSONDecodeError:
+        return {"legacy_note": raw_notes}
+    if isinstance(parsed, dict):
+        return parsed
+    return {"legacy_note": raw_notes}
+
+
+def _dump_notes(notes: dict[str, Any]) -> str:
+    return json.dumps(notes, ensure_ascii=True)
+
+
+def _ab_variants(notes: dict[str, Any]) -> list[dict[str, Any]]:
+    ab_test = notes.get("ab_test")
+    if not isinstance(ab_test, dict):
+        return []
+    variants = ab_test.get("variants")
+    if not isinstance(variants, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for variant in variants:
+        if not isinstance(variant, dict):
+            continue
+        if not {"variant_id", "cover_letter_text", "tone", "word_count"}.issubset(variant.keys()):
+            continue
+        normalized.append(variant)
+    return normalized
+
+
+def _selected_variant_id(notes: dict[str, Any]) -> str | None:
+    ab_test = notes.get("ab_test")
+    if not isinstance(ab_test, dict):
+        return None
+    selected = ab_test.get("selected_variant_id")
+    if not isinstance(selected, str) or selected.strip() == "":
+        return None
+    return selected.upper()

@@ -10,8 +10,11 @@ from app.pipeline.checkpointer import PipelineCheckpointer
 from app.pipeline.graph import PipelineGraphRunner
 from app.schemas.common import Envelope
 from app.schemas.pipeline import (
+    CoverLetterABTestData,
     CoverLetterEditData,
     CoverLetterEditPayload,
+    CoverLetterVariantSelectData,
+    CoverLetterVariantSelectPayload,
     PipelineDecisionPayload,
     PipelineResultsData,
     PipelineRunData,
@@ -161,5 +164,51 @@ async def regenerate_cover_letter(
         user=current_user,
         run_id=run_id,
         application_id=application_id,
+    )
+    return Envelope(success=True, data=data, error=None)
+
+
+@router.post(
+    "/{run_id}/application/{application_id}/cover-letter/ab-test",
+    response_model=Envelope[CoverLetterABTestData],
+)
+async def generate_cover_letter_ab_test(
+    run_id: str,
+    application_id: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+    encryption_service=Depends(get_encryption_service),
+) -> Envelope[CoverLetterABTestData]:
+    service = _build_pipeline_service(request, encryption_service)
+    data = await service.generate_cover_letter_ab_test(
+        session=session,
+        user=current_user,
+        run_id=run_id,
+        application_id=application_id,
+    )
+    return Envelope(success=True, data=data, error=None)
+
+
+@router.post(
+    "/{run_id}/application/{application_id}/cover-letter/select-variant",
+    response_model=Envelope[CoverLetterVariantSelectData],
+)
+async def select_cover_letter_variant(
+    run_id: str,
+    application_id: str,
+    payload: CoverLetterVariantSelectPayload,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+    encryption_service=Depends(get_encryption_service),
+) -> Envelope[CoverLetterVariantSelectData]:
+    service = _build_pipeline_service(request, encryption_service)
+    data = await service.select_cover_letter_variant(
+        session=session,
+        user=current_user,
+        run_id=run_id,
+        application_id=application_id,
+        payload=payload,
     )
     return Envelope(success=True, data=data, error=None)

@@ -34,6 +34,7 @@ export type PipelineApplication = {
   screenshot_urls: string[];
   failure_reason: string | null;
   manual_required_reason: string | null;
+  selected_variant_id: string | null;
 };
 
 export type PipelineResults = {
@@ -54,6 +55,28 @@ export type RejectResult = {
 
 export type CoverLetterEditResult = {
   application_id: string;
+  cover_letter_text: string;
+  tone: string;
+  word_count: number;
+  cover_letter_version: number;
+};
+
+export type CoverLetterVariant = {
+  variant_id: string;
+  cover_letter_text: string;
+  tone: string;
+  word_count: number;
+};
+
+export type CoverLetterABTestResult = {
+  application_id: string;
+  cover_letter_version: number;
+  variants: CoverLetterVariant[];
+};
+
+export type CoverLetterVariantSelectResult = {
+  application_id: string;
+  selected_variant_id: string;
   cover_letter_text: string;
   tone: string;
   word_count: number;
@@ -122,4 +145,27 @@ export async function regenerateCoverLetter(runId: string, applicationId: string
   return apiRequest<CoverLetterEditResult>(`/api/v1/pipeline/${runId}/application/${applicationId}/cover-letter/regenerate`, {
     method: "POST",
   });
+}
+
+export async function generateCoverLetterABTest(runId: string, applicationId: string): Promise<CoverLetterABTestResult> {
+  return apiRequest<CoverLetterABTestResult>(
+    `/api/v1/pipeline/${runId}/application/${applicationId}/cover-letter/ab-test`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export async function selectCoverLetterVariant(
+  runId: string,
+  applicationId: string,
+  variantId: string,
+): Promise<CoverLetterVariantSelectResult> {
+  return apiRequest<CoverLetterVariantSelectResult>(
+    `/api/v1/pipeline/${runId}/application/${applicationId}/cover-letter/select-variant`,
+    {
+      method: "POST",
+      body: JSON.stringify({ variant_id: variantId }),
+    },
+  );
 }

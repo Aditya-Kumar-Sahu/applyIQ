@@ -120,6 +120,9 @@
             <h3>{{ application.title }}</h3>
             <p class="job-meta">{{ application.company_name }} / {{ percent(application.match_score) }} match</p>
             <p class="job-meta">{{ application.tone }} tone / {{ application.word_count }} words</p>
+            <p v-if="application.selected_variant_id" class="job-meta">
+              Selected Variant: {{ application.selected_variant_id }}
+            </p>
           </div>
           <span class="status-pill">{{ application.status.replaceAll("_", " ") }}</span>
         </div>
@@ -132,6 +135,23 @@
             :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
           />
         </label>
+
+        <div v-if="abVariants[application.id]?.length" class="detail-block">
+          <p class="eyebrow muted">A/B Variants</p>
+          <article v-for="variant in abVariants[application.id]" :key="`${application.id}-${variant.variant_id}`" class="approval-card">
+            <h3>Variant {{ variant.variant_id }} / {{ variant.tone }}</h3>
+            <p class="job-meta">{{ variant.word_count }} words</p>
+            <p class="lede compact">{{ variant.cover_letter_text }}</p>
+            <button
+              class="button-link secondary-button"
+              type="button"
+              :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
+              @click="selectVariant(application.id, variant.variant_id)"
+            >
+              Use Variant {{ variant.variant_id }}
+            </button>
+          </article>
+        </div>
 
         <div v-if="application.status !== 'pending_approval'" class="apply-outcome">
           <p class="job-meta">ATS: {{ application.ats_provider ?? "pending" }}</p>
@@ -165,6 +185,14 @@
             class="button-link secondary-button"
             type="button"
             :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
+            @click="generateAB(application.id)"
+          >
+            Generate A/B
+          </button>
+          <button
+            class="button-link secondary-button"
+            type="button"
+            :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
             @click="saveDraft(application.id)"
           >
             Save edit
@@ -187,7 +215,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 
-import type { PipelineResults, PipelineRunSummary } from "../services/pipeline";
+import type { CoverLetterVariant, PipelineResults, PipelineRunSummary } from "../services/pipeline";
 import { store } from "../store";
 
 type PipelineNode = {
@@ -215,6 +243,7 @@ const form = reactive({
 
 const selectedIds = ref<string[]>([]);
 const drafts = reactive<Record<string, string>>({});
+const abVariants = reactive<Record<string, CoverLetterVariant[]>>({});
 
 const pipelineRun = computed(() => store.getters.pipelineRun as PipelineRunSummary | null);
 const pipelineResults = computed(() => store.getters.pipelineResults as PipelineResults | null);
@@ -282,6 +311,16 @@ async function saveDraft(applicationId: string) {
 
 async function regenerate(applicationId: string) {
   await store.dispatch("regeneratePipelineCoverLetter", { applicationId });
+}
+
+async function generateAB(applicationId: string) {
+  const result = await store.dispatch("generatePipelineCoverLetterAB", { applicationId });
+  abVariants[applicationId] = result.variants;
+}
+
+async function selectVariant(applicationId: string, variantId: string) {
+  await store.dispatch("selectPipelineCoverLetterVariant", { applicationId, variantId });
+  delete abVariants[applicationId];
 }
 
 async function rejectOne(applicationId: string) {

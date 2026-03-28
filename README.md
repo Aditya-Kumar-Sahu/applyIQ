@@ -19,6 +19,7 @@ This repository is being built as a flagship AI/ML portfolio system. It is desig
 - discovers jobs from multiple sources
 - ranks opportunities with explainable matching
 - generates tailored cover letters
+- supports A/B cover-letter variants before approval
 - auto-applies only after approval
 - tracks applications and recruiter replies
 - surfaces application velocity analytics (response rate, source performance, top-performing titles)
@@ -83,6 +84,7 @@ The detailed implementation blueprint lives in [PLAN.md](./PLAN.md).
 - Phase 9: Gmail Integration and Response Tracking complete
 - Phase 10: Polish, Testing, and Production Deployment complete
 - Phase 11: Application Velocity Dashboard stretch goal complete
+- Phase 12: A/B Cover-Letter Experimentation stretch goal complete
 
 ## Getting Started
 
@@ -169,6 +171,7 @@ Important variables:
 9. Gmail Integration and Response Tracking
 10. Polish, Testing, and Production Deployment
 11. Application Velocity Dashboard and analytics
+12. A/B Cover-Letter Experimentation and variant selection
 
 ## Safety and Compliance
 

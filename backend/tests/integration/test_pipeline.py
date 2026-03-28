@@ -96,6 +96,31 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         assert edit_response.json()["data"]["cover_letter_version"] == 3
         assert edit_response.json()["data"]["tone"] == "edited"
 
+        ab_test_response = client.post(
+            f"/api/v1/pipeline/{run_id}/application/{application_id}/cover-letter/ab-test"
+        )
+
+        assert ab_test_response.status_code == 200
+        ab_test_payload = ab_test_response.json()["data"]
+        assert ab_test_payload["application_id"] == application_id
+        assert ab_test_payload["cover_letter_version"] == 3
+        assert len(ab_test_payload["variants"]) == 2
+        assert {variant["variant_id"] for variant in ab_test_payload["variants"]} == {"A", "B"}
+        assert ab_test_payload["variants"][0]["cover_letter_text"] != ab_test_payload["variants"][1]["cover_letter_text"]
+        assert all(variant["word_count"] <= 250 for variant in ab_test_payload["variants"])
+
+        select_variant_response = client.post(
+            f"/api/v1/pipeline/{run_id}/application/{application_id}/cover-letter/select-variant",
+            json={"variant_id": "B"},
+        )
+
+        assert select_variant_response.status_code == 200
+        select_variant_payload = select_variant_response.json()["data"]
+        assert select_variant_payload["application_id"] == application_id
+        assert select_variant_payload["selected_variant_id"] == "B"
+        assert select_variant_payload["cover_letter_version"] == 4
+        assert select_variant_payload["tone"] in {"formal", "conversational"}
+
         reject_response = client.post(
             f"/api/v1/pipeline/{run_id}/reject",
             json={"application_ids": [rejected_application_id]},
@@ -124,6 +149,7 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         assert applied_application["ats_provider"] == "indeed_apply"
         assert applied_application["confirmation_url"]
         assert len(applied_application["screenshot_urls"]) == 2
+        assert applied_application["selected_variant_id"] == "B"
         assert any(app["status"] == "rejected" for app in completed_payload["applications"])
 
 
