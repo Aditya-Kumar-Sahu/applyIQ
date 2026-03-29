@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     log_level: str = "INFO"
+    log_to_file: bool = True
+    log_dir: str = "logs"
+    log_file_name: str = "backend.log"
+    log_file_max_bytes: int = 10 * 1024 * 1024
+    log_file_backup_count: int = 5
     release_version: str = "dev"
     cors_origins: list[str] = Field(default_factory=lambda: DEFAULT_CORS_ORIGINS.copy())
     database_url: str = "postgresql+asyncpg://applyiq:password@db:5432/applyiq"
@@ -50,6 +55,10 @@ class Settings(BaseSettings):
     max_resume_upload_bytes: int = 5 * 1024 * 1024
     apify_api_token: str | None = None
     serpapi_api_key: str | None = None
+    gemini_api_key: str | None = None
+    gemini_chat_model: str = "gemini-2.0-flash"
+    gemini_embedding_model: str = "text-embedding-004"
+
     @property
     def is_non_production(self) -> bool:
         return self.environment.lower() in {"development", "test", "local"}

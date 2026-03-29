@@ -14,8 +14,9 @@ playwright-browsers/
 screenshots/
 dist/
 build/
+logs/
 *.log
-celerybeat-schedule
-backend/celerybeat-schedule
+celerybeat-schedule**
+backend/celerybeat-schedule**
 PLAN.md
 Audit Remediation Plan.md

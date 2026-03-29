@@ -35,6 +35,7 @@ async def _run_start(payload: dict) -> dict:
         scrape_service=ScrapeService(
             embedding_service=EmbeddingService(),
             deduplicator=JobDeduplicator(),
+            settings=settings,
         ),
         match_service=MatchRankService(embedding_service=EmbeddingService()),
         checkpointer=PipelineCheckpointer(redis_manager, ttl_seconds=settings.pipeline_checkpoint_ttl_seconds),
@@ -95,6 +96,7 @@ async def _run_resume(payload: dict) -> dict:
         scrape_service=ScrapeService(
             embedding_service=EmbeddingService(),
             deduplicator=JobDeduplicator(),
+            settings=settings,
         ),
         match_service=MatchRankService(embedding_service=EmbeddingService()),
         checkpointer=PipelineCheckpointer(redis_manager, ttl_seconds=settings.pipeline_checkpoint_ttl_seconds),

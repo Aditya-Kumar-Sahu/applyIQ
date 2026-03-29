@@ -13,7 +13,7 @@ HealthReporter = Callable[[], Awaitable[dict[str, str]]]
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health", response_model=HealthStatus)
+@router.get("/health", response_model=HealthStatus, response_model_exclude_none=True)
 async def healthcheck(request: Request, response: Response) -> HealthStatus:
     reporter = cast(HealthReporter, request.app.state.health_reporter)
 

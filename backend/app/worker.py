@@ -3,9 +3,19 @@ from __future__ import annotations
 from celery import Celery
 
 from app.core.config import get_settings
+from app.core.logging import configure_logging
 
 
 settings = get_settings()
+
+configure_logging(
+    log_level=settings.log_level,
+    log_to_file=settings.log_to_file,
+    log_dir=settings.log_dir,
+    log_file_name=settings.log_file_name,
+    log_file_max_bytes=settings.log_file_max_bytes,
+    log_file_backup_count=settings.log_file_backup_count,
+)
 
 celery_app = Celery(
     "applyiq",

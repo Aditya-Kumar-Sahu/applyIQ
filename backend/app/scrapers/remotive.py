@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import structlog
 
+from app.core.config import Settings, get_settings
 from app.schemas.jobs import RawJob
 from app.scrapers.base import BaseJobScraper, ScrapeQuery
-from app.scrapers.etiquette import TolerantAyncClient
+from app.scrapers.etiquette import TolerantAsyncClient
 
 logger = structlog.get_logger(__name__)
 
@@ -13,10 +14,11 @@ class RemotiveScraper(BaseJobScraper):
     source_name = "remotive"
     base_url = "https://remotive.com"
 
+    def __init__(self, settings: Settings | None = None) -> None:
+        self._settings = settings
+
     async def fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
-        from app.core.config import get_settings
-        
-        settings = get_settings()
+        settings = self._settings or get_settings()
         if settings.is_non_production:
             # Import locally to avoid circular import issues if base uses this
             from app.scrapers.base import build_fixture_jobs
@@ -28,7 +30,7 @@ class RemotiveScraper(BaseJobScraper):
             
         try:
             # We enforce scraping etiquette policy internally
-            client = TolerantAyncClient(base_url=self.base_url, timeout=30.0)
+            client = TolerantAsyncClient(base_url=self.base_url, timeout=30.0)
             target_url = f"{self.base_url}/api/remote-jobs"
             resp = await client.get_with_etiquette(target_url, params=params)
             data = resp.json()

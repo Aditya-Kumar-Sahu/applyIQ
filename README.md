@@ -35,8 +35,8 @@ This repository is being built as a flagship AI/ML portfolio system. It is desig
 | ORM | SQLAlchemy 2.0 async, Alembic |
 | Queueing | Celery, Redis |
 | Agents | LangGraph, CrewAI |
-| LLM | OpenAI GPT-4o |
-| Embeddings | OpenAI text-embedding-3-small |
+| LLM | Google Gemini 2.0 Flash |
+| Embeddings | Google Gemini text-embedding-004 |
 | Automation | Playwright, playwright-stealth |
 | Scraping | Apify SDK, SerpAPI, direct scrapers |
 | Email Monitoring | Gmail API |
@@ -151,7 +151,7 @@ Important variables:
 - `JWT_SECRET_KEY`
 - `FERNET_SECRET_KEY`
 - `ENCRYPTION_PEPPER`
-- `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
 - `APIFY_API_TOKEN`
 - `SERPAPI_API_KEY`
 - `GOOGLE_CLIENT_ID`

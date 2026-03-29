@@ -44,6 +44,7 @@ def _build_pipeline_service(request: Request, encryption_service) -> PipelineSer
         scrape_service=ScrapeService(
             embedding_service=EmbeddingService(),
             deduplicator=JobDeduplicator(),
+            settings=settings,
         ),
         match_service=MatchRankService(embedding_service=EmbeddingService()),
         checkpointer=PipelineCheckpointer(

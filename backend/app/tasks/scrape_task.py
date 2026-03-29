@@ -14,10 +14,12 @@ from app.worker import celery_app
 
 async def _run_scrape(payload: dict) -> dict:
     request = ScrapeTestRequest.model_validate(payload)
-    database = DatabaseManager(get_settings().database_url)
+    settings = get_settings()
+    database = DatabaseManager(settings.database_url)
     service = ScrapeService(
         embedding_service=EmbeddingService(),
         deduplicator=JobDeduplicator(),
+        settings=settings,
     )
 
     try:

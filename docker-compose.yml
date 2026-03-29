@@ -6,6 +6,8 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     env_file:
       - .env
+    environment:
+      LOG_FILE_NAME: backend.log
     ports:
       - "8001:8000"
     volumes:
@@ -22,6 +24,8 @@ services:
       dockerfile: Dockerfile.worker
     env_file:
       - .env
+    environment:
+      LOG_FILE_NAME: worker.log
     command: celery -A app.worker:celery_app worker --loglevel=info
     volumes:
       - ./backend:/app
@@ -37,6 +41,8 @@ services:
       dockerfile: Dockerfile.worker
     env_file:
       - .env
+    environment:
+      LOG_FILE_NAME: beat.log
     command: celery -A app.worker:celery_app beat --loglevel=info
     volumes:
       - ./backend:/app

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user, get_db_session
+from app.core.config import Settings
 from app.models.user import User
 from app.schemas.common import Envelope
 from app.schemas.jobs import ScrapeTestData, ScrapeTestRequest
@@ -16,21 +17,23 @@ from app.services.scrape_service import ScrapeService
 router = APIRouter(prefix="/scrape", tags=["scrape"])
 
 
-def _build_scrape_service() -> ScrapeService:
+def _build_scrape_service(settings: Settings) -> ScrapeService:
     return ScrapeService(
         embedding_service=EmbeddingService(),
         deduplicator=JobDeduplicator(),
+        settings=settings,
     )
 
 
 @router.post("/test", response_model=Envelope[ScrapeTestData])
 async def scrape_test(
     payload: ScrapeTestRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[ScrapeTestData]:
     _ = current_user
-    service = _build_scrape_service()
+    service = _build_scrape_service(request.app.state.settings)
     result = await service.run_test_scrape(
         session=session,
         query=ScrapeQuery(

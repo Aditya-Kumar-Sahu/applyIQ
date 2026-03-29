@@ -4,7 +4,10 @@ import asyncio
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
+from app.core.config import Settings
+from app.core.logging_safety import log_debug, log_exception
 from app.models.job import Job
 from app.schemas.jobs import RawJob, ScrapedJobPreview, ScrapeTestData
 from app.scrapers.apify_linkedin import ApifyLinkedInScraper
@@ -17,22 +20,26 @@ from app.scrapers.wellfound import WellfoundScraper
 from app.services.embedding_service import EmbeddingService
 
 
+logger = structlog.get_logger(__name__)
+
+
 class ScrapeService:
     def __init__(
         self,
         *,
         embedding_service: EmbeddingService,
         deduplicator: JobDeduplicator,
+        settings: Settings | None = None,
         scrapers: dict[str, BaseJobScraper] | None = None,
     ) -> None:
         self._embedding_service = embedding_service
         self._deduplicator = deduplicator
         self._scrapers = scrapers or {
-            "linkedin": ApifyLinkedInScraper(),
+            "linkedin": ApifyLinkedInScraper(settings=settings),
             "indeed": IndeedScraper(),
-            "remotive": RemotiveScraper(),
+            "remotive": RemotiveScraper(settings=settings),
             "wellfound": WellfoundScraper(),
-            "serpapi": SerpApiJobsScraper(),
+            "serpapi": SerpApiJobsScraper(settings=settings),
         }
 
     async def run_test_scrape(
@@ -42,29 +49,60 @@ class ScrapeService:
         query: ScrapeQuery,
         sources: list[str],
     ) -> ScrapeTestData:
-        selected_scrapers = [self._scrapers[source] for source in sources]
-        scraped_batches = await asyncio.gather(*(scraper.fetch_jobs(query) for scraper in selected_scrapers))
-        raw_jobs = [job for batch in scraped_batches for job in batch]
-        deduplicated_jobs = self._deduplicator.deduplicate(raw_jobs)
-        stored_jobs_count = await self._upsert_jobs(session=session, jobs=deduplicated_jobs)
-
-        return ScrapeTestData(
-            sources_used=sources,
-            raw_jobs_count=len(raw_jobs),
-            deduplicated_jobs_count=len(deduplicated_jobs),
-            stored_jobs_count=stored_jobs_count,
-            jobs=[
-                ScrapedJobPreview(
-                    title=job.title,
-                    company_name=job.company_name,
-                    source=job.source,
-                    apply_url=job.apply_url,
-                )
-                for job in deduplicated_jobs[:5]
-            ],
+        log_debug(
+            logger,
+            "scrape.run_test.start",
+            sources=sources,
+            query=query.model_dump() if hasattr(query, "model_dump") else str(query),
         )
+        try:
+            selected_scrapers = [self._scrapers[source] for source in sources]
+            log_debug(logger, "scrape.run_test.selected_scrapers", count=len(selected_scrapers))
+
+            scraped_batches = await asyncio.gather(*(scraper.fetch_jobs(query) for scraper in selected_scrapers))
+            batch_sizes = [len(batch) for batch in scraped_batches]
+            raw_jobs = [job for batch in scraped_batches for job in batch]
+            log_debug(
+                logger,
+                "scrape.run_test.scraped",
+                batch_sizes=batch_sizes,
+                raw_jobs_count=len(raw_jobs),
+            )
+
+            deduplicated_jobs = self._deduplicator.deduplicate(raw_jobs)
+            log_debug(
+                logger,
+                "scrape.run_test.deduplicated",
+                deduplicated_jobs_count=len(deduplicated_jobs),
+                dropped_count=len(raw_jobs) - len(deduplicated_jobs),
+            )
+            stored_jobs_count = await self._upsert_jobs(session=session, jobs=deduplicated_jobs)
+
+            result = ScrapeTestData(
+                sources_used=sources,
+                raw_jobs_count=len(raw_jobs),
+                deduplicated_jobs_count=len(deduplicated_jobs),
+                stored_jobs_count=stored_jobs_count,
+                jobs=[
+                    ScrapedJobPreview(
+                        title=job.title,
+                        company_name=job.company_name,
+                        source=job.source,
+                        apply_url=job.apply_url,
+                    )
+                    for job in deduplicated_jobs[:5]
+                ],
+            )
+            log_debug(logger, "scrape.run_test.complete", stored_jobs_count=stored_jobs_count)
+            return result
+        except Exception as error:
+            log_exception(logger, "scrape.run_test.failed", error, sources=sources)
+            raise
 
     async def _upsert_jobs(self, *, session: AsyncSession, jobs: list[RawJob]) -> int:
+        log_debug(logger, "scrape.upsert_jobs.start", jobs_count=len(jobs))
+        inserted_count = 0
+        updated_count = 0
         for raw_job in jobs:
             existing = await session.scalar(select(Job).where(Job.apply_url == raw_job.apply_url))
             description_embedding = self._embedding_service.embed_text(
@@ -88,6 +126,7 @@ class ScrapeService:
                     posted_at=raw_job.posted_at,
                 )
                 session.add(existing)
+                inserted_count += 1
                 continue
 
             existing.external_id = raw_job.external_id
@@ -103,6 +142,14 @@ class ScrapeService:
             existing.description_embedding = description_embedding
             existing.posted_at = raw_job.posted_at
             existing.is_active = True
+            updated_count += 1
 
         await session.commit()
+        log_debug(
+            logger,
+            "scrape.upsert_jobs.complete",
+            jobs_count=len(jobs),
+            inserted_count=inserted_count,
+            updated_count=updated_count,
+        )
         return len(jobs)

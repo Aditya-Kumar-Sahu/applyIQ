@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +29,7 @@ _ALLOWED_UPLOAD_MIME_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
+_BAD_TITLE_MARKERS = {"summary", "professional summary", "experience", "education", "skills"}
 
 
 def _build_pipeline_service(encryption_service) -> ResumePipelineService:
@@ -54,6 +57,31 @@ def _serialize_preferences(preferences) -> SearchPreferencesPayload | None:
         seniority_level=preferences.seniority_level,
         is_active=preferences.is_active,
     )
+
+
+def _should_reparse_profile(profile: ParsedResumeProfile) -> bool:
+    if not profile.current_title.strip():
+        return True
+
+    normalized_title = profile.current_title.strip().casefold()
+    if normalized_title in _BAD_TITLE_MARKERS:
+        return True
+
+    if not profile.skills.technical:
+        return True
+
+    if len(profile.skills.technical) > 25:
+        return True
+
+    if len(profile.education) > 3:
+        return True
+
+    if profile.experience:
+        first_entry = profile.experience[0]
+        if "@" in first_entry.title or re.search(r"\+?\d[\d\s()\-]{7,}", first_entry.company):
+            return True
+
+    return False
 
 
 @router.post("/upload", response_model=Envelope[ResumeUploadData], status_code=status.HTTP_201_CREATED)
@@ -104,14 +132,24 @@ async def upload_resume(
 @router.get("", response_model=Envelope[ResumeDetailData])
 async def get_resume(
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+    encryption_service=Depends(get_encryption_service),
 ) -> Envelope[ResumeDetailData]:
     if current_user.resume_profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resume profile not found")
 
+    pipeline = _build_pipeline_service(encryption_service)
+    profile = ParsedResumeProfile.model_validate(current_user.resume_profile.parsed_profile)
+    if _should_reparse_profile(profile):
+        profile = pipeline.reparse_existing_profile(user=current_user)
+        session.add(current_user.resume_profile)
+        await session.commit()
+        await session.refresh(current_user.resume_profile)
+
     return Envelope(
         success=True,
         data=ResumeDetailData(
-            profile=ParsedResumeProfile.model_validate(current_user.resume_profile.parsed_profile),
+            profile=profile,
             preferences=_serialize_preferences(current_user.search_preferences),
         ),
         error=None,

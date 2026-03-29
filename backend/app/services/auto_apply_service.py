@@ -2,8 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import structlog
+
+from app.core.logging_safety import log_debug
+
 from app.models.application import Application
 from app.models.job import Job
+
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass
@@ -21,6 +28,7 @@ class AutoApplyService:
     def detect_ats(self, job: Job) -> str:
         apply_url = job.apply_url.lower()
         source = job.source.lower()
+        log_debug(logger, "auto_apply.detect_ats.start", job_id=job.id, source=source)
 
         if "greenhouse" in apply_url:
             return "greenhouse"
@@ -37,15 +45,31 @@ class AutoApplyService:
         if "icims" in apply_url:
             return "icims"
         if "taleo" in apply_url:
+            log_debug(logger, "auto_apply.detect_ats.result", job_id=job.id, ats_provider="taleo")
             return "taleo"
+        log_debug(logger, "auto_apply.detect_ats.result", job_id=job.id, ats_provider="direct_form")
         return "direct_form"
 
     def apply(self, *, application: Application, job: Job, has_credentials: bool) -> AutoApplyResult:
         ats_provider = self.detect_ats(job)
         screenshot_urls = self._artifact_paths(application.id, ats_provider)
         apply_url = job.apply_url.lower()
+        log_debug(
+            logger,
+            "auto_apply.apply.start",
+            application_id=application.id,
+            job_id=job.id,
+            ats_provider=ats_provider,
+            has_credentials=has_credentials,
+        )
 
         if "captcha" in apply_url or ats_provider in {"taleo"}:
+            log_debug(
+                logger,
+                "auto_apply.apply.manual_required",
+                application_id=application.id,
+                reason="captcha_or_unsupported_ats",
+            )
             return AutoApplyResult(
                 status="manual_required",
                 ats_provider=ats_provider,
@@ -57,6 +81,12 @@ class AutoApplyService:
             )
 
         if ats_provider in {"linkedin_easy_apply", "workday"} and not has_credentials:
+            log_debug(
+                logger,
+                "auto_apply.apply.manual_required",
+                application_id=application.id,
+                reason="missing_credentials",
+            )
             return AutoApplyResult(
                 status="manual_required",
                 ats_provider=ats_provider,
@@ -68,6 +98,12 @@ class AutoApplyService:
             )
 
         confirmation_number = f"APPLY-{application.id.split('-')[0].upper()}"
+        log_debug(
+            logger,
+            "auto_apply.apply.success",
+            application_id=application.id,
+            ats_provider=ats_provider,
+        )
         return AutoApplyResult(
             status="success",
             ats_provider=ats_provider,
@@ -79,7 +115,15 @@ class AutoApplyService:
         )
 
     def _artifact_paths(self, application_id: str, ats_provider: str) -> list[str]:
-        return [
+        paths = [
             f"/artifacts/{application_id}/{ats_provider}-before.png",
             f"/artifacts/{application_id}/{ats_provider}-after.png",
         ]
+        log_debug(
+            logger,
+            "auto_apply.artifact_paths",
+            application_id=application_id,
+            ats_provider=ats_provider,
+            paths_count=len(paths),
+        )
+        return paths

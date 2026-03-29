@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import structlog
 import httpx
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.schemas.jobs import RawJob
 from app.scrapers.base import BaseJobScraper, ScrapeQuery, build_fixture_jobs
 
@@ -13,8 +13,11 @@ logger = structlog.get_logger(__name__)
 class SerpApiJobsScraper(BaseJobScraper):
     source_name = "serpapi"
 
+    def __init__(self, settings: Settings | None = None) -> None:
+        self._settings = settings
+
     async def fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
-        settings = get_settings()
+        settings = self._settings or get_settings()
         if not settings.serpapi_api_key or settings.is_non_production:
             return build_fixture_jobs(self.source_name, query)
 
