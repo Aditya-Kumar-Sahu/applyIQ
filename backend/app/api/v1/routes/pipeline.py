@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
 from app.api.v1.deps import get_current_user, get_db_session, get_encryption_service
+from app.core.rate_limit import RedisRateLimiter
 from app.models.user import User
 from app.pipeline.checkpointer import PipelineCheckpointer
 from app.pipeline.graph import PipelineGraphRunner
@@ -32,17 +34,22 @@ from app.services.vault_service import VaultService
 
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
+logger = structlog.get_logger(__name__)
 
 
 def _build_pipeline_service(request: Request, encryption_service) -> PipelineService:
     cover_letter_service = CoverLetterService()
+    settings = request.app.state.settings
     graph_runner = PipelineGraphRunner(
         scrape_service=ScrapeService(
             embedding_service=EmbeddingService(),
             deduplicator=JobDeduplicator(),
         ),
         match_service=MatchRankService(embedding_service=EmbeddingService()),
-        checkpointer=PipelineCheckpointer(request.app.state.redis),
+        checkpointer=PipelineCheckpointer(
+            request.app.state.redis,
+            ttl_seconds=settings.pipeline_checkpoint_ttl_seconds,
+        ),
         encryption_service=encryption_service,
         cover_letter_service=cover_letter_service,
         auto_apply_service=AutoApplyService(),
@@ -52,6 +59,7 @@ def _build_pipeline_service(request: Request, encryption_service) -> PipelineSer
         graph_runner=graph_runner,
         encryption_service=encryption_service,
         cover_letter_service=cover_letter_service,
+        settings=settings,
     )
 
 
@@ -63,8 +71,34 @@ async def start_pipeline(
     session: AsyncSession = Depends(get_db_session),
     encryption_service=Depends(get_encryption_service),
 ) -> Envelope[PipelineRunData]:
+    settings = request.app.state.settings
+    limiter = RedisRateLimiter(request.app.state.redis)
+    is_allowed = await limiter.allow(
+        key=f"pipeline_start:{current_user.id}",
+        limit=settings.pipeline_start_rate_limit,
+        window_seconds=settings.pipeline_start_rate_window_seconds,
+    )
+    if not is_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Pipeline start rate limit exceeded. Please retry later.",
+        )
+
+    logger.info(
+        "pipeline.start.requested",
+        user_id=current_user.id,
+        sources=payload.sources,
+        target_role=payload.target_role,
+    )
     service = _build_pipeline_service(request, encryption_service)
     data = await service.start_run(session=session, user=current_user, payload=payload)
+    logger.info(
+        "pipeline.start.accepted",
+        user_id=current_user.id,
+        run_id=data.run_id,
+        status=data.status,
+        current_node=data.current_node,
+    )
     return Envelope(success=True, data=data, error=None)
 
 
@@ -107,7 +141,20 @@ async def approve_pipeline(
     encryption_service=Depends(get_encryption_service),
 ) -> Envelope[PipelineRunData]:
     service = _build_pipeline_service(request, encryption_service)
+    logger.info(
+        "pipeline.approve.requested",
+        user_id=current_user.id,
+        run_id=run_id,
+        approvals_count=len(payload.application_ids),
+    )
     data = await service.approve(session=session, user=current_user, run_id=run_id, application_ids=payload.application_ids)
+    logger.info(
+        "pipeline.approve.accepted",
+        user_id=current_user.id,
+        run_id=data.run_id,
+        status=data.status,
+        current_node=data.current_node,
+    )
     return Envelope(success=True, data=data, error=None)
 
 

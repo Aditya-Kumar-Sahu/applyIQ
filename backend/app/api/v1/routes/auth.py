@@ -7,7 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user, get_db_session
-from app.core.security import create_token, decode_token, get_password_hash, verify_password
+from app.core.security import create_token, decode_token, get_password_hash, hash_token, verify_password
+from app.models.refresh_token_session import RefreshTokenSession
 from app.models.user import User
 from app.schemas.auth import (
     AuthSessionData,
@@ -54,16 +55,22 @@ def _issue_tokens(request: Request, user_id: str) -> tuple[str, str]:
     return access_token, refresh_token
 
 
+def _refresh_token_expires_at(request: Request) -> datetime:
+    settings = request.app.state.settings
+    return datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
+
+
 def _set_auth_cookies(request: Request, response: Response, access_token: str, refresh_token: str) -> None:
     settings = request.app.state.settings
     access_max_age = settings.access_token_expire_minutes * 60
     refresh_max_age = settings.refresh_token_expire_days * 24 * 60 * 60
+    secure_cookie = settings.secure_cookies
 
     response.set_cookie(
         key=settings.access_cookie_name,
         value=access_token,
         httponly=True,
-        secure=False,
+        secure=secure_cookie,
         samesite="lax",
         max_age=access_max_age,
         path="/",
@@ -72,7 +79,7 @@ def _set_auth_cookies(request: Request, response: Response, access_token: str, r
         key=settings.refresh_cookie_name,
         value=refresh_token,
         httponly=True,
-        secure=False,
+        secure=secure_cookie,
         samesite="lax",
         max_age=refresh_max_age,
         path="/",
@@ -83,6 +90,29 @@ def _clear_auth_cookies(request: Request, response: Response) -> None:
     settings = request.app.state.settings
     response.delete_cookie(settings.access_cookie_name, path="/")
     response.delete_cookie(settings.refresh_cookie_name, path="/")
+
+
+async def _persist_refresh_session(
+    *,
+    session: AsyncSession,
+    user_id: str,
+    refresh_token: str,
+    expires_at: datetime,
+    replaced_from: RefreshTokenSession | None = None,
+) -> RefreshTokenSession:
+    refresh_session = RefreshTokenSession(
+        user_id=user_id,
+        token_hash=hash_token(refresh_token),
+        expires_at=expires_at,
+    )
+    session.add(refresh_session)
+    await session.flush()
+
+    if replaced_from is not None:
+        replaced_from.revoked_at = datetime.now(timezone.utc)
+        replaced_from.replaced_by_token_hash = refresh_session.token_hash
+
+    return refresh_session
 
 
 @router.post("/register", response_model=Envelope[AuthSessionData], status_code=status.HTTP_201_CREATED)
@@ -108,6 +138,13 @@ async def register(
     await session.refresh(user)
 
     access_token, refresh_token = _issue_tokens(request, user.id)
+    await _persist_refresh_session(
+        session=session,
+        user_id=user.id,
+        refresh_token=refresh_token,
+        expires_at=_refresh_token_expires_at(request),
+    )
+    await session.commit()
     _set_auth_cookies(request, response, access_token, refresh_token)
 
     return Envelope(
@@ -134,10 +171,15 @@ async def login(
     if user is None or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    user.last_login = datetime.now(timezone.utc)
-    await session.commit()
-
     access_token, refresh_token = _issue_tokens(request, user.id)
+    user.last_login = datetime.now(timezone.utc)
+    await _persist_refresh_session(
+        session=session,
+        user_id=user.id,
+        refresh_token=refresh_token,
+        expires_at=_refresh_token_expires_at(request),
+    )
+    await session.commit()
     _set_auth_cookies(request, response, access_token, refresh_token)
 
     return Envelope(
@@ -179,7 +221,33 @@ async def refresh_token(
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
+    token_fingerprint = hash_token(refresh_token)
+    refresh_session = await session.scalar(
+        select(RefreshTokenSession).where(
+            RefreshTokenSession.user_id == user.id,
+            RefreshTokenSession.token_hash == token_fingerprint,
+        )
+    )
+    if refresh_session is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token session not found")
+    if refresh_session.revoked_at is not None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token already rotated")
+    expires_at = refresh_session.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+        
+    if expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+
     access_token, new_refresh_token = _issue_tokens(request, user.id)
+    await _persist_refresh_session(
+        session=session,
+        user_id=user.id,
+        refresh_token=new_refresh_token,
+        expires_at=_refresh_token_expires_at(request),
+        replaced_from=refresh_session,
+    )
+    await session.commit()
     _set_auth_cookies(request, response, access_token, new_refresh_token)
 
     return Envelope(
@@ -204,6 +272,13 @@ async def delete_account(
 ) -> Envelope[DeleteAccountData]:
     if not verify_password(payload.password_confirmation, current_user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    # Purge pipeline checkpoint state in Redis
+    from app.models.pipeline_run import PipelineRun
+    pipeline_runs = await session.scalars(select(PipelineRun).where(PipelineRun.user_id == current_user.id))
+    redis_client = request.app.state.redis.client
+    for run in pipeline_runs:
+        await redis_client.delete(f"pipeline_run:{run.id}")
 
     await session.delete(current_user)
     await session.commit()

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+
 from langgraph.graph import END, START, StateGraph
+from langgraph.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointMetadata, CheckpointTuple
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -73,15 +76,49 @@ class PipelineGraphRunner:
                 cover_letter_service=self._cover_letter_service,
             )
 
+        async def auto_apply_node_wrapper(state: ApplyIQState) -> ApplyIQState:
+            return await auto_apply_node(
+                state,
+                session=session,
+                pipeline_run=pipeline_run,
+                user=user,
+                auto_apply_service=self._auto_apply_service,
+                vault_service=self._vault_service,
+                encryption_service=self._encryption_service,
+            )
+
+        async def track_applications_wrapper(state: ApplyIQState) -> ApplyIQState:
+            return await track_applications_node(
+                state,
+                session=session,
+                pipeline_run=pipeline_run,
+            )
+
         graph = StateGraph(ApplyIQState)
         graph.add_node("fetch_jobs_node", fetch_node)
         graph.add_node("rank_jobs_node", rank_node)
         graph.add_node("approval_gate_node", approval_node)
+        graph.add_node("auto_apply_node", auto_apply_node_wrapper)
+        graph.add_node("track_applications_node", track_applications_wrapper)
+
         graph.add_edge(START, "fetch_jobs_node")
         graph.add_edge("fetch_jobs_node", "rank_jobs_node")
         graph.add_edge("rank_jobs_node", "approval_gate_node")
-        graph.add_edge("approval_gate_node", END)
-        return await graph.compile().ainvoke(initial_state)
+        graph.add_edge("approval_gate_node", "auto_apply_node")
+        graph.add_edge("auto_apply_node", "track_applications_node")
+        graph.add_edge("track_applications_node", END)
+
+        from langgraph.checkpoint.memory import MemorySaver
+
+        # Compiling the single topology as designated by Audit Remediation Plan (Workstream A)
+        # We use a MemorySaver locally to satisfy LangGraph's requirement for interrupt_before
+        compiled_graph = graph.compile(checkpointer=MemorySaver(), interrupt_before=["auto_apply_node"])
+        
+        # run the graph, which will pause before auto_apply_node
+        return await compiled_graph.ainvoke(
+            initial_state,
+            config={"configurable": {"thread_id": pipeline_run.id}}
+        )
 
     async def resume_after_approval(
         self,
@@ -93,7 +130,10 @@ class PipelineGraphRunner:
     ) -> ApplyIQState:
         checkpoint_state = await self._checkpointer.load(run_id)
         if checkpoint_state is None:
-            raise ValueError("Pipeline checkpoint not found")
+            if not pipeline_run.state_snapshot:
+                raise ValueError("Pipeline checkpoint not found")
+            decrypted_snapshot = self._encryption_service.decrypt_for_user(user.id, pipeline_run.state_snapshot)
+            checkpoint_state = json.loads(decrypted_snapshot)
 
         approved_rows = list(
             await session.scalars(
@@ -105,6 +145,7 @@ class PipelineGraphRunner:
         )
         checkpoint_state["approved_applications"] = [{"id": application.id, "status": application.status} for application in approved_rows]
 
+        # Use the exact same node setup as above
         async def auto_apply(state: ApplyIQState) -> ApplyIQState:
             return await auto_apply_node(
                 state,
@@ -123,6 +164,7 @@ class PipelineGraphRunner:
                 pipeline_run=pipeline_run,
             )
 
+        # But we only step the remaining part during resume.
         graph = StateGraph(ApplyIQState)
         graph.add_node("auto_apply_node", auto_apply)
         graph.add_node("track_applications_node", track_applications)

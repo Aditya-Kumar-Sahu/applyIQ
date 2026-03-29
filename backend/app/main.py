@@ -25,6 +25,7 @@ def create_app(
     health_reporter: HealthReporter | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
+    resolved_settings.validate_security_contract()
     configure_logging(resolved_settings.log_level)
     configure_observability(resolved_settings)
     logger = structlog.get_logger(__name__)

@@ -1,6 +1,32 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import TypedDict
+
+
+class RankedJob(TypedDict):
+    job_id: str
+    title: str
+    company_name: str
+    match_score: float
+    matched_skills: list[str]
+
+
+class PendingApproval(TypedDict):
+    id: str
+    job_id: str
+    title: str
+    company_name: str
+    match_score: float
+    cover_letter_text: str
+    tone: str
+    word_count: int
+    cover_letter_version: int
+    status: str
+
+
+class ApprovedApplication(TypedDict):
+    id: str
+    status: str
 
 
 class ApplyIQState(TypedDict):
@@ -12,8 +38,8 @@ class ApplyIQState(TypedDict):
     sources: list[str]
     raw_jobs_count: int
     deduplicated_jobs_count: int
-    ranked_jobs: list[dict[str, Any]]
-    pending_approvals: list[dict[str, Any]]
-    approved_applications: list[dict[str, Any]]
-    applied_applications: list[dict[str, Any]]
+    ranked_jobs: list[RankedJob]
+    pending_approvals: list[PendingApproval]
+    approved_applications: list[ApprovedApplication]
+    applied_applications: list[dict] # Would need further definition if fully typed
     current_node: str

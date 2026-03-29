@@ -7,7 +7,9 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
+from app.core.config import Settings
 from app.models.application import Application
 from app.models.job import Job
 from app.models.job_match import JobMatch
@@ -32,14 +34,42 @@ from app.schemas.pipeline import (
 )
 
 
+logger = structlog.get_logger(__name__)
+
+
 class PipelineService:
-    def __init__(self, *, graph_runner: PipelineGraphRunner, encryption_service, cover_letter_service: CoverLetterService) -> None:
+    def __init__(
+        self,
+        *,
+        graph_runner: PipelineGraphRunner,
+        encryption_service,
+        cover_letter_service: CoverLetterService,
+        settings: Settings,
+    ) -> None:
         self._graph_runner = graph_runner
         self._encryption_service = encryption_service
         self._cover_letter_service = cover_letter_service
+        self._settings = settings
 
     async def start_run(self, *, session: AsyncSession, user: User, payload: PipelineStartRequest) -> PipelineRunData:
-        pipeline_run = PipelineRun(user_id=user.id, status="running", current_node="pending")
+        active_run = await session.scalar(
+            select(PipelineRun)
+            .where(
+                PipelineRun.user_id == user.id,
+                PipelineRun.status.in_(["queued", "running", "paused_at_gate", "resuming"])
+            )
+        )
+        if active_run:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A pipeline run is already active across this user.",
+            )
+
+        pipeline_run = PipelineRun(
+            user_id=user.id,
+            status="running" if self._settings.execute_pipeline_inline else "queued",
+            current_node="pending",
+        )
         session.add(pipeline_run)
         await session.commit()
         await session.refresh(pipeline_run)
@@ -59,12 +89,42 @@ class PipelineService:
             "applied_applications": [],
             "current_node": "pending",
         }
-        final_state = await self._graph_runner.run_until_approval(
-            session=session,
-            pipeline_run=pipeline_run,
-            user=user,
-            initial_state=state,
-        )
+        pending_approvals_count = 0
+        if self._settings.execute_pipeline_inline:
+            final_state = await self._graph_runner.run_until_approval(
+                session=session,
+                pipeline_run=pipeline_run,
+                user=user,
+                initial_state=state,
+            )
+            pending_approvals_count = len(final_state["pending_approvals"])
+        else:
+            from app.tasks.pipeline_task import run_pipeline_start_task
+
+            task_payload = {
+                "run_id": pipeline_run.id,
+                "user_id": user.id,
+                "state": state,
+            }
+            try:
+                task = run_pipeline_start_task.delay(task_payload)
+                pipeline_run.celery_task_id = task.id
+                await session.commit()
+                await session.refresh(pipeline_run)
+            except Exception:
+                logger.exception(
+                    "pipeline.start.dispatch_failed",
+                    run_id=pipeline_run.id,
+                    user_id=user.id,
+                )
+                final_state = await self._graph_runner.run_until_approval(
+                    session=session,
+                    pipeline_run=pipeline_run,
+                    user=user,
+                    initial_state=state,
+                )
+                pending_approvals_count = len(final_state["pending_approvals"])
+
         return PipelineRunData(
             run_id=pipeline_run.id,
             status=pipeline_run.status,
@@ -72,7 +132,7 @@ class PipelineService:
             jobs_found=pipeline_run.jobs_found,
             jobs_matched=pipeline_run.jobs_matched,
             applications_submitted=pipeline_run.applications_submitted,
-            pending_approvals_count=len(final_state["pending_approvals"]),
+            pending_approvals_count=pending_approvals_count,
         )
 
     async def get_results(self, *, session: AsyncSession, user: User, run_id: str) -> PipelineResultsData:
@@ -120,6 +180,14 @@ class PipelineService:
 
     async def approve(self, *, session: AsyncSession, user: User, run_id: str, application_ids: list[str]) -> PipelineRunData:
         pipeline_run = await self._get_run(session=session, user=user, run_id=run_id)
+        
+        # Idempotency guard: Ensure we are currently paused at gate
+        if pipeline_run.status != "paused_at_gate":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Cannot approve pipeline run in '{pipeline_run.status}' state",
+            )
+            
         applications = list(
             await session.scalars(
                 select(Application).where(
@@ -134,9 +202,37 @@ class PipelineService:
             if application.id in selected_ids:
                 application.status = "approved"
 
+        # Setup resume state atomically with the approval status change
+        if not self._settings.execute_pipeline_inline:
+            pipeline_run.status = "resuming"
+            pipeline_run.current_node = "approval_gate_node"
+            
         await session.commit()
-        await self._graph_runner.resume_after_approval(session=session, pipeline_run=pipeline_run, user=user, run_id=run_id)
         await session.refresh(pipeline_run)
+        
+        if self._settings.execute_pipeline_inline:
+            await self._graph_runner.resume_after_approval(session=session, pipeline_run=pipeline_run, user=user, run_id=run_id)
+            await session.refresh(pipeline_run)
+        else:
+            from app.tasks.pipeline_task import run_pipeline_resume_task
+            try:
+                task = run_pipeline_resume_task.delay({"run_id": run_id, "user_id": user.id})
+                pipeline_run.celery_task_id = task.id
+                await session.commit()
+                await session.refresh(pipeline_run)
+            except Exception:
+                logger.exception(
+                    "pipeline.resume.dispatch_failed",
+                    run_id=run_id,
+                    user_id=user.id,
+                )
+                await self._graph_runner.resume_after_approval(
+                    session=session,
+                    pipeline_run=pipeline_run,
+                    user=user,
+                    run_id=run_id,
+                )
+                await session.refresh(pipeline_run)
 
         pending_count = len([application for application in applications if application.status == "pending_approval"])
         return PipelineRunData(

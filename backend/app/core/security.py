@@ -30,18 +30,24 @@ def create_token(
     algorithm: str,
     expires_delta: timedelta,
 ) -> str:
+    import uuid
     now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
         "type": token_type,
         "iat": int(now.timestamp()),
         "exp": int((now + expires_delta).timestamp()),
+        "jti": str(uuid.uuid4()),
     }
     return jwt.encode(payload, secret_key, algorithm=algorithm)
 
 
 def decode_token(token: str, *, secret_key: str, algorithm: str) -> dict[str, Any]:
     return jwt.decode(token, secret_key, algorithms=[algorithm])
+
+
+def hash_token(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 class EncryptionService:

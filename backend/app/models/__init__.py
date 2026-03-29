@@ -6,8 +6,20 @@ from app.models.email_monitor import EmailMonitor
 from app.models.job import Job
 from app.models.job_match import JobMatch
 from app.models.pipeline_run import PipelineRun
+from app.models.refresh_token_session import RefreshTokenSession
 from app.models.resume_profile import ResumeProfile
 from app.models.search_preference import SearchPreference
 from app.models.user import User
 
-__all__ = ["Application", "CredentialVault", "EmailMonitor", "Job", "JobMatch", "PipelineRun", "ResumeProfile", "SearchPreference", "User"]
+__all__ = [
+    "Application",
+    "CredentialVault",
+    "EmailMonitor",
+    "Job",
+    "JobMatch",
+    "PipelineRun",
+    "RefreshTokenSession",
+    "ResumeProfile",
+    "SearchPreference",
+    "User",
+]

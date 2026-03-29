@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user, get_db_session, get_encryption_service
@@ -22,6 +22,11 @@ from app.services.resume_pipeline_service import ResumePipelineService
 
 
 router = APIRouter(prefix="/resume", tags=["resume"])
+
+_ALLOWED_UPLOAD_MIME_TYPES = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
 
 
 def _build_pipeline_service(encryption_service) -> ResumePipelineService:
@@ -53,6 +58,7 @@ def _serialize_preferences(preferences) -> SearchPreferencesPayload | None:
 
 @router.post("/upload", response_model=Envelope[ResumeUploadData], status_code=status.HTTP_201_CREATED)
 async def upload_resume(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
@@ -60,8 +66,15 @@ async def upload_resume(
 ) -> Envelope[ResumeUploadData]:
     if not file.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing file name")
+    if file.content_type not in _ALLOWED_UPLOAD_MIME_TYPES:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Unsupported file content type")
 
     content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty")
+    settings = request.app.state.settings
+    if len(content) > settings.max_resume_upload_bytes:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Resume file is too large")
     pipeline = _build_pipeline_service(encryption_service)
 
     try:

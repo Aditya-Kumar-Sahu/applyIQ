@@ -38,3 +38,7 @@ class User(Base):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    refresh_token_sessions: Mapped[list["RefreshTokenSession"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
