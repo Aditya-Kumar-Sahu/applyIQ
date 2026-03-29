@@ -57,8 +57,17 @@ class MatchRankService:
 
         resume = ParsedResumeProfile.model_validate(user.resume_profile.parsed_profile)
         preferences = self._serialize_preferences(user)
+        
+        from app.models.application import Application
+        seen_job_ids = set((await session.scalars(
+            select(Application.job_id).where(Application.user_id == user.id)
+        )).all())
+        
         jobs = list(await session.scalars(select(Job).where(Job.is_active.is_(True)).order_by(Job.scraped_at.desc())))
-        filtered_jobs = [job for job in jobs if self._passes_filters(job=job, preferences=preferences)]
+        filtered_jobs = [
+            job for job in jobs 
+            if job.id not in seen_job_ids and self._passes_filters(job=job, preferences=preferences)
+        ]
 
         ranked_results: list[RankedJobResult] = []
         for job in filtered_jobs:

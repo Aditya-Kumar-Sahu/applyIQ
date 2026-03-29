@@ -48,7 +48,8 @@ class Settings(BaseSettings):
     pipeline_start_rate_window_seconds: int = 60 * 60
     pipeline_task_mode: str = "celery"
     max_resume_upload_bytes: int = 5 * 1024 * 1024
-
+    apify_api_token: str | None = None
+    serpapi_api_key: str | None = None
     @property
     def is_non_production(self) -> bool:
         return self.environment.lower() in {"development", "test", "local"}

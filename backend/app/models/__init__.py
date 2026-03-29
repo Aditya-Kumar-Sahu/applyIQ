@@ -10,8 +10,10 @@ from app.models.refresh_token_session import RefreshTokenSession
 from app.models.resume_profile import ResumeProfile
 from app.models.search_preference import SearchPreference
 from app.models.user import User
+from app.models.agent_run import AgentRun
 
 __all__ = [
+    "AgentRun",
     "Application",
     "CredentialVault",
     "EmailMonitor",

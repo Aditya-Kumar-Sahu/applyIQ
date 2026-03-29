@@ -1,6 +1,6 @@
 """phase 10 refresh token sessions
 
-Revision ID: 0010_phase10_refresh_token_sessions
+Revision ID: 0010_phase10_tkns
 Revises: 0009_phase9_email_tracking
 Create Date: 2026-03-28 20:00:00.000000
 """
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0010_phase10_refresh_token_sessions"
+revision = "0010_phase10_tkns"
 down_revision = "0009_phase9_email_tracking"
 branch_labels = None
 depends_on = None
