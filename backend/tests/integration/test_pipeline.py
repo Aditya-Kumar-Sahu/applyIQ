@@ -224,6 +224,60 @@ def test_pipeline_start_reuses_existing_active_run(tmp_path: Path) -> None:
         assert run_count == 1
 
 
+def test_pipeline_approve_recovers_from_invalid_snapshot(tmp_path: Path) -> None:
+    settings = Settings(
+        environment="test",
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'pipeline-invalid-snapshot.db'}",
+        redis_url="redis://localhost:6395/0",
+        jwt_secret_key="test-jwt-secret-key-with-32-characters",
+        fernet_secret_key="wWKJg6WVKwwhFVWG2yt30YIOCwVDDDeWGPAHDLcGRID=",
+        encryption_pepper="pepper-for-tests",
+    )
+
+    async def healthy_reporter() -> dict[str, str]:
+        return {"status": "ok", "db": "up", "redis": "up"}
+
+    app = create_app(settings=settings, health_reporter=healthy_reporter)
+    app.state.redis = _InMemoryRedisClient()
+
+    with TestClient(app) as client:
+        anyio.run(_create_all_tables, app.state.database.engine)
+        _register_and_prepare_resume(client)
+
+        start_response = client.post(
+            "/api/v1/pipeline/start",
+            json={
+                "target_role": "ML Engineer",
+                "location": "Remote",
+                "limit_per_source": 10,
+                "sources": ["indeed"],
+            },
+        )
+
+        assert start_response.status_code == 202
+        run_id = start_response.json()["data"]["run_id"]
+
+        anyio.run(_tamper_pipeline_snapshot, app.state.database.engine, run_id)
+        anyio.run(_clear_pipeline_redis_state, app.state.redis, run_id)
+
+        results_response = client.get(f"/api/v1/pipeline/{run_id}/results")
+        assert results_response.status_code == 200
+        results_payload = results_response.json()["data"]
+        application_id = next(
+            application["id"] for application in results_payload["applications"] if application["status"] == "pending_approval"
+        )
+
+        approve_response = client.post(
+            f"/api/v1/pipeline/{run_id}/approve",
+            json={"application_ids": [application_id]},
+        )
+
+        assert approve_response.status_code == 200
+        approve_payload = approve_response.json()["data"]
+        assert approve_payload["status"] == "complete"
+        assert approve_payload["applications_submitted"] == 1
+
+
 def test_delete_account_purges_pipeline_redis_state(tmp_path: Path) -> None:
     settings = Settings(
         environment="test",
@@ -296,6 +350,22 @@ async def _count_pipeline_runs(engine) -> int:
     async with session_factory() as session:
         result = await session.scalar(select(func.count()).select_from(PipelineRun))
         return int(result or 0)
+
+
+async def _tamper_pipeline_snapshot(engine, run_id: str) -> None:
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from sqlalchemy import select
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_factory() as session:
+        pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
+        if pipeline_run is not None:
+            pipeline_run.state_snapshot = "not-a-valid-fernet-token"
+            await session.commit()
+
+
+async def _clear_pipeline_redis_state(redis_client, run_id: str) -> None:
+    await redis_client.delete(f"pipeline_run_state:{run_id}", f"pipeline_run_checkpoint:{run_id}")
 
 
 async def _redis_key_exists(redis_client, key: str) -> bool:

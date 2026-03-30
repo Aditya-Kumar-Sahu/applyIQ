@@ -5,6 +5,7 @@ import json
 from time import perf_counter
 from typing import Any, Awaitable, Callable
 
+from cryptography.fernet import InvalidToken
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 from sqlalchemy import select
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent_run import AgentRun
 from app.models.application import Application
+from app.models.job import Job
 from app.models.pipeline_run import PipelineRun
 from app.models.user import User
 from app.pipeline.checkpointer import PipelineCheckpointer
@@ -260,10 +262,24 @@ class PipelineGraphRunner:
         except Exception:
             checkpoint_state = await self._checkpointer.load(run_id)
             if checkpoint_state is None:
-                if not pipeline_run.state_snapshot:
-                    raise ValueError("Pipeline checkpoint not found")
-                decrypted_snapshot = self._encryption_service.decrypt_for_user(user.id, pipeline_run.state_snapshot)
-                checkpoint_state = json.loads(decrypted_snapshot)
+                checkpoint_state = await self._rebuild_resume_state(
+                    session=session,
+                    pipeline_run=pipeline_run,
+                    user=user,
+                )
+            else:
+                try:
+                    if pipeline_run.state_snapshot:
+                        decrypted_snapshot = self._encryption_service.decrypt_for_user(user.id, pipeline_run.state_snapshot)
+                        snapshot_state = json.loads(decrypted_snapshot)
+                        if isinstance(snapshot_state, dict):
+                            checkpoint_state = {**checkpoint_state, **snapshot_state}
+                except InvalidToken:
+                    checkpoint_state = await self._rebuild_resume_state(
+                        session=session,
+                        pipeline_run=pipeline_run,
+                        user=user,
+                    )
 
             approved_rows = list(
                 await session.scalars(
@@ -317,6 +333,88 @@ class PipelineGraphRunner:
             state = await graph.compile().ainvoke(checkpoint_state)
             await self._checkpointer.delete(run_id)
             return state
+
+    async def _rebuild_resume_state(
+        self,
+        *,
+        session: AsyncSession,
+        pipeline_run: PipelineRun,
+        user: User,
+    ) -> ApplyIQState:
+        applications = list(
+            await session.scalars(
+                select(Application).where(
+                    Application.pipeline_run_id == pipeline_run.id,
+                    Application.user_id == user.id,
+                )
+            )
+        )
+        approved_applications = [
+            {"id": application.id, "status": application.status}
+            for application in applications
+            if application.status == "approved"
+        ]
+        pending_approvals: list[dict[str, Any]] = []
+        for application in applications:
+            if application.status != "pending_approval":
+                continue
+            job = await session.scalar(select(Job).where(Job.id == application.job_id))
+            pending_approvals.append(
+                {
+                    "id": application.id,
+                    "job_id": application.job_id,
+                    "title": job.title if job else "Unknown Job",
+                    "company_name": job.company_name if job else "Unknown Company",
+                    "match_score": float(application.match_score),
+                    "cover_letter_text": application.cover_letter_text,
+                    "tone": application.cover_letter_tone,
+                    "word_count": application.cover_letter_word_count,
+                    "cover_letter_version": application.cover_letter_version,
+                    "status": application.status,
+                }
+            )
+        search_preferences = None
+        if user.search_preferences is not None:
+            search_preferences = {
+                "target_roles": user.search_preferences.target_roles,
+                "preferred_locations": user.search_preferences.preferred_locations,
+                "remote_preference": user.search_preferences.remote_preference,
+                "salary_min": user.search_preferences.salary_min,
+                "salary_max": user.search_preferences.salary_max,
+                "currency": user.search_preferences.currency,
+                "excluded_companies": user.search_preferences.excluded_companies,
+                "seniority_level": user.search_preferences.seniority_level,
+                "is_active": user.search_preferences.is_active,
+            }
+
+        resume = None
+        if user.resume_profile is not None:
+            resume = user.resume_profile.parsed_profile
+
+        return {
+            "run_id": pipeline_run.id,
+            "user_id": user.id,
+            "target_role": search_preferences["target_roles"][0] if search_preferences and search_preferences["target_roles"] else "",
+            "location": search_preferences["preferred_locations"][0] if search_preferences and search_preferences["preferred_locations"] else None,
+            "limit_per_source": 10,
+            "sources": ["linkedin", "indeed", "remotive"],
+            "raw_jobs_count": 0,
+            "deduplicated_jobs_count": 0,
+            "ranked_jobs": [],
+            "pending_approvals": pending_approvals,
+            "approved_applications": approved_applications,
+            "applied_applications": [
+                {"id": application.id, "status": application.status}
+                for application in applications
+                if application.status == "applied"
+            ],
+            "current_node": "approval_gate_node",
+            "resume": resume,
+            "search_preferences": search_preferences,
+            "raw_jobs": [],
+            "deduplicated_jobs": [],
+            "errors": [],
+        }
 
 
 def _strip_interrupt(result):
