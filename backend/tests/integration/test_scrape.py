@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.main import create_app
 from app.models.base import Base
 from app.models.job import Job
+from app.scrapers.indeed import IndeedScraper
 
 
 def test_scrape_test_endpoint_persists_deduplicated_jobs_with_embeddings(tmp_path: Path) -> None:
@@ -58,6 +59,7 @@ def test_scrape_test_endpoint_persists_deduplicated_jobs_with_embeddings(tmp_pat
         assert payload["deduplicated_jobs_count"] == 53
         assert payload["stored_jobs_count"] == 53
         assert payload["sources_used"] == ["linkedin", "indeed", "remotive"]
+        assert payload["failed_sources"] == []
         assert len(payload["jobs"]) == 5
 
         stored_jobs = anyio.run(_get_jobs, app.state.database.engine)
@@ -107,6 +109,60 @@ def test_scrape_test_endpoint_rejects_unsupported_sources(tmp_path: Path) -> Non
         )
 
         assert scrape_response.status_code == 422
+
+
+def test_scrape_test_service_survives_partial_source_failure(tmp_path: Path, monkeypatch) -> None:
+    settings = Settings(
+        environment="test",
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'scrape-partial.db'}",
+        redis_url="redis://localhost:6393/0",
+        jwt_secret_key="test-jwt-secret-key-with-32-characters",
+        fernet_secret_key="wWKJg6WVKwwhFVWG2yt30YIOCwVDDDeWGPAHDLcGRID=",
+        encryption_pepper="pepper-for-tests",
+    )
+
+    async def healthy_reporter() -> dict[str, str]:
+        return {"status": "ok", "db": "up", "redis": "up"}
+
+    app = create_app(settings=settings, health_reporter=healthy_reporter)
+
+    async def _fail_indeed(self, query):
+        raise RuntimeError("indeed scraper unavailable")
+
+    monkeypatch.setattr(IndeedScraper, "fetch_jobs", _fail_indeed)
+
+    with TestClient(app) as client:
+        anyio.run(_create_all_tables, app.state.database.engine)
+
+        register_response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "partial-scrape@example.com",
+                "password": "SuperSecret123!",
+                "full_name": "Partial Scrape User",
+            },
+        )
+
+        assert register_response.status_code == 201
+
+        scrape_response = client.post(
+            "/api/v1/scrape/test",
+            json={
+                "target_role": "ML Engineer",
+                "location": "Remote",
+                "limit_per_source": 5,
+                "sources": ["linkedin", "indeed"],
+            },
+        )
+
+        assert scrape_response.status_code == 200
+        payload = scrape_response.json()["data"]
+        assert payload["raw_jobs_count"] == 5
+        assert payload["deduplicated_jobs_count"] == 5
+        assert payload["stored_jobs_count"] == 5
+        assert payload["failed_sources"] == ["indeed"]
+        assert payload["sources_used"] == ["linkedin", "indeed"]
+        assert len(payload["jobs"]) == 5
 
 
 async def _create_all_tables(engine) -> None:

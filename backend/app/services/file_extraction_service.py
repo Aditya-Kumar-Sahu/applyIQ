@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+import zipfile
 
 import fitz
 from docx import Document
@@ -14,6 +15,18 @@ logger = structlog.get_logger(__name__)
 
 class FileExtractionService:
     ALLOWED_EXTENSIONS = {".pdf", ".docx"}
+
+    def detect_content_format(self, content: bytes) -> str:
+        if content.startswith(b"%PDF-"):
+            return "pdf"
+
+        if zipfile.is_zipfile(BytesIO(content)):
+            with zipfile.ZipFile(BytesIO(content)) as archive:
+                names = set(archive.namelist())
+                if "[Content_Types].xml" in names and any(name.startswith("word/") for name in names):
+                    return "docx"
+
+        raise ValueError("Unsupported or unrecognized resume file content")
 
     def extract_text(self, filename: str, content: bytes) -> str:
         lower_name = filename.lower()

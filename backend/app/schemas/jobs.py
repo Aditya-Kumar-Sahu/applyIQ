@@ -51,6 +51,7 @@ class ScrapedJobPreview(BaseModel):
 
 class ScrapeTestData(BaseModel):
     sources_used: list[str]
+    failed_sources: list[str] = Field(default_factory=list)
     raw_jobs_count: int
     deduplicated_jobs_count: int
     stored_jobs_count: int

@@ -18,6 +18,22 @@ from app.schemas.resume import ParsedResumeProfile, SearchPreferencesPayload
 from app.services.embedding_service import EmbeddingService
 
 
+_REMOTE_LOCATION_KEYWORDS = {"remote", "wfh", "anywhere", "worldwide"}
+
+
+def _normalize_location(value: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", value.lower()))
+
+
+def _contains_remote_keyword(value: str) -> bool:
+    normalized_tokens = set(_normalize_location(value).split())
+    return any(keyword in normalized_tokens for keyword in _REMOTE_LOCATION_KEYWORDS)
+
+
+def _is_remote_preference(value: str) -> bool:
+    return _normalize_location(value) in _REMOTE_LOCATION_KEYWORDS
+
+
 @dataclass
 class RankedJobResult:
     job: Job
@@ -220,10 +236,11 @@ class MatchRankService:
         if preferences.remote_preference == "remote" and not job.is_remote:
             return False, "remote_required"
 
-        if preferences.preferred_locations:
-            normalized_locations = {location.lower() for location in preferences.preferred_locations}
-            if not job.is_remote and job.location.lower() not in normalized_locations:
-                return False, "location_mismatch"
+        if preferences.preferred_locations and not self._matches_preferred_location(
+            job=job,
+            preferred_locations=preferences.preferred_locations,
+        ):
+            return False, "location_mismatch"
 
         if preferences.salary_min is not None and job.salary_max is not None and job.salary_max < preferences.salary_min:
             return False, "salary_below_min"
@@ -330,15 +347,18 @@ class MatchRankService:
 
     def _location_match(self, *, job: Job, preferences: SearchPreferencesPayload) -> float:
         if preferences.remote_preference == "remote":
-            return 1.0 if job.is_remote else 0.0
+            return 1.0 if job.is_remote or _contains_remote_keyword(job.location) else 0.0
 
         if not preferences.preferred_locations:
             return 1.0
 
-        if job.is_remote and "remote" in {location.lower() for location in preferences.preferred_locations}:
+        if job.is_remote:
             return 1.0
 
-        return 1.0 if job.location.lower() in {location.lower() for location in preferences.preferred_locations} else 0.5
+        if self._matches_preferred_location(job=job, preferred_locations=preferences.preferred_locations):
+            return 1.0
+
+        return 0.5
 
     def _salary_alignment(self, *, job: Job, resume: ParsedResumeProfile, preferences: SearchPreferencesPayload) -> float:
         target_min = preferences.salary_min or resume.inferred_salary_range.min
@@ -378,6 +398,24 @@ class MatchRankService:
             job_id=result.job.id,
             created=created,
             match_score=result.item.match_score,
+        )
+
+    def _matches_preferred_location(self, *, job: Job, preferred_locations: list[str]) -> bool:
+        normalized_job_location = _normalize_location(job.location)
+        normalized_preferred_locations = {_normalize_location(location) for location in preferred_locations}
+
+        if job.is_remote:
+            return True
+
+        if normalized_job_location in normalized_preferred_locations:
+            return True
+
+        if _contains_remote_keyword(job.location) and any(_is_remote_preference(location) for location in preferred_locations):
+            return True
+
+        return any(
+            preferred in normalized_job_location or normalized_job_location in preferred
+            for preferred in normalized_preferred_locations
         )
 
     def _recommendation(self, match_score: float) -> str:

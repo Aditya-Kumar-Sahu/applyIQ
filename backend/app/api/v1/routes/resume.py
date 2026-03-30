@@ -84,6 +84,15 @@ def _should_reparse_profile(profile: ParsedResumeProfile) -> bool:
     return False
 
 
+def _declared_resume_format(filename: str) -> str | None:
+    lower_name = filename.lower()
+    if lower_name.endswith(".pdf"):
+        return "pdf"
+    if lower_name.endswith(".docx"):
+        return "docx"
+    return None
+
+
 @router.post("/upload", response_model=Envelope[ResumeUploadData], status_code=status.HTTP_201_CREATED)
 async def upload_resume(
     request: Request,
@@ -94,6 +103,9 @@ async def upload_resume(
 ) -> Envelope[ResumeUploadData]:
     if not file.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing file name")
+    declared_format = _declared_resume_format(file.filename)
+    if declared_format is None:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Unsupported resume file extension")
     if file.content_type not in _ALLOWED_UPLOAD_MIME_TYPES:
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Unsupported file content type")
 
@@ -103,6 +115,13 @@ async def upload_resume(
     settings = request.app.state.settings
     if len(content) > settings.max_resume_upload_bytes:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Resume file is too large")
+    extraction_service = FileExtractionService()
+    detected_format = extraction_service.detect_content_format(content)
+    if detected_format != declared_format:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Resume file content does not match the declared file extension",
+        )
     pipeline = _build_pipeline_service(encryption_service)
 
     try:

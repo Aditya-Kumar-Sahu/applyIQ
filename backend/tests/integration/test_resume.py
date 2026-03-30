@@ -97,6 +97,50 @@ def test_resume_upload_profile_preferences_and_completeness(tmp_path: Path) -> N
         assert len(stored_resume.resume_embedding) > 0
 
 
+def test_resume_upload_rejects_spoofed_extension(tmp_path: Path) -> None:
+    settings = Settings(
+        environment="test",
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'resume_spoof.db'}",
+        redis_url="redis://localhost:6391/0",
+        jwt_secret_key="test-jwt-secret-key-with-32-characters",
+        fernet_secret_key="wWKJg6WVKwwhFVWG2yt30YIOCwVDDDeWGPAHDLcGRID=",
+        encryption_pepper="pepper-for-tests",
+    )
+
+    async def healthy_reporter() -> dict[str, str]:
+        return {"status": "ok", "db": "up", "redis": "up"}
+
+    app = create_app(settings=settings, health_reporter=healthy_reporter)
+
+    with TestClient(app) as client:
+        anyio.run(_create_all_tables, app.state.database.engine)
+
+        register_response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "spoof-user@example.com",
+                "password": "SuperSecret123!",
+                "full_name": "Spoof User",
+            },
+        )
+
+        assert register_response.status_code == 201
+
+        spoofed_upload_response = client.post(
+            "/api/v1/resume/upload",
+            files={
+                "file": (
+                    "resume.pdf",
+                    _build_resume_docx(),
+                    "application/pdf",
+                )
+            },
+        )
+
+        assert spoofed_upload_response.status_code == 400
+        assert spoofed_upload_response.json()["error"]["message"] == "Resume file content does not match the declared file extension"
+
+
 def _build_resume_docx() -> bytes:
     document = Document()
     document.add_paragraph("Resume User")

@@ -59,14 +59,29 @@ class ScrapeService:
             selected_scrapers = [self._scrapers[source] for source in sources]
             log_debug(logger, "scrape.run_test.selected_scrapers", count=len(selected_scrapers))
 
-            scraped_batches = await asyncio.gather(*(scraper.fetch_jobs(query) for scraper in selected_scrapers))
-            batch_sizes = [len(batch) for batch in scraped_batches]
-            raw_jobs = [job for batch in scraped_batches for job in batch]
+            scraped_batches = await asyncio.gather(
+                *(scraper.fetch_jobs(query) for scraper in selected_scrapers),
+                return_exceptions=True,
+            )
+
+            raw_jobs: list[RawJob] = []
+            batch_sizes: list[int] = []
+            failed_sources: list[str] = []
+            for source, batch in zip(sources, scraped_batches, strict=False):
+                if isinstance(batch, Exception):
+                    failed_sources.append(source)
+                    log_exception(logger, "scrape.run_test.scraper_failed", batch, source=source)
+                    continue
+
+                batch_sizes.append(len(batch))
+                raw_jobs.extend(batch)
+
             log_debug(
                 logger,
                 "scrape.run_test.scraped",
                 batch_sizes=batch_sizes,
                 raw_jobs_count=len(raw_jobs),
+                failed_sources=failed_sources,
             )
 
             deduplicated_jobs = self._deduplicator.deduplicate(raw_jobs)
@@ -80,6 +95,7 @@ class ScrapeService:
 
             result = ScrapeTestData(
                 sources_used=sources,
+                failed_sources=failed_sources,
                 raw_jobs_count=len(raw_jobs),
                 deduplicated_jobs_count=len(deduplicated_jobs),
                 stored_jobs_count=stored_jobs_count,
