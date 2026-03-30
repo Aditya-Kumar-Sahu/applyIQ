@@ -31,6 +31,7 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path)
         return {"status": "ok", "db": "up", "redis": "up"}
 
     app = create_app(settings=settings, health_reporter=healthy_reporter)
+    app.state.redis = _InMemoryRedisClient()
 
     with TestClient(app) as client:
         anyio.run(_create_all_tables, app.state.database.engine)
@@ -190,3 +191,47 @@ def _build_resume_docx() -> bytes:
     buffer = BytesIO()
     document.save(buffer)
     return buffer.getvalue()
+
+
+class _InMemoryRedisClient:
+    def __init__(self) -> None:
+        self._data: dict[str, str] = {}
+        self._counters: dict[str, int] = {}
+
+    @property
+    def client(self) -> "_InMemoryRedisClient":
+        return self
+
+    async def incr(self, key: str) -> int:
+        self._counters[key] = self._counters.get(key, 0) + 1
+        return self._counters[key]
+
+    async def expire(self, key: str, window_seconds: int) -> bool:
+        return True
+
+    async def set(self, key: str, value: str, ex: int | None = None) -> bool:
+        self._data[key] = value
+        return True
+
+    async def get(self, key: str) -> str | None:
+        return self._data.get(key)
+
+    async def delete(self, *keys: str) -> int:
+        deleted = 0
+        for key in keys:
+            if key in self._data:
+                deleted += 1
+                del self._data[key]
+        return deleted
+
+    async def scan_iter(self, match: str | None = None):
+        prefix = match[:-1] if match and match.endswith("*") else match
+        for key in list(self._data.keys()):
+            if prefix is None or key.startswith(prefix):
+                yield key
+
+    async def ping(self) -> bool:
+        return True
+
+    async def close(self) -> None:
+        return None

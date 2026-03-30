@@ -6,7 +6,9 @@ from pathlib import Path
 import anyio
 from docx import Document
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import async_sessionmaker
+import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import Settings
 from app.main import create_app
@@ -62,6 +64,55 @@ def test_jobs_endpoints_rank_filter_and_search_results(tmp_path: Path) -> None:
         assert search_payload["total"] == 2
         assert search_payload["items"][0]["title"] == "Senior ML Engineer"
         assert search_payload["items"][1]["title"] == "Lead Data Engineer"
+
+
+def test_jobs_apply_url_uniqueness_is_enforced(tmp_path: Path) -> None:
+    async def run() -> None:
+        engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'jobs-unique.db'}")
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with session_factory() as session:
+            first = Job(
+                external_id="duplicate-1",
+                source="linkedin",
+                title="Platform Engineer",
+                company_name="Acme AI",
+                company_domain="acme.ai",
+                location="Remote",
+                is_remote=True,
+                salary_min=2500000,
+                salary_max=3500000,
+                description_text="First duplicate job",
+                description_embedding=EmbeddingService().embed_text("First duplicate job"),
+                apply_url="https://jobs.example.ai/platform-engineer",
+            )
+            second = Job(
+                external_id="duplicate-2",
+                source="indeed",
+                title="Platform Engineer",
+                company_name="Acme AI",
+                company_domain="acme.ai",
+                location="Remote",
+                is_remote=True,
+                salary_min=2500000,
+                salary_max=3500000,
+                description_text="Second duplicate job",
+                description_embedding=EmbeddingService().embed_text("Second duplicate job"),
+                apply_url="https://jobs.example.ai/platform-engineer",
+            )
+
+            session.add(first)
+            await session.commit()
+            session.add(second)
+
+            with pytest.raises(IntegrityError):
+                await session.commit()
+
+        await engine.dispose()
+
+    anyio.run(run)
 
 
 async def _create_all_tables(engine) -> None:

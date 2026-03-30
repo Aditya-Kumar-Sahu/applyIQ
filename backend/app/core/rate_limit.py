@@ -11,7 +11,14 @@ class RedisRateLimiter:
     def __init__(self, redis_manager: RedisManager) -> None:
         self._redis_manager = redis_manager
 
-    async def allow(self, *, key: str, limit: int, window_seconds: int) -> bool:
+    async def allow(
+        self,
+        *,
+        key: str,
+        limit: int,
+        window_seconds: int,
+        fail_open: bool = True,
+    ) -> bool:
         bucket = int(time.time() // window_seconds)
         redis_key = f"rate_limit:{key}:{bucket}"
         try:
@@ -20,5 +27,4 @@ class RedisRateLimiter:
                 await self._redis_manager.client.expire(redis_key, window_seconds)
             return current <= limit
         except RedisError:
-            # Degrade open when Redis is unavailable to avoid false negatives.
-            return True
+            return fail_open

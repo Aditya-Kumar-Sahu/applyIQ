@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from celery import Celery
+from celery.schedules import crontab
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -32,4 +33,10 @@ celery_app.conf.update(
         "app.tasks.email_monitor_task",
     ),
     beat_schedule_filename=os.getenv("CELERY_BEAT_SCHEDULE_FILENAME", "/tmp/celerybeat-schedule"),
+    beat_schedule={
+        "sweep-stale-pipeline-runs": {
+            "task": "applyiq.pipeline.sweep_stale",
+            "schedule": crontab(minute=30, hour="*/6"),
+        },
+    },
 )

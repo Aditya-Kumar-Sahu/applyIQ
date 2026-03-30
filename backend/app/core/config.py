@@ -8,11 +8,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.core.constants import API_V1_PREFIX, APP_NAME, DEFAULT_CORS_ORIGINS, DEFAULT_ENVIRONMENT, PROJECT_SLUG
 
 
-_DEFAULT_JWT_SECRET = "change-me-in-production"
-_DEFAULT_FERNET_SECRET = "wWKJg6WVKwwhFVWG2yt30YIOCwVDDDeWGPAHDLcGRID="
-_DEFAULT_ENCRYPTION_PEPPER = "applyiq-pepper"
-
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -34,7 +29,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     celery_broker_url: str = "redis://redis:6379/1"
     celery_result_backend: str = "redis://redis:6379/2"
-    jwt_secret_key: str = _DEFAULT_JWT_SECRET
+    jwt_secret_key: str | None = None
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
@@ -43,8 +38,8 @@ class Settings(BaseSettings):
     auth_register_rate_limit: int = 5
     auth_login_rate_limit: int = 10
     auth_rate_window_seconds: int = 60
-    fernet_secret_key: str = _DEFAULT_FERNET_SECRET
-    encryption_pepper: str = _DEFAULT_ENCRYPTION_PEPPER
+    fernet_secret_key: str | None = None
+    encryption_pepper: str | None = None
     secure_cookie_override: bool | None = None
     sentry_dsn_backend: str | None = None
     sentry_traces_sample_rate: float = 0.0
@@ -79,17 +74,23 @@ class Settings(BaseSettings):
         return self.pipeline_task_mode.lower() == "inline"
 
     def validate_security_contract(self) -> None:
-        if self.is_non_production:
-            return
+        missing_secrets = [
+            name
+            for name, value in (
+                ("JWT_SECRET_KEY", self.jwt_secret_key),
+                ("FERNET_SECRET_KEY", self.fernet_secret_key),
+                ("ENCRYPTION_PEPPER", self.encryption_pepper),
+            )
+            if value is None or not str(value).strip()
+        ]
+        if missing_secrets:
+            raise RuntimeError(
+                "Missing required secrets: " + ", ".join(missing_secrets) + ". "
+                "Populate them in the environment before starting ApplyIQ."
+            )
 
-        if self.jwt_secret_key == _DEFAULT_JWT_SECRET:
-            raise ValueError("JWT_SECRET_KEY must be overridden outside non-production environments")
-        if self.fernet_secret_key == _DEFAULT_FERNET_SECRET:
-            raise ValueError("FERNET_SECRET_KEY must be overridden outside non-production environments")
-        if self.encryption_pepper in {_DEFAULT_ENCRYPTION_PEPPER, "change-me-in-production"}:
-            raise ValueError("ENCRYPTION_PEPPER must be overridden outside non-production environments")
-        if not self.secure_cookies:
-            raise ValueError("Secure cookies must be enabled outside non-production environments")
+        if not self.is_non_production and not self.secure_cookies:
+            raise RuntimeError("Secure cookies must be enabled outside non-production environments")
 
 
 @lru_cache(maxsize=1)

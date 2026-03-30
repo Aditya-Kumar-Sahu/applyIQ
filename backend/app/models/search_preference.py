@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from sqlalchemy import Boolean, ForeignKey, Integer, JSON, String
+from sqlalchemy import Boolean, ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -10,9 +10,10 @@ from app.models.base import Base
 
 class SearchPreference(Base):
     __tablename__ = "search_preferences"
+    __table_args__ = (UniqueConstraint("user_id", name="uq_search_preferences_user_id"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
     target_roles: Mapped[list[str]] = mapped_column(JSON, default=list)
     preferred_locations: Mapped[list[str]] = mapped_column(JSON, default=list)
     remote_preference: Mapped[str] = mapped_column(String(20), default="any")

@@ -78,6 +78,7 @@ async def start_pipeline(
         key=f"pipeline_start:{current_user.id}",
         limit=settings.pipeline_start_rate_limit,
         window_seconds=settings.pipeline_start_rate_window_seconds,
+        fail_open=False,
     )
     if not is_allowed:
         raise HTTPException(

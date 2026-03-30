@@ -217,7 +217,7 @@ class PipelineCheckpointer(BaseCheckpointSaver[str]):
 
     async def adelete_thread(self, thread_id: str) -> None:
         try:
-            await self._redis_manager.client.delete(self._checkpoint_key(thread_id))
+            await self._redis_manager.client.delete(self._snapshot_key(thread_id), self._checkpoint_key(thread_id))
         except RedisError as error:
             logger.warning("pipeline.checkpoint.redis_delete_thread_failed", thread_id=thread_id, error=str(error))
 

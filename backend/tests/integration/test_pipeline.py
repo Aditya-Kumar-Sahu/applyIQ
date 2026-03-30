@@ -28,6 +28,7 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         return {"status": "ok", "db": "up", "redis": "up"}
 
     app = create_app(settings=settings, health_reporter=healthy_reporter)
+    app.state.redis = _InMemoryRedisClient()
 
     with TestClient(app) as client:
         anyio.run(_create_all_tables, app.state.database.engine)
@@ -157,6 +158,55 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         assert agent_run_count >= 5
 
 
+def test_delete_account_purges_pipeline_redis_state(tmp_path: Path) -> None:
+    settings = Settings(
+        environment="test",
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'pipeline-delete.db'}",
+        redis_url="redis://localhost:6395/0",
+        jwt_secret_key="test-jwt-secret-key-with-32-characters",
+        fernet_secret_key="wWKJg6WVKwwhFVWG2yt30YIOCwVDDDeWGPAHDLcGRID=",
+        encryption_pepper="pepper-for-tests",
+    )
+
+    async def healthy_reporter() -> dict[str, str]:
+        return {"status": "ok", "db": "up", "redis": "up"}
+
+    app = create_app(settings=settings, health_reporter=healthy_reporter)
+    app.state.redis = _InMemoryRedisClient()
+
+    with TestClient(app) as client:
+        anyio.run(_create_all_tables, app.state.database.engine)
+        _register_and_prepare_resume(client)
+
+        start_response = client.post(
+            "/api/v1/pipeline/start",
+            json={
+                "target_role": "ML Engineer",
+                "location": "Remote",
+                "limit_per_source": 10,
+                "sources": ["indeed"],
+            },
+        )
+
+        assert start_response.status_code == 202
+        run_id = start_response.json()["data"]["run_id"]
+
+        snapshot_key = f"pipeline_run_state:{run_id}"
+        checkpoint_key = f"pipeline_run_checkpoint:{run_id}"
+        assert anyio.run(_redis_key_exists, app.state.redis, snapshot_key) is True
+        assert anyio.run(_redis_key_exists, app.state.redis, checkpoint_key) is True
+
+        delete_response = client.request(
+            "DELETE",
+            "/api/v1/auth/account",
+            json={"password_confirmation": "SuperSecret123!"},
+        )
+
+        assert delete_response.status_code == 200
+        assert anyio.run(_redis_key_exists, app.state.redis, snapshot_key) is False
+        assert anyio.run(_redis_key_exists, app.state.redis, checkpoint_key) is False
+
+
 async def _create_all_tables(engine) -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
@@ -170,6 +220,54 @@ async def _count_agent_runs(engine) -> int:
     async with session_factory() as session:
         result = await session.scalar(select(func.count()).select_from(AgentRun))
         return int(result or 0)
+
+
+async def _redis_key_exists(redis_client, key: str) -> bool:
+    return (await redis_client.get(key)) is not None
+
+
+class _InMemoryRedisClient:
+    def __init__(self) -> None:
+        self._data: dict[str, str] = {}
+        self._counters: dict[str, int] = {}
+
+    @property
+    def client(self) -> "_InMemoryRedisClient":
+        return self
+
+    async def incr(self, key: str) -> int:
+        self._counters[key] = self._counters.get(key, 0) + 1
+        return self._counters[key]
+
+    async def expire(self, key: str, window_seconds: int) -> bool:
+        return True
+
+    async def set(self, key: str, value: str, ex: int | None = None) -> bool:
+        self._data[key] = value
+        return True
+
+    async def get(self, key: str) -> str | None:
+        return self._data.get(key)
+
+    async def delete(self, *keys: str) -> int:
+        deleted = 0
+        for key in keys:
+            if key in self._data:
+                deleted += 1
+                del self._data[key]
+        return deleted
+
+    async def scan_iter(self, match: str | None = None):
+        prefix = match[:-1] if match and match.endswith("*") else match
+        for key in list(self._data.keys()):
+            if prefix is None or key.startswith(prefix):
+                yield key
+
+    async def ping(self) -> bool:
+        return True
+
+    async def close(self) -> None:
+        return None
 
 
 def _register_and_prepare_resume(client: TestClient) -> None:

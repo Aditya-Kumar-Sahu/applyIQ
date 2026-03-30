@@ -10,6 +10,7 @@ from app.api.v1.deps import get_current_user, get_db_session
 from app.core.rate_limit import RedisRateLimiter
 from app.core.security import create_token, decode_token, get_password_hash, hash_token, verify_password
 from app.models.refresh_token_session import RefreshTokenSession
+from app.models.pipeline_run import PipelineRun
 from app.models.user import User
 from app.schemas.auth import (
     AuthSessionData,
@@ -368,12 +369,14 @@ async def delete_account(
     if not verify_password(payload.password_confirmation, current_user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    # Purge pipeline checkpoint state in Redis
-    from app.models.pipeline_run import PipelineRun
-    pipeline_runs = await session.scalars(select(PipelineRun).where(PipelineRun.user_id == current_user.id))
+    pipeline_runs = list(await session.scalars(select(PipelineRun).where(PipelineRun.user_id == current_user.id)))
     redis_client = request.app.state.redis.client
+    checkpoint_keys: list[str] = []
     for run in pipeline_runs:
-        await redis_client.delete(f"pipeline_run:{run.id}")
+        checkpoint_keys.append(f"pipeline_run_state:{run.id}")
+        checkpoint_keys.append(f"pipeline_run_checkpoint:{run.id}")
+    if checkpoint_keys:
+        await redis_client.delete(*checkpoint_keys)
 
     await session.delete(current_user)
     await session.commit()

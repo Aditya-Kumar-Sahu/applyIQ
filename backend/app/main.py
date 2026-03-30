@@ -135,7 +135,6 @@ def create_app(
     health_reporter: HealthReporter | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
-    resolved_settings.validate_security_contract()
     configure_logging(
         log_level=resolved_settings.log_level,
         log_to_file=resolved_settings.log_to_file,
@@ -151,6 +150,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        resolved_settings.validate_security_contract()
         logger.info("app.startup", environment=resolved_settings.environment)
         yield
         await app.state.database.dispose()
