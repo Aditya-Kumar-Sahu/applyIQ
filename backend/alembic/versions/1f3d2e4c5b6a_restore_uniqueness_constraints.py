@@ -22,7 +22,7 @@ _UNIQUE_CONSTRAINTS: tuple[tuple[str, str, tuple[str, ...], str], ...] = (
     ("jobs", "uq_jobs_apply_url", ("apply_url",), "scraped_at"),
     ("refresh_token_sessions", "uq_refresh_token_sessions_token_hash", ("token_hash",), "issued_at"),
     ("resume_profiles", "uq_resume_profiles_user_id", ("user_id",), "updated_at"),
-    ("search_preferences", "uq_search_preferences_user_id", ("user_id",), "updated_at"),
+    ("search_preferences", "uq_search_preferences_user_id", ("user_id",), "id"),
 )
 
 
@@ -31,12 +31,15 @@ def upgrade() -> None:
     for table_name, constraint_name, column_names, order_column in _UNIQUE_CONSTRAINTS:
         _dedupe_rows(table_name, column_names, order_column)
         _ensure_unique_constraint(bind, table_name, constraint_name, column_names)
+    _ensure_application_demo_flag(bind)
 
 
 def downgrade() -> None:
     bind = op.get_bind()
     for table_name, constraint_name, column_names, _ in _UNIQUE_CONSTRAINTS:
         _drop_unique_constraint(bind, table_name, constraint_name, column_names)
+    if _column_exists(bind, "applications", "is_demo"):
+        op.drop_column("applications", "is_demo")
 
 
 def _dedupe_rows(table_name: str, column_names: tuple[str, ...], order_column: str) -> None:
@@ -124,3 +127,18 @@ def _find_unique_constraint(
         if list(constraint.get("column_names", [])) == target_columns:
             return constraint
     return None
+
+
+def _ensure_application_demo_flag(bind) -> None:
+    if _column_exists(bind, "applications", "is_demo"):
+        return
+
+    op.add_column(
+        "applications",
+        sa.Column("is_demo", sa.Boolean(), nullable=False, server_default=sa.false()),
+    )
+
+
+def _column_exists(bind, table_name: str, column_name: str) -> bool:
+    inspector = inspect(bind)
+    return column_name in {column["name"] for column in inspector.get_columns(table_name)}

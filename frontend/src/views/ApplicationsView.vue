@@ -35,7 +35,10 @@
             <h3>{{ application.title }}</h3>
             <p class="job-meta">{{ application.company_name }}</p>
           </div>
-          <span class="status-pill">{{ application.status.replaceAll("_", " ") }}</span>
+          <div class="status-stack">
+            <span class="status-pill">{{ application.status.replaceAll("_", " ") }}</span>
+            <span v-if="isDemoApplication(application)" class="status-pill demo-pill">Demo application</span>
+          </div>
         </div>
         <p class="job-meta">Match score: {{ percent(application.match_score) }}</p>
         <p v-if="application.latest_email_classification" class="job-meta">
@@ -50,10 +53,36 @@
         <h3>{{ selectedApplication.title }}</h3>
         <p class="job-meta">{{ selectedApplication.company_name }}</p>
         <p class="job-meta">ATS: {{ selectedApplication.ats_provider ?? "n/a" }}</p>
+        <p v-if="isDemoApplication(selectedApplication)" class="job-meta">
+          Demo application: no real submission occurred.
+        </p>
 
         <div class="detail-block">
           <p class="eyebrow muted">Cover Letter</p>
           <p class="lede compact">{{ selectedApplication.cover_letter_text }}</p>
+        </div>
+
+        <div class="detail-block">
+          <p class="eyebrow muted">Update Status</p>
+          <div class="status-update-row">
+            <select v-model="selectedStatus" :disabled="availableStatusOptions.length === 0 || statusUpdating">
+              <option :value="selectedApplication.status">
+                Current: {{ selectedApplication.status.replaceAll("_", " ") }}
+              </option>
+              <option v-for="option in availableStatusOptions" :key="option" :value="option">
+                {{ option.replaceAll("_", " ") }}
+              </option>
+            </select>
+            <button
+              class="button-link secondary-button"
+              type="button"
+              :disabled="statusUpdating || selectedStatus === selectedApplication.status || availableStatusOptions.length === 0"
+              @click="applyStatusUpdate"
+            >
+              {{ statusUpdating ? "Updating..." : "Update" }}
+            </button>
+          </div>
+          <p v-if="statusMessage" class="job-meta">{{ statusMessage }}</p>
         </div>
 
         <div class="detail-block" v-if="selectedApplication.email_monitor">
@@ -120,12 +149,13 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import type {
   ApplicationDetail,
   ApplicationListItem,
   ApplicationsStats,
+  ApplicationStatus,
   NotificationItem,
 } from "../services/applications";
 import {
@@ -133,7 +163,9 @@ import {
   getApplications,
   getApplicationsStats,
   getNotifications,
+  isDemoApplication,
   subscribeNotifications,
+  updateApplicationStatus,
 } from "../services/applications";
 
 const applications = ref<ApplicationListItem[]>([]);
@@ -141,7 +173,19 @@ const selectedApplication = ref<ApplicationDetail | null>(null);
 const notifications = ref<NotificationItem[]>([]);
 const stats = ref<ApplicationsStats | null>(null);
 const error = ref<string | null>(null);
+const statusMessage = ref<string | null>(null);
+const statusUpdating = ref(false);
+const selectedStatus = ref<string>("");
 let stopNotificationsStream: (() => void) | null = null;
+
+const forwardTransitions: Record<string, ApplicationStatus[]> = {
+  pending_approval: ["rejected", "withdrawn"],
+  approved: ["rejected", "withdrawn"],
+  applied: ["interview_requested", "rejected", "offer", "withdrawn"],
+  manual_required: ["interview_requested", "rejected", "offer", "withdrawn"],
+  interview_requested: ["offer", "rejected", "withdrawn"],
+  failed: ["rejected", "withdrawn"],
+};
 
 onMounted(async () => {
   await loadApplications();
@@ -162,6 +206,22 @@ onBeforeUnmount(() => {
   stopNotificationsStream?.();
   stopNotificationsStream = null;
 });
+
+const availableStatusOptions = computed(() => {
+  if (!selectedApplication.value) {
+    return [];
+  }
+  return forwardTransitions[selectedApplication.value.status] ?? [];
+});
+
+watch(
+  selectedApplication,
+  (application) => {
+    selectedStatus.value = application?.status ?? "";
+    statusMessage.value = null;
+  },
+  { immediate: true },
+);
 
 async function loadApplications() {
   try {
@@ -198,6 +258,41 @@ async function selectApplication(applicationId: string) {
     selectedApplication.value = await getApplicationDetail(applicationId);
   } catch (loadError) {
     error.value = loadError instanceof Error ? loadError.message : "Unable to load application detail";
+  }
+}
+
+async function applyStatusUpdate() {
+  if (!selectedApplication.value) {
+    return;
+  }
+  if (selectedStatus.value === selectedApplication.value.status) {
+    return;
+  }
+
+  statusUpdating.value = true;
+  statusMessage.value = null;
+  error.value = null;
+
+  try {
+    await updateApplicationStatus(
+      selectedApplication.value.id,
+      selectedStatus.value as ApplicationStatus,
+    );
+    selectedApplication.value.status = selectedStatus.value;
+    const index = applications.value.findIndex((item) => item.id === selectedApplication.value?.id);
+    if (index >= 0) {
+      applications.value[index] = {
+        ...applications.value[index],
+        status: selectedStatus.value,
+      };
+    }
+    await loadStats();
+    statusMessage.value = "Status updated.";
+  } catch (updateError) {
+    error.value = updateError instanceof Error ? updateError.message : "Unable to update status";
+    selectedStatus.value = selectedApplication.value.status;
+  } finally {
+    statusUpdating.value = false;
   }
 }
 

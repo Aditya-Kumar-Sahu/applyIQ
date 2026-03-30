@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import importlib
-from pathlib import Path
 import os
 import re
-from typing import Any
 
 import structlog
 
+from app.agents.auto_apply.ats.base import BrowserApplyResult
+from app.agents.auto_apply.tools import PlaywrightApplyTool, PlaywrightUnavailableError
 from app.core.logging_safety import log_debug
-
 from app.models.application import Application
 from app.models.job import Job
 
@@ -27,6 +25,7 @@ class AutoApplyResult:
     screenshot_urls: list[str]
     failure_reason: str | None
     manual_required_reason: str | None
+    is_demo: bool
 
 
 class AutoApplyService:
@@ -39,8 +38,15 @@ class AutoApplyService:
         "a:has-text('Apply now')",
     ]
 
-    def __init__(self, *, browser_mode_env: str = "AUTO_APPLY_USE_BROWSER", artifact_root_env: str = "AUTO_APPLY_ARTIFACT_ROOT") -> None:
+    def __init__(
+        self,
+        *,
+        browser_mode_env: str = "AUTO_APPLY_USE_BROWSER",
+        demo_mode_env: str = "AUTO_APPLY_DEMO_MODE",
+        artifact_root_env: str = "AUTO_APPLY_ARTIFACT_ROOT",
+    ) -> None:
         self._browser_mode_env = browser_mode_env
+        self._demo_mode_env = demo_mode_env
         self._artifact_root_env = artifact_root_env
 
     def detect_ats(self, job: Job) -> str:
@@ -73,6 +79,7 @@ class AutoApplyService:
         screenshot_urls = self._artifact_paths(application.id, ats_provider)
         apply_url = job.apply_url.lower()
         browser_mode_enabled = self._is_browser_mode_enabled()
+        demo_mode_enabled = self._is_demo_mode_enabled()
         log_debug(
             logger,
             "auto_apply.apply.start",
@@ -81,6 +88,7 @@ class AutoApplyService:
             ats_provider=ats_provider,
             has_credentials=has_credentials,
             browser_mode_enabled=browser_mode_enabled,
+            demo_mode_enabled=demo_mode_enabled,
         )
 
         if "captcha" in apply_url or ats_provider in {"taleo"}:
@@ -98,6 +106,7 @@ class AutoApplyService:
                 screenshot_urls=screenshot_urls,
                 failure_reason=None,
                 manual_required_reason="CAPTCHA or unsupported ATS detected. Complete this application manually.",
+                is_demo=False,
             )
 
         if ats_provider in {"linkedin_easy_apply", "workday"} and not has_credentials:
@@ -115,6 +124,7 @@ class AutoApplyService:
                 screenshot_urls=screenshot_urls,
                 failure_reason=None,
                 manual_required_reason="Stored credentials are required before this site can be auto-applied safely.",
+                is_demo=False,
             )
 
         if browser_mode_enabled:
@@ -127,21 +137,37 @@ class AutoApplyService:
             if browser_result is not None:
                 return browser_result
 
-        confirmation_number = f"APPLY-{application.id.split('-')[0].upper()}"
-        log_debug(
-            logger,
-            "auto_apply.apply.success",
+        if not demo_mode_enabled:
+            return AutoApplyResult(
+                status="manual_required",
+                ats_provider=ats_provider,
+                confirmation_url=None,
+                confirmation_number=None,
+                screenshot_urls=screenshot_urls,
+                failure_reason=None,
+                manual_required_reason=(
+                    "Live browser automation is disabled and demo mode is off. "
+                    "No simulated application was submitted."
+                ),
+                is_demo=False,
+            )
+
+        logger.warning(
+            "AUTO_APPLY_DEMO_MODE",
             application_id=application.id,
-            ats_provider=ats_provider,
+            job_id=job.id,
+            message="AUTO_APPLY_DEMO_MODE: returning simulated result - no real application was submitted",
         )
+        confirmation_number = f"DEMO-{application.id.split('-')[0].upper()}"
         return AutoApplyResult(
             status="success",
             ats_provider=ats_provider,
-            confirmation_url=f"{job.apply_url.rstrip('/')}/confirmation",
+            confirmation_url=f"{job.apply_url.rstrip('/')}/demo-confirmation",
             confirmation_number=confirmation_number,
             screenshot_urls=screenshot_urls,
             failure_reason=None,
             manual_required_reason=None,
+            is_demo=True,
         )
 
     def _run_browser_apply(
@@ -153,10 +179,15 @@ class AutoApplyService:
         screenshot_urls: list[str],
     ) -> AutoApplyResult | None:
         try:
-            playwright_sync_api = importlib.import_module("playwright.sync_api")
-            PlaywrightTimeoutError = getattr(playwright_sync_api, "TimeoutError")
-            sync_playwright = getattr(playwright_sync_api, "sync_playwright")
-        except Exception:
+            browser_tool = self._build_browser_tool()
+            browser_result = browser_tool.run(
+                application_id=application.id,
+                job_url=job.apply_url,
+                ats_provider=ats_provider,
+                screenshot_urls=screenshot_urls,
+            )
+            return self._map_browser_result(browser_result=browser_result, ats_provider=ats_provider, screenshot_urls=screenshot_urls)
+        except PlaywrightUnavailableError:
             log_debug(
                 logger,
                 "auto_apply.browser.unavailable",
@@ -171,66 +202,15 @@ class AutoApplyService:
                 screenshot_urls=screenshot_urls,
                 failure_reason=None,
                 manual_required_reason="Browser automation is enabled but Playwright is not installed in this runtime.",
-            )
-
-        try:
-            with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=True)
-                page = browser.new_page()
-                page.goto(job.apply_url, wait_until="domcontentloaded", timeout=45000)
-                self._capture_screenshot(page, screenshot_urls[0])
-
-                page_text = page.content().lower()
-                if "captcha" in page_text or "recaptcha" in page_text:
-                    self._capture_screenshot(page, screenshot_urls[1])
-                    browser.close()
-                    return AutoApplyResult(
-                        status="manual_required",
-                        ats_provider=ats_provider,
-                        confirmation_url=None,
-                        confirmation_number=None,
-                        screenshot_urls=screenshot_urls,
-                        failure_reason=None,
-                        manual_required_reason="CAPTCHA detected during browser automation. Manual completion is required.",
-                    )
-
-                clicked = False
-                for selector in self._CLICK_SELECTORS:
-                    locator = page.locator(selector)
-                    if locator.count() == 0:
-                        continue
-                    locator.first.click(timeout=2500)
-                    clicked = True
-                    break
-
-                if clicked:
-                    page.wait_for_timeout(1200)
-                self._capture_screenshot(page, screenshot_urls[1])
-                browser.close()
-
-                confirmation_number = f"APPLY-{application.id.split('-')[0].upper()}"
-                return AutoApplyResult(
-                    status="success" if clicked else "manual_required",
-                    ats_provider=ats_provider,
-                    confirmation_url=page.url if clicked else None,
-                    confirmation_number=confirmation_number if clicked else None,
-                    screenshot_urls=screenshot_urls,
-                    failure_reason=None,
-                    manual_required_reason=None
-                    if clicked
-                    else "No supported apply control was found during browser automation. Complete this application manually.",
-                )
-        except PlaywrightTimeoutError:
-            return AutoApplyResult(
-                status="manual_required",
-                ats_provider=ats_provider,
-                confirmation_url=None,
-                confirmation_number=None,
-                screenshot_urls=screenshot_urls,
-                failure_reason=None,
-                manual_required_reason="Timed out while loading the application form. Complete this application manually.",
+                is_demo=False,
             )
         except Exception as error:
+            log_debug(
+                logger,
+                "auto_apply.browser.failed",
+                application_id=application.id,
+                error=str(error),
+            )
             return AutoApplyResult(
                 status="failed",
                 ats_provider=ats_provider,
@@ -239,25 +219,52 @@ class AutoApplyService:
                 screenshot_urls=screenshot_urls,
                 failure_reason=f"Browser auto-apply failed: {error}",
                 manual_required_reason=None,
+                is_demo=False,
             )
 
-    def _capture_screenshot(self, page: Any, screenshot_url: str) -> None:
-        try:
-            destination = self._artifact_file_path(screenshot_url)
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            page.screenshot(path=str(destination), full_page=True)
-            log_debug(logger, "auto_apply.browser.screenshot_saved", destination=str(destination))
-        except Exception as error:
-            log_debug(logger, "auto_apply.browser.screenshot_failed", error=str(error))
+    def _build_browser_tool(self) -> PlaywrightApplyTool:
+        return PlaywrightApplyTool(artifact_root_env=self._artifact_root_env)
 
-    def _artifact_file_path(self, screenshot_url: str) -> Path:
-        relative_path = screenshot_url.lstrip("/")
-        artifact_root = os.getenv(self._artifact_root_env, ".")
-        return Path(artifact_root) / relative_path
-
-    def _is_browser_mode_enabled(self) -> bool:
-        value = os.getenv(self._browser_mode_env, "false")
-        return value.strip().lower() in {"1", "true", "yes", "on"}
+    def _map_browser_result(
+        self,
+        *,
+        browser_result: BrowserApplyResult,
+        ats_provider: str,
+        screenshot_urls: list[str],
+    ) -> AutoApplyResult:
+        status = browser_result.status
+        if status == "success":
+            return AutoApplyResult(
+                status="success",
+                ats_provider=ats_provider,
+                confirmation_url=browser_result.confirmation_url,
+                confirmation_number=browser_result.confirmation_number,
+                screenshot_urls=screenshot_urls,
+                failure_reason=None,
+                manual_required_reason=None,
+                is_demo=False,
+            )
+        if status == "manual_required":
+            return AutoApplyResult(
+                status="manual_required",
+                ats_provider=ats_provider,
+                confirmation_url=None,
+                confirmation_number=None,
+                screenshot_urls=screenshot_urls,
+                failure_reason=browser_result.failure_reason,
+                manual_required_reason=browser_result.manual_required_reason,
+                is_demo=False,
+            )
+        return AutoApplyResult(
+            status="failed",
+            ats_provider=ats_provider,
+            confirmation_url=None,
+            confirmation_number=None,
+            screenshot_urls=screenshot_urls,
+            failure_reason=browser_result.failure_reason or "Browser auto-apply failed",
+            manual_required_reason=browser_result.manual_required_reason,
+            is_demo=False,
+        )
 
     def _artifact_paths(self, application_id: str, ats_provider: str) -> list[str]:
         safe_provider = re.sub(r"[^a-z0-9_-]", "-", ats_provider.lower())
@@ -273,3 +280,11 @@ class AutoApplyService:
             paths_count=len(paths),
         )
         return paths
+
+    def _is_browser_mode_enabled(self) -> bool:
+        value = os.getenv("PLAYWRIGHT_ENABLED", os.getenv(self._browser_mode_env, "false"))
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+
+    def _is_demo_mode_enabled(self) -> bool:
+        value = os.getenv(self._demo_mode_env, "true")
+        return value.strip().lower() in {"1", "true", "yes", "on"}

@@ -1,6 +1,7 @@
 import { createStore } from "vuex";
 
 import { ApiError } from "../services/api";
+import type { ApplicationsStats } from "../services/applications";
 import type { JobDetail, RankedJob } from "../services/jobs";
 import type {
   PipelineResults,
@@ -98,6 +99,7 @@ export type RootState = {
   jobsError: string | null;
   pipelineRun: PipelineRunSummary | null;
   pipelineResults: PipelineResults | null;
+  applicationsStats: ApplicationsStats | null;
   pipelineStatus: "idle" | "loading" | "ready";
   pipelineError: string | null;
 };
@@ -106,13 +108,15 @@ function buildStats(state: RootState): DashboardStat[] {
   const pendingApprovalCount =
     state.pipelineResults?.applications.filter((application) => application.status === "pending_approval").length ?? 0;
   const appliedCount =
-    state.pipelineResults?.applications.filter((application) => application.status === "approved").length ?? 0;
+    state.pipelineResults?.applications.filter((application) => application.status === "applied").length ?? 0;
+  const repliedCount = state.applicationsStats?.total_replied ?? 0;
+  const responseRate = state.applicationsStats?.response_rate ?? 0;
 
   return [
     { label: "Jobs Found", value: String(state.pipelineRun?.jobs_found ?? state.pipelineResults?.jobs_found ?? 0) },
     { label: "Pending Approval", value: String(pendingApprovalCount) },
     { label: "Applied", value: String(appliedCount) },
-    { label: "Replies", value: "0" },
+    { label: "Replies", value: `${repliedCount} (${Math.round(responseRate * 100)}%)` },
   ];
 }
 
@@ -139,6 +143,7 @@ export const store = createStore<RootState>({
     jobsError: null,
     pipelineRun: null,
     pipelineResults: null,
+    applicationsStats: null,
     pipelineStatus: "idle",
     pipelineError: null,
   },
@@ -160,6 +165,7 @@ export const store = createStore<RootState>({
     jobsError: (state: RootState) => state.jobsError,
     pipelineRun: (state: RootState) => state.pipelineRun,
     pipelineResults: (state: RootState) => state.pipelineResults,
+    applicationsStats: (state: RootState) => state.applicationsStats,
     pipelineStatus: (state: RootState) => state.pipelineStatus,
     pipelineError: (state: RootState) => state.pipelineError,
   },
@@ -237,13 +243,14 @@ export const store = createStore<RootState>({
       state.jobsError = null;
       state.pipelineRun = null;
       state.pipelineResults = null;
+      state.applicationsStats = null;
       state.pipelineStatus = "idle";
       state.pipelineError = null;
       state.stats = [
         { label: "Jobs Found", value: "0" },
         { label: "Pending Approval", value: "0" },
         { label: "Applied", value: "0" },
-        { label: "Replies", value: "0" },
+        { label: "Replies", value: "0 (0%)" },
       ];
     },
     setPipelineLoading(state: RootState) {
@@ -260,6 +267,10 @@ export const store = createStore<RootState>({
       state.pipelineResults = pipelineResults;
       state.pipelineStatus = "ready";
       state.pipelineError = null;
+      state.stats = buildStats(state);
+    },
+    setApplicationsStats(state: RootState, applicationsStats: ApplicationsStats | null) {
+      state.applicationsStats = applicationsStats;
       state.stats = buildStats(state);
     },
     setPipelineError(state: RootState, message: string) {
@@ -435,7 +446,14 @@ export const store = createStore<RootState>({
 
       try {
         const { getPipelineResults } = await import("../services/pipeline");
+        const { getApplicationsStats } = await import("../services/applications");
         const pipelineResults = await getPipelineResults(resolvedRunId);
+        let applicationsStats: ApplicationsStats | null = null;
+        try {
+          applicationsStats = await getApplicationsStats();
+        } catch {
+          applicationsStats = null;
+        }
 
         commit("setPipelineRun", {
           run_id: pipelineResults.run_id,
@@ -449,6 +467,7 @@ export const store = createStore<RootState>({
           ).length,
         });
         commit("setPipelineResults", pipelineResults);
+        commit("setApplicationsStats", applicationsStats);
       } catch (error) {
         commit("setPipelineError", error instanceof Error ? error.message : "Unable to load pipeline");
       }

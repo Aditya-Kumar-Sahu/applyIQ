@@ -70,6 +70,7 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path)
         assert len(applications_payload) >= 1
         tracked_application = next(item for item in applications_payload if item["id"] == application_id)
         assert tracked_application["status"] == "interview_requested"
+        assert tracked_application["is_demo"] is True
         assert tracked_application["latest_email_classification"] == "interview_request"
 
         detail_response = client.get(f"/api/v1/applications/{application_id}")
@@ -77,6 +78,7 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path)
         assert detail_response.status_code == 200
         detail_payload = detail_response.json()["data"]
         assert detail_payload["status"] == "interview_requested"
+        assert detail_payload["is_demo"] is True
         assert detail_payload["email_monitor"] is not None
         assert detail_payload["email_monitor"]["latest_classification"] == "interview_request"
         assert "interview" in detail_payload["email_monitor"]["snippet"].lower()
@@ -99,6 +101,52 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path)
         assert stats_payload["avg_hours_to_first_reply"] >= 0
         assert any(item["source"] == "indeed" for item in stats_payload["source_breakdown"])
         assert any(item["title"] == tracked_application["title"] for item in stats_payload["top_titles"])
+
+
+def test_application_status_patch_is_forward_only(tmp_path: Path) -> None:
+    settings = Settings(
+        environment="test",
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'application-status.db'}",
+        redis_url="redis://localhost:6397/0",
+        jwt_secret_key="test-jwt-secret-key-with-32-characters",
+        fernet_secret_key="wWKJg6WVKwwhFVWG2yt30YIOCwVDDDeWGPAHDLcGRID=",
+        encryption_pepper="pepper-for-tests",
+    )
+
+    async def healthy_reporter() -> dict[str, str]:
+        return {"status": "ok", "db": "up", "redis": "up"}
+
+    app = create_app(settings=settings, health_reporter=healthy_reporter)
+    app.state.redis = _InMemoryRedisClient()
+
+    with TestClient(app) as client:
+        anyio.run(_create_all_tables, app.state.database.engine)
+        _register_and_prepare_resume(client)
+        application_id = _create_applied_application(client)
+
+        interview_response = client.patch(
+            f"/api/v1/applications/{application_id}/status",
+            json={"status": "interview_requested"},
+        )
+        assert interview_response.status_code == 200
+        assert interview_response.json()["data"]["status"] == "interview_requested"
+
+        offer_response = client.patch(
+            f"/api/v1/applications/{application_id}/status",
+            json={"status": "offer"},
+        )
+        assert offer_response.status_code == 200
+        assert offer_response.json()["data"]["status"] == "offer"
+
+        backward_response = client.patch(
+            f"/api/v1/applications/{application_id}/status",
+            json={"status": "interview_requested"},
+        )
+        assert backward_response.status_code == 409
+
+        detail_response = client.get(f"/api/v1/applications/{application_id}")
+        assert detail_response.status_code == 200
+        assert detail_response.json()["data"]["status"] == "offer"
 
 
 async def _create_all_tables(engine) -> None:

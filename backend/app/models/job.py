@@ -26,7 +26,7 @@ class Job(Base):
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     description_text: Mapped[str] = mapped_column(Text)
     description_embedding: Mapped[list[float]] = mapped_column(JSON, default=list)
-    apply_url: Mapped[str] = mapped_column(String(500), index=True)
+    apply_url: Mapped[str] = mapped_column(String(500))
     posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     scraped_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

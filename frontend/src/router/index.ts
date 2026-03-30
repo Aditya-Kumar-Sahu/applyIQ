@@ -8,6 +8,7 @@ import LoginView from "../views/LoginView.vue";
 import PipelineView from "../views/PipelineView.vue";
 import RegisterView from "../views/RegisterView.vue";
 import ResumeView from "../views/ResumeView.vue";
+import SettingsView from "../views/SettingsView.vue";
 import VaultView from "../views/VaultView.vue";
 import { store } from "../store";
 
@@ -53,6 +54,12 @@ export const router = createRouter({
       path: "/vault",
       name: "vault",
       component: VaultView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: "/settings",
+      name: "settings",
+      component: SettingsView,
       meta: { requiresAuth: true },
     },
     {

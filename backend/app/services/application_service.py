@@ -15,6 +15,8 @@ from app.models.user import User
 from app.schemas.applications import (
     ApplicationDetailData,
     ApplicationListItem,
+    ApplicationStatusUpdateData,
+    ApplicationStatusUpdatePayload,
     ApplicationsListData,
     ApplicationsStatsData,
     EmailMonitorData,
@@ -24,6 +26,18 @@ from app.schemas.applications import (
 
 
 logger = structlog.get_logger(__name__)
+
+_FORWARD_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    "pending_approval": {"rejected", "withdrawn"},
+    "approved": {"rejected", "withdrawn"},
+    "applied": {"interview_requested", "rejected", "offer", "withdrawn"},
+    "manual_required": {"interview_requested", "rejected", "offer", "withdrawn"},
+    "interview_requested": {"offer", "rejected", "withdrawn"},
+    "failed": {"rejected", "withdrawn"},
+    "rejected": set(),
+    "withdrawn": set(),
+    "offer": set(),
+}
 
 
 class ApplicationService:
@@ -49,6 +63,7 @@ class ApplicationService:
                         status=application.status,
                         match_score=application.match_score,
                         applied_at=application.applied_at,
+                        is_demo=application.is_demo,
                         latest_email_classification=monitor.latest_classification if monitor else None,
                     )
                 )
@@ -87,6 +102,8 @@ class ApplicationService:
                 cover_letter_text=application.cover_letter_text,
                 ats_provider=application.ats_provider,
                 confirmation_url=application.confirmation_url,
+                confirmation_number=application.confirmation_number,
+                is_demo=application.is_demo,
                 screenshot_urls=application.screenshot_urls,
                 email_monitor=(
                     EmailMonitorData(
@@ -112,6 +129,55 @@ class ApplicationService:
             return result
         except Exception as error:
             log_exception(logger, "applications.detail.failed", error, user_id=user.id, application_id=application_id)
+            raise
+
+    async def update_status(
+        self,
+        *,
+        session: AsyncSession,
+        user: User,
+        application_id: str,
+        payload: ApplicationStatusUpdatePayload,
+    ) -> ApplicationStatusUpdateData:
+        log_debug(
+            logger,
+            "applications.update_status.start",
+            user_id=user.id,
+            application_id=application_id,
+            requested_status=payload.status,
+        )
+        try:
+            application = await session.scalar(
+                select(Application).where(
+                    Application.user_id == user.id,
+                    Application.id == application_id,
+                )
+            )
+            if application is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+
+            if application.status == payload.status:
+                return ApplicationStatusUpdateData(application_id=application.id, status=application.status)
+
+            allowed_targets = _FORWARD_STATUS_TRANSITIONS.get(application.status, set())
+            if payload.status not in allowed_targets:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Cannot move application from '{application.status}' to '{payload.status}'",
+                )
+
+            application.status = payload.status
+            await session.commit()
+            log_debug(
+                logger,
+                "applications.update_status.complete",
+                user_id=user.id,
+                application_id=application.id,
+                status=application.status,
+            )
+            return ApplicationStatusUpdateData(application_id=application.id, status=application.status)
+        except Exception as error:
+            log_exception(logger, "applications.update_status.failed", error, user_id=user.id, application_id=application_id)
             raise
 
     async def get_stats(self, *, session: AsyncSession, user: User) -> ApplicationsStatsData:

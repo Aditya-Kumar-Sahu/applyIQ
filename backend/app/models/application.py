@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -28,6 +28,7 @@ class Application(Base):
     ats_provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
     confirmation_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     confirmation_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     screenshot_urls: Mapped[list[str]] = mapped_column(JSON, default=list)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     manual_required_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

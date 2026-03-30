@@ -14,7 +14,7 @@ class ResumeProfile(Base):
     __table_args__ = (UniqueConstraint("user_id", name="uq_resume_profiles_user_id"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"))
     raw_text: Mapped[str] = mapped_column(String)
     parsed_profile: Mapped[dict] = mapped_column(JSON, default=dict)
     resume_embedding: Mapped[list[float]] = mapped_column(JSON, default=list)

@@ -10,7 +10,7 @@ RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 
 COPY requirements.txt ./
 RUN pip install uv && \
-    uv pip install -r requirements.txt
+    uv pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 COPY . .
 

@@ -41,6 +41,17 @@ async def fetch_jobs_node(
 
     state["raw_jobs_count"] = summary.raw_jobs_count
     state["deduplicated_jobs_count"] = summary.deduplicated_jobs_count
+    state["raw_jobs"] = [job.model_dump(mode="json") for job in summary.jobs]
+    state["deduplicated_jobs"] = [job.model_dump(mode="json") for job in summary.jobs]
+    if summary.failed_sources:
+        errors = state.setdefault("errors", [])
+        for source in summary.failed_sources:
+            errors.append(
+                {
+                    "node": "fetch_jobs_node",
+                    "message": f"Source '{source}' failed during scrape",
+                }
+            )
     state["current_node"] = "fetch_jobs_node"
     return state
 
@@ -75,6 +86,19 @@ async def approval_gate_node(
 ) -> ApplyIQState:
     if user.resume_profile is None:
         raise ValueError("Resume profile is required before generating cover letters")
+
+    if len(state["ranked_jobs"]) == 0:
+        state["pending_approvals"] = []
+        state["approved_applications"] = []
+        state["applied_applications"] = []
+        state["current_node"] = "track_applications_node"
+        pipeline_run.status = "complete"
+        pipeline_run.current_node = "track_applications_node"
+        pipeline_run.completed_at = datetime.now(timezone.utc)
+        pipeline_run.state_snapshot = encryption_service.encrypt_for_user(user.id, _serialize_state(state))
+        await session.commit()
+        await checkpointer.delete(pipeline_run.id)
+        return state
 
     resume = ParsedResumeProfile.model_validate(user.resume_profile.parsed_profile)
     pending_approvals: list[dict[str, str | int | float]] = []
@@ -146,46 +170,75 @@ async def auto_apply_node(
         )
     )
     approved_items: list[dict[str, str]] = []
+    errors = state.setdefault("errors", [])
     for application in applications:
-        application.approved_at = application.approved_at or datetime.now(timezone.utc)
-        job = await session.scalar(select(Job).where(Job.id == application.job_id))
-        if job is None:
-            application.status = "failed"
-            application.failure_reason = "Job record not found for auto-apply"
+        try:
+            application.approved_at = application.approved_at or datetime.now(timezone.utc)
+            job = await session.scalar(select(Job).where(Job.id == application.job_id))
+            if job is None:
+                application.status = "failed"
+                application.is_demo = False
+                application.failure_reason = "Job record not found for auto-apply"
+                errors.append(
+                    {
+                        "node": "auto_apply_node",
+                        "application_id": application.id,
+                        "message": "Job record not found for auto-apply",
+                    }
+                )
+                approved_items.append({"id": application.id, "status": application.status})
+                await session.commit()
+                continue
+
+            credential = await vault_service.resolve_credential(
+                session=session,
+                user_id=user.id,
+                site_names=[job.source, auto_apply_service.detect_ats(job)],
+                encryption_service=encryption_service,
+            )
+            result = auto_apply_service.apply(
+                application=application,
+                job=job,
+                has_credentials=credential is not None,
+            )
+
+            application.ats_provider = result.ats_provider
+            application.confirmation_url = result.confirmation_url
+            application.confirmation_number = result.confirmation_number
+            application.is_demo = result.is_demo
+            application.screenshot_urls = result.screenshot_urls
+            application.failure_reason = result.failure_reason
+            application.manual_required_reason = result.manual_required_reason
+
+            if result.status == "success":
+                application.status = "applied"
+                application.applied_at = datetime.now(timezone.utc)
+            elif result.status == "manual_required":
+                application.status = "manual_required"
+            else:
+                application.status = "failed"
+
             approved_items.append({"id": application.id, "status": application.status})
-            continue
-
-        credential = await vault_service.resolve_credential(
-            session=session,
-            user_id=user.id,
-            site_names=[job.source, auto_apply_service.detect_ats(job)],
-            encryption_service=encryption_service,
-        )
-        result = auto_apply_service.apply(
-            application=application,
-            job=job,
-            has_credentials=credential is not None,
-        )
-
-        application.ats_provider = result.ats_provider
-        application.confirmation_url = result.confirmation_url
-        application.confirmation_number = result.confirmation_number
-        application.screenshot_urls = result.screenshot_urls
-        application.failure_reason = result.failure_reason
-        application.manual_required_reason = result.manual_required_reason
-
-        if result.status == "success":
-            application.status = "applied"
-            application.applied_at = datetime.now(timezone.utc)
-        elif result.status == "manual_required":
-            application.status = "manual_required"
-        else:
-            application.status = "failed"
-
-        approved_items.append({"id": application.id, "status": application.status})
+            await session.commit()
+        except Exception as error:
+            await session.rollback()
+            failed_application = await session.scalar(select(Application).where(Application.id == application.id))
+            if failed_application is not None:
+                failed_application.status = "failed"
+                failed_application.is_demo = False
+                failed_application.failure_reason = f"Auto-apply node failed: {error}"
+                await session.commit()
+            errors.append(
+                {
+                    "node": "auto_apply_node",
+                    "application_id": application.id,
+                    "message": str(error),
+                }
+            )
+            approved_items.append({"id": application.id, "status": "failed"})
 
     pipeline_run.current_node = "auto_apply_node"
-    pipeline_run.applications_submitted = len([application for application in applications if application.status == "applied"])
+    pipeline_run.applications_submitted = len([item for item in approved_items if item["status"] == "applied"])
     await session.commit()
 
     state["approved_applications"] = approved_items

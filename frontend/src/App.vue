@@ -14,6 +14,7 @@
         <RouterLink v-if="isAuthenticated" to="/applications">Applications</RouterLink>
         <RouterLink v-if="isAuthenticated" to="/pipeline">Pipeline</RouterLink>
         <RouterLink v-if="isAuthenticated" to="/vault">Vault</RouterLink>
+        <RouterLink v-if="isAuthenticated" to="/settings">Settings</RouterLink>
         <button v-if="isAuthenticated" class="nav-action" type="button" @click="handleLogout">Logout</button>
       </nav>
     </header>

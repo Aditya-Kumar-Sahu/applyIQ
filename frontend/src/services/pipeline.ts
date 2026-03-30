@@ -18,6 +18,11 @@ export type PipelineRunSummary = {
 };
 
 export type PipelineApplication = {
+  semantic_similarity?: number;
+  skills_coverage?: number;
+  seniority_alignment?: number;
+  location_match?: number;
+  salary_alignment?: number;
   id: string;
   job_id: string;
   title: string;
@@ -35,6 +40,7 @@ export type PipelineApplication = {
   failure_reason: string | null;
   manual_required_reason: string | null;
   selected_variant_id: string | null;
+  is_demo?: boolean;
 };
 
 export type PipelineResults = {
@@ -204,4 +210,11 @@ export async function selectCoverLetterVariant(
       body: JSON.stringify({ variant_id: variantId }),
     },
   );
+}
+
+export function isDemoApplication(application: PipelineApplication): boolean {
+  if (application.is_demo === true) {
+    return true;
+  }
+  return (application.confirmation_number ?? "").startsWith("DEMO-");
 }

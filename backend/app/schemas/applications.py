@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +24,7 @@ class ApplicationListItem(BaseModel):
     status: str
     match_score: float
     applied_at: datetime | None
+    is_demo: bool = False
     latest_email_classification: str | None = None
 
 
@@ -64,5 +66,16 @@ class ApplicationDetailData(BaseModel):
     cover_letter_text: str
     ats_provider: str | None = None
     confirmation_url: str | None = None
+    confirmation_number: str | None = None
+    is_demo: bool = False
     screenshot_urls: list[str] = Field(default_factory=list)
     email_monitor: EmailMonitorData | None = None
+
+
+class ApplicationStatusUpdatePayload(BaseModel):
+    status: Literal["interview_requested", "rejected", "offer", "withdrawn"]
+
+
+class ApplicationStatusUpdateData(BaseModel):
+    application_id: str
+    status: str

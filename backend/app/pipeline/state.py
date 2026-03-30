@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import Any, NotRequired, TypedDict
 
 
 class RankedJob(TypedDict):
@@ -29,6 +29,17 @@ class ApprovedApplication(TypedDict):
     status: str
 
 
+class AppliedApplication(TypedDict):
+    id: str
+    status: str
+
+
+class PipelineError(TypedDict):
+    node: str
+    message: str
+    application_id: NotRequired[str]
+
+
 class ApplyIQState(TypedDict):
     run_id: str
     user_id: str
@@ -41,5 +52,10 @@ class ApplyIQState(TypedDict):
     ranked_jobs: list[RankedJob]
     pending_approvals: list[PendingApproval]
     approved_applications: list[ApprovedApplication]
-    applied_applications: list[dict] # Would need further definition if fully typed
+    applied_applications: list[AppliedApplication]
     current_node: str
+    resume: NotRequired[dict[str, Any]]
+    search_preferences: NotRequired[dict[str, Any]]
+    raw_jobs: NotRequired[list[dict[str, Any]]]
+    deduplicated_jobs: NotRequired[list[dict[str, Any]]]
+    errors: NotRequired[list[PipelineError]]

@@ -34,6 +34,10 @@ celery_app.conf.update(
     ),
     beat_schedule_filename=os.getenv("CELERY_BEAT_SCHEDULE_FILENAME", "/tmp/celerybeat-schedule"),
     beat_schedule={
+        "poll-gmail-every-4h": {
+            "task": "applyiq.email-monitor.poll_all_users",
+            "schedule": crontab(minute=0, hour="*/4"),
+        },
         "sweep-stale-pipeline-runs": {
             "task": "applyiq.pipeline.sweep_stale",
             "schedule": crontab(minute=30, hour="*/6"),

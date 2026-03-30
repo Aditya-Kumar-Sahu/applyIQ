@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = 0.0
     sentry_profiles_sample_rate: float = 0.0
     enable_auto_apply: bool = True
+    auto_apply_demo_mode: bool = True
+    playwright_enabled: bool = False
+    auto_apply_headless: bool = True
+    auto_apply_artifact_root: str = "artifacts"
     max_auto_apply_per_run: int = 20
     pipeline_checkpoint_ttl_seconds: int = 24 * 60 * 60
     pipeline_start_rate_limit: int = 6
@@ -56,6 +60,11 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     gemini_chat_model: str = "gemini-2.0-flash"
     gemini_embedding_model: str = "text-embedding-004"
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_redirect_uri: str | None = None
+    gmail_oauth_scope: str = "https://www.googleapis.com/auth/gmail.readonly"
+    gmail_poll_max_messages: int = 25
 
     @property
     def is_non_production(self) -> bool:

@@ -1,5 +1,7 @@
 import { API_BASE_URL, ApiError, apiRequest } from "./api";
 
+export type ApplicationStatus = "interview_requested" | "rejected" | "offer" | "withdrawn";
+
 export type ApplicationListItem = {
   id: string;
   job_id: string;
@@ -9,6 +11,7 @@ export type ApplicationListItem = {
   match_score: number;
   applied_at: string | null;
   latest_email_classification: string | null;
+  is_demo?: boolean;
 };
 
 export type EmailMonitorData = {
@@ -31,8 +34,10 @@ export type ApplicationDetail = {
   cover_letter_text: string;
   ats_provider: string | null;
   confirmation_url: string | null;
+  confirmation_number?: string | null;
   screenshot_urls: string[];
   email_monitor: EmailMonitorData | null;
+  is_demo?: boolean;
 };
 
 export type ApplicationsListResponse = {
@@ -63,6 +68,11 @@ export type ApplicationsStats = {
   top_titles: TitlePerformanceItem[];
 };
 
+export type ApplicationStatusUpdateData = {
+  application_id: string;
+  status: string;
+};
+
 export type NotificationItem = {
   application_id: string;
   company_name: string;
@@ -86,6 +96,16 @@ export async function getApplicationDetail(applicationId: string): Promise<Appli
 
 export async function getApplicationsStats(): Promise<ApplicationsStats> {
   return apiRequest<ApplicationsStats>("/api/v1/applications/stats");
+}
+
+export async function updateApplicationStatus(
+  applicationId: string,
+  status: ApplicationStatus,
+): Promise<ApplicationStatusUpdateData> {
+  return apiRequest<ApplicationStatusUpdateData>(`/api/v1/applications/${applicationId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export async function getNotifications(): Promise<NotificationsResponse> {
@@ -138,4 +158,14 @@ export function subscribeNotifications(
     closed = true;
     source.close();
   };
+}
+
+export function isDemoApplication(application: ApplicationListItem | ApplicationDetail): boolean {
+  if (application.is_demo === true) {
+    return true;
+  }
+  if ("confirmation_number" in application) {
+    return (application.confirmation_number ?? "").startsWith("DEMO-");
+  }
+  return false;
 }

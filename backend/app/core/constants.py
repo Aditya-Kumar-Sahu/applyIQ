@@ -11,3 +11,7 @@ UP_STATUS = "up"
 DOWN_STATUS = "down"
 FIXTURE_STATUS = "fixture"
 NOT_CONFIGURED_STATUS = "not_configured"
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+GEMINI_DEFAULT_CHAT_MODEL = "gemini-2.0-flash"
+GEMINI_DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
+GEMINI_DEFAULT_EMBEDDING_DIMENSIONS = 768

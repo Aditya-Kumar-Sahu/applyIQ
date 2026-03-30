@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from typing import Any
 from datetime import datetime
 import re
 
 import structlog
 
+from app.core.config import Settings, get_settings
+from app.core.constants import GEMINI_DEFAULT_CHAT_MODEL
 from app.core.logging_safety import log_debug, log_exception, text_snapshot
 from app.schemas.resume import (
     EducationEntry,
@@ -13,6 +16,7 @@ from app.schemas.resume import (
     SalaryRange,
     SkillGroups,
 )
+from app.services.gemini_client import GeminiApiError, GeminiClient
 
 
 logger = structlog.get_logger(__name__)
@@ -117,12 +121,107 @@ _EDUCATION_PATTERN = re.compile(
     r"\b(?:university|college|institute|school|academy|bachelor|master|phd|b\.?tech|b\.?e|m\.?tech|mba|bs|ms|bsc|msc)\b",
     flags=re.IGNORECASE,
 )
+_RESUME_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": [
+        "name",
+        "email",
+        "current_title",
+        "years_of_experience",
+        "seniority_level",
+        "skills",
+        "experience",
+        "education",
+        "preferred_roles",
+        "inferred_salary_range",
+        "work_style_signals",
+        "summary_for_matching",
+    ],
+    "properties": {
+        "name": {"type": "string"},
+        "email": {"type": "string"},
+        "current_title": {"type": "string"},
+        "years_of_experience": {"type": "integer"},
+        "seniority_level": {"type": "string"},
+        "skills": {
+            "type": "object",
+            "required": ["technical", "soft", "tools", "languages"],
+            "properties": {
+                "technical": {"type": "array", "items": {"type": "string"}},
+                "soft": {"type": "array", "items": {"type": "string"}},
+                "tools": {"type": "array", "items": {"type": "string"}},
+                "languages": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+        "experience": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["company", "title", "duration_months", "highlights"],
+                "properties": {
+                    "company": {"type": "string"},
+                    "title": {"type": "string"},
+                    "duration_months": {"type": "integer"},
+                    "highlights": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+        },
+        "education": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["degree", "field", "institution", "year"],
+                "properties": {
+                    "degree": {"type": "string"},
+                    "field": {"type": "string"},
+                    "institution": {"type": "string"},
+                    "year": {"type": ["integer", "null"]},
+                },
+            },
+        },
+        "preferred_roles": {"type": "array", "items": {"type": "string"}},
+        "inferred_salary_range": {
+            "type": "object",
+            "required": ["min", "max", "currency"],
+            "properties": {
+                "min": {"type": "integer"},
+                "max": {"type": "integer"},
+                "currency": {"type": "string"},
+            },
+        },
+        "work_style_signals": {"type": "array", "items": {"type": "string"}},
+        "summary_for_matching": {"type": "string"},
+    },
+}
+_RESUME_SYSTEM_INSTRUCTION = (
+    "You are a resume intelligence parser for a job automation product. "
+    "Return strict JSON that matches the supplied schema. "
+    "Extract only grounded facts from the resume and avoid hallucinations. "
+    "If a field is missing, use conservative defaults. "
+    "summary_for_matching must be 2-3 sentences in third person, optimized for semantic job matching."
+)
 
 
 class ResumeParserService:
+    def __init__(self, *, settings: Settings | None = None, gemini_client: GeminiClient | None = None) -> None:
+        resolved_settings = settings or get_settings()
+        self._gemini_model = resolved_settings.gemini_chat_model or GEMINI_DEFAULT_CHAT_MODEL
+        self._gemini_client = gemini_client or GeminiClient(
+            api_key=resolved_settings.gemini_api_key,
+            chat_model=self._gemini_model,
+            embedding_model=resolved_settings.gemini_embedding_model,
+        )
+
     def parse(self, raw_text: str) -> ParsedResumeProfile:
         normalized_text = self._normalize_text(raw_text)
         log_debug(logger, "resume_parser.parse.start", raw_text=text_snapshot(normalized_text))
+
+        llm_profile = self._parse_with_gemini(normalized_text)
+        if llm_profile is not None:
+            log_debug(logger, "resume_parser.parse.gemini_success")
+            return llm_profile
+
+        log_debug(logger, "resume_parser.parse.heuristic_fallback", reason="gemini_unavailable_or_failed")
         try:
             lines = [line.strip() for line in normalized_text.splitlines() if line.strip()]
             sections = self._split_sections(lines)
@@ -170,6 +269,31 @@ class ResumeParserService:
         except Exception as error:
             log_exception(logger, "resume_parser.parse.failed", error, raw_text=text_snapshot(normalized_text))
             raise
+
+    def _parse_with_gemini(self, normalized_text: str) -> ParsedResumeProfile | None:
+        if not self._gemini_client.is_configured:
+            return None
+
+        prompt = (
+            "Parse this resume text and return JSON only.\n\n"
+            f"Resume Text:\n{normalized_text}"
+        )
+        try:
+            payload = self._gemini_client.generate_json(
+                prompt=prompt,
+                system_instruction=_RESUME_SYSTEM_INSTRUCTION,
+                schema=_RESUME_JSON_SCHEMA,
+                temperature=0.0,
+                model=self._gemini_model,
+            )
+            profile = ParsedResumeProfile.model_validate(payload)
+            return profile
+        except (GeminiApiError, ValueError) as error:
+            log_debug(logger, "resume_parser.parse.gemini_failed", reason=str(error))
+            return None
+        except Exception as error:
+            log_exception(logger, "resume_parser.parse.gemini_unexpected_error", error)
+            return None
 
     def _normalize_text(self, raw_text: str) -> str:
         normalized = raw_text.replace("\r\n", "\n").replace("\r", "\n")

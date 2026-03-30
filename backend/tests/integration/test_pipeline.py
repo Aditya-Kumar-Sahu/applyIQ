@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.main import create_app
 from app.models.agent_run import AgentRun
 from app.models.base import Base
+from app.models.pipeline_run import PipelineRun
 
 
 def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
@@ -51,6 +52,10 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         assert start_payload["pending_approvals_count"] == 5
 
         run_id = start_payload["run_id"]
+        snapshot_key = f"pipeline_run_state:{run_id}"
+        checkpoint_key = f"pipeline_run_checkpoint:{run_id}"
+        assert anyio.run(_redis_key_exists, app.state.redis, snapshot_key) is True
+        assert anyio.run(_redis_key_exists, app.state.redis, checkpoint_key) is True
 
         status_response = client.get(f"/api/v1/pipeline/{run_id}/status")
 
@@ -140,6 +145,8 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         approve_payload = approve_response.json()["data"]
         assert approve_payload["status"] == "complete"
         assert approve_payload["applications_submitted"] == 1
+        assert anyio.run(_redis_key_exists, app.state.redis, snapshot_key) is False
+        assert anyio.run(_redis_key_exists, app.state.redis, checkpoint_key) is False
 
         completed_results = client.get(f"/api/v1/pipeline/{run_id}/results")
 
@@ -152,10 +159,69 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         assert applied_application["confirmation_url"]
         assert len(applied_application["screenshot_urls"]) == 2
         assert applied_application["selected_variant_id"] == "B"
+        untouched_applications = [
+            app for app in completed_payload["applications"] if app["status"] == "pending_approval"
+        ]
+        assert len(untouched_applications) == 3
         assert any(app["status"] == "rejected" for app in completed_payload["applications"])
 
         agent_run_count = anyio.run(_count_agent_runs, app.state.database.engine)
         assert agent_run_count >= 5
+
+
+def test_pipeline_start_reuses_existing_active_run(tmp_path: Path) -> None:
+    settings = Settings(
+        environment="test",
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'pipeline-reuse.db'}",
+        redis_url="redis://localhost:6395/0",
+        jwt_secret_key="test-jwt-secret-key-with-32-characters",
+        fernet_secret_key="wWKJg6WVKwwhFVWG2yt30YIOCwVDDDeWGPAHDLcGRID=",
+        encryption_pepper="pepper-for-tests",
+    )
+
+    async def healthy_reporter() -> dict[str, str]:
+        return {"status": "ok", "db": "up", "redis": "up"}
+
+    app = create_app(settings=settings, health_reporter=healthy_reporter)
+    app.state.redis = _InMemoryRedisClient()
+
+    with TestClient(app) as client:
+        anyio.run(_create_all_tables, app.state.database.engine)
+        _register_and_prepare_resume(client)
+
+        first_response = client.post(
+            "/api/v1/pipeline/start",
+            json={
+                "target_role": "ML Engineer",
+                "location": "Remote",
+                "limit_per_source": 10,
+                "sources": ["indeed"],
+            },
+        )
+
+        assert first_response.status_code == 202
+        first_payload = first_response.json()["data"]
+        assert first_payload["status"] == "paused_at_gate"
+
+        second_response = client.post(
+            "/api/v1/pipeline/start",
+            json={
+                "target_role": "ML Engineer",
+                "location": "Remote",
+                "limit_per_source": 10,
+                "sources": ["linkedin", "indeed", "remotive"],
+            },
+        )
+
+        assert second_response.status_code == 202
+        second_payload = second_response.json()["data"]
+        assert second_payload["run_id"] == first_payload["run_id"]
+        assert second_payload["status"] == "paused_at_gate"
+        assert second_payload["current_node"] == "approval_gate_node"
+        assert second_payload["pending_approvals_count"] == first_payload["pending_approvals_count"]
+
+        run_count = anyio.run(_count_pipeline_runs, app.state.database.engine)
+        assert run_count == 1
 
 
 def test_delete_account_purges_pipeline_redis_state(tmp_path: Path) -> None:
@@ -219,6 +285,16 @@ async def _count_agent_runs(engine) -> int:
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
         result = await session.scalar(select(func.count()).select_from(AgentRun))
+        return int(result or 0)
+
+
+async def _count_pipeline_runs(engine) -> int:
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from sqlalchemy import select, func
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_factory() as session:
+        result = await session.scalar(select(func.count()).select_from(PipelineRun))
         return int(result or 0)
 
 

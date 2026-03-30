@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from fastapi import status as http_status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user, get_db_session
 from app.models.user import User
-from app.schemas.applications import ApplicationDetailData, ApplicationsListData, ApplicationsStatsData
+from app.schemas.applications import (
+    ApplicationDetailData,
+    ApplicationStatusUpdateData,
+    ApplicationStatusUpdatePayload,
+    ApplicationsListData,
+    ApplicationsStatsData,
+)
 from app.schemas.common import Envelope
 from app.services.application_service import ApplicationService
 
@@ -41,4 +48,21 @@ async def get_application_detail(
 ) -> Envelope[ApplicationDetailData]:
     service = ApplicationService()
     data = await service.get_application_detail(session=session, user=current_user, application_id=application_id)
+    return Envelope(success=True, data=data, error=None)
+
+
+@router.patch("/{application_id}/status", response_model=Envelope[ApplicationStatusUpdateData], status_code=http_status.HTTP_200_OK)
+async def update_application_status(
+    application_id: str,
+    payload: ApplicationStatusUpdatePayload,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> Envelope[ApplicationStatusUpdateData]:
+    service = ApplicationService()
+    data = await service.update_status(
+        session=session,
+        user=current_user,
+        application_id=application_id,
+        payload=payload,
+    )
     return Envelope(success=True, data=data, error=None)

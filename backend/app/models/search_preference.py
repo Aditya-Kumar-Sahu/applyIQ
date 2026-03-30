@@ -13,7 +13,7 @@ class SearchPreference(Base):
     __table_args__ = (UniqueConstraint("user_id", name="uq_search_preferences_user_id"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"))
     target_roles: Mapped[list[str]] = mapped_column(JSON, default=list)
     preferred_locations: Mapped[list[str]] = mapped_column(JSON, default=list)
     remote_preference: Mapped[str] = mapped_column(String(20), default="any")

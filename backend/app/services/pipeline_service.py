@@ -6,7 +6,7 @@ from typing import Any, AsyncIterator
 
 import anyio
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
@@ -76,11 +76,29 @@ class PipelineService:
                 )
             )
             if active_run:
-                log_debug(logger, "pipeline.start_run.active_run_conflict", user_id=user.id, run_id=active_run.id)
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="A pipeline run is already active across this user.",
+                pending_approvals_count = await self._count_pending_approvals(
+                    session=session,
+                    run_id=active_run.id,
                 )
+                result = PipelineRunData(
+                    run_id=active_run.id,
+                    status=active_run.status,
+                    current_node=active_run.current_node,
+                    jobs_found=active_run.jobs_found,
+                    jobs_matched=active_run.jobs_matched,
+                    applications_submitted=active_run.applications_submitted,
+                    pending_approvals_count=pending_approvals_count,
+                )
+                log_debug(
+                    logger,
+                    "pipeline.start_run.reused_active_run",
+                    user_id=user.id,
+                    run_id=active_run.id,
+                    status=active_run.status,
+                    current_node=active_run.current_node,
+                    pending_approvals_count=pending_approvals_count,
+                )
+                return result
 
             pipeline_run = PipelineRun(
                 user_id=user.id,
@@ -707,6 +725,15 @@ class PipelineService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pipeline run not found")
         log_debug(logger, "pipeline.get_run.complete", user_id=user.id, run_id=run_id, status=pipeline_run.status)
         return pipeline_run
+
+    async def _count_pending_approvals(self, *, session: AsyncSession, run_id: str) -> int:
+        count = await session.scalar(
+            select(func.count()).select_from(Application).where(
+                Application.pipeline_run_id == run_id,
+                Application.status == "pending_approval",
+            )
+        )
+        return int(count or 0)
 
 
 def _load_notes(raw_notes: str | None) -> dict[str, Any]:

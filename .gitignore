@@ -16,7 +16,10 @@ dist/
 build/
 logs/
 *.log
+.tmp/
+.uv-cache/
+.uv-python/
+.docker/
 celerybeat-schedule**
 backend/celerybeat-schedule**
 PLAN.md
-Audit Remediation Plan.md
