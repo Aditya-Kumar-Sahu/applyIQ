@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from celery import Celery
 
 from app.core.config import get_settings
@@ -28,5 +30,6 @@ celery_app.conf.update(
         "app.tasks.scrape_task",
         "app.tasks.pipeline_task",
         "app.tasks.email_monitor_task",
-    )
+    ),
+    beat_schedule_filename=os.getenv("CELERY_BEAT_SCHEDULE_FILENAME", "/tmp/celerybeat-schedule"),
 )

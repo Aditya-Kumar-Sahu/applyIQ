@@ -52,8 +52,18 @@ a {
   padding-top: 0.5rem;
 }
 
-.nav a.router-link-active {
+.nav a.router-link-active,
+.nav-action.router-link-active {
   color: var(--accent);
+}
+
+.nav-action {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
 
 .grid {

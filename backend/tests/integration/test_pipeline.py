@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.main import create_app
+from app.models.agent_run import AgentRun
 from app.models.base import Base
 
 
@@ -152,10 +153,23 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         assert applied_application["selected_variant_id"] == "B"
         assert any(app["status"] == "rejected" for app in completed_payload["applications"])
 
+        agent_run_count = anyio.run(_count_agent_runs, app.state.database.engine)
+        assert agent_run_count >= 5
+
 
 async def _create_all_tables(engine) -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
+
+
+async def _count_agent_runs(engine) -> int:
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from sqlalchemy import select, func
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_factory() as session:
+        result = await session.scalar(select(func.count()).select_from(AgentRun))
+        return int(result or 0)
 
 
 def _register_and_prepare_resume(client: TestClient) -> None:

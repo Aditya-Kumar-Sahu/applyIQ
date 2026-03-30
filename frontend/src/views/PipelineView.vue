@@ -213,9 +213,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 
 import type { CoverLetterVariant, PipelineResults, PipelineRunSummary } from "../services/pipeline";
+import { subscribePipelineStatus } from "../services/pipeline";
 import { store } from "../store";
 
 type PipelineNode = {
@@ -249,6 +250,7 @@ const pipelineRun = computed(() => store.getters.pipelineRun as PipelineRunSumma
 const pipelineResults = computed(() => store.getters.pipelineResults as PipelineResults | null);
 const pipelineStatus = computed(() => store.getters.pipelineStatus as string);
 const pipelineError = computed(() => store.getters.pipelineError as string | null);
+let stopPipelineStatusStream: (() => void) | null = null;
 
 const pendingApplications = computed(() =>
   (pipelineResults.value?.applications ?? []).filter((application) => application.status === "pending_approval"),
@@ -279,6 +281,50 @@ watch(
   },
   { immediate: true },
 );
+
+watch(
+  () => pipelineRun.value?.run_id,
+  (runId, previousRunId) => {
+    if (previousRunId && previousRunId !== runId) {
+      stopPipelineStatusStream?.();
+      stopPipelineStatusStream = null;
+    }
+
+    if (!runId) {
+      stopPipelineStatusStream?.();
+      stopPipelineStatusStream = null;
+      return;
+    }
+
+    stopPipelineStatusStream?.();
+    stopPipelineStatusStream = subscribePipelineStatus(
+      runId,
+      (pipelineResultsUpdate) => {
+        store.commit("setPipelineRun", {
+          run_id: pipelineResultsUpdate.run_id,
+          status: pipelineResultsUpdate.status,
+          current_node: pipelineResultsUpdate.current_node,
+          jobs_found: pipelineResultsUpdate.jobs_found,
+          jobs_matched: pipelineResultsUpdate.jobs_matched,
+          applications_submitted: pipelineResultsUpdate.applications_submitted,
+          pending_approvals_count: pipelineResultsUpdate.applications.filter(
+            (application) => application.status === "pending_approval",
+          ).length,
+        });
+        store.commit("setPipelineResults", pipelineResultsUpdate);
+      },
+      (streamError) => {
+        store.commit("setPipelineError", streamError.message);
+      },
+    );
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  stopPipelineStatusStream?.();
+  stopPipelineStatusStream = null;
+});
 
 async function handleStart() {
   if (form.sources.length === 0) {

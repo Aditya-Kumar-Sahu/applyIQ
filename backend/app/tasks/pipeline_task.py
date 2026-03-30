@@ -166,7 +166,7 @@ async def _sweep_stale():
             stale_runs = await session.scalars(
                 select(PipelineRun).where(
                     PipelineRun.status == "paused_at_gate",
-                    PipelineRun.updated_at < stale_threshold
+                    PipelineRun.started_at < stale_threshold
                 )
             )
             count = 0

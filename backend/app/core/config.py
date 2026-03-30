@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
     access_cookie_name: str = "applyiq_access_token"
     refresh_cookie_name: str = "applyiq_refresh_token"
+    auth_register_rate_limit: int = 5
+    auth_login_rate_limit: int = 10
+    auth_rate_window_seconds: int = 60
     fernet_secret_key: str = _DEFAULT_FERNET_SECRET
     encryption_pepper: str = _DEFAULT_ENCRYPTION_PEPPER
     secure_cookie_override: bool | None = None

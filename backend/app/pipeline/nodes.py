@@ -199,13 +199,25 @@ async def track_applications_node(
     session: AsyncSession,
     pipeline_run: PipelineRun,
 ) -> ApplyIQState:
+    applications = list(
+        await session.scalars(
+            select(Application).where(
+                Application.pipeline_run_id == pipeline_run.id,
+            )
+        )
+    )
+    applied_applications = [
+        {"id": application.id, "status": application.status}
+        for application in applications
+        if application.status == "applied"
+    ]
     pipeline_run.status = "complete"
     pipeline_run.current_node = "track_applications_node"
     pipeline_run.completed_at = datetime.now(timezone.utc)
     await session.commit()
 
     state["current_node"] = "track_applications_node"
-    state["applied_applications"] = state["approved_applications"]
+    state["applied_applications"] = applied_applications
     return state
 
 

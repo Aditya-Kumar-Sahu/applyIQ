@@ -41,7 +41,8 @@ services:
       - .env
     environment:
       LOG_FILE_NAME: beat.log
-    command: celery -A app.worker:celery_app beat --loglevel=info
+      CELERY_BEAT_SCHEDULE_FILENAME: /tmp/celerybeat-schedule
+    command: celery -A app.worker:celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
     restart: unless-stopped
     depends_on:
       db:
@@ -62,9 +63,9 @@ services:
   db:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: applyiq
-      POSTGRES_USER: applyiq
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB:-applyiq}
+      POSTGRES_USER: ${POSTGRES_USER:-applyiq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     restart: unless-stopped

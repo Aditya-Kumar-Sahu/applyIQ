@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
-from typing import Any
+from typing import Any, AsyncIterator
 
+import anyio
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,9 @@ from app.schemas.pipeline import (
 
 
 logger = structlog.get_logger(__name__)
+
+
+_TERMINAL_RUN_STATES = {"paused_at_gate", "complete", "failed", "timed_out"}
 
 
 class PipelineService:
@@ -661,6 +665,37 @@ class PipelineService:
         payload = f"event: status\ndata: {json.dumps(data.model_dump(mode='json'))}\n\n"
         log_debug(logger, "pipeline.get_status_event.complete", user_id=user.id, run_id=run_id, payload_length=len(payload))
         return payload
+
+    async def stream_status_events(
+        self,
+        *,
+        session: AsyncSession,
+        user: User,
+        run_id: str,
+        poll_interval_seconds: float = 1.5,
+    ) -> AsyncIterator[str]:
+        log_debug(
+            logger,
+            "pipeline.stream_status.start",
+            user_id=user.id,
+            run_id=run_id,
+            poll_interval_seconds=poll_interval_seconds,
+        )
+        last_payload: str | None = None
+        while True:
+            data = await self.get_results(session=session, user=user, run_id=run_id)
+            serialized = json.dumps(data.model_dump(mode="json"))
+
+            if serialized != last_payload:
+                yield f"event: status\ndata: {serialized}\n\n"
+                last_payload = serialized
+            else:
+                yield "event: heartbeat\ndata: {}\n\n"
+
+            if data.status in _TERMINAL_RUN_STATES:
+                break
+
+            await anyio.sleep(poll_interval_seconds)
 
     async def _get_run(self, *, session: AsyncSession, user: User, run_id: str) -> PipelineRun:
         log_debug(logger, "pipeline.get_run.start", user_id=user.id, run_id=run_id)

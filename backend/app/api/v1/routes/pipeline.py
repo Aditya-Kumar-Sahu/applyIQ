@@ -119,6 +119,31 @@ async def pipeline_status(
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+@router.get("/{run_id}/status/stream")
+async def pipeline_status_stream(
+    run_id: str,
+    request: Request,
+    poll_interval_seconds: float = 1.5,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+    encryption_service=Depends(get_encryption_service),
+):
+    service = _build_pipeline_service(request, encryption_service)
+
+    async def event_stream():
+        async for event in service.stream_status_events(
+            session=session,
+            user=current_user,
+            run_id=run_id,
+            poll_interval_seconds=poll_interval_seconds,
+        ):
+            if await request.is_disconnected():
+                break
+            yield event
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
 @router.get("/{run_id}/results", response_model=Envelope[PipelineResultsData])
 async def pipeline_results(
     run_id: str,

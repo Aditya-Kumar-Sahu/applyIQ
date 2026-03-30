@@ -222,6 +222,30 @@ export const store = createStore<RootState>({
       state.jobsError = message;
       state.jobsStatus = "ready";
     },
+    clearSessionState(state: RootState) {
+      state.authUser = null;
+      state.authStatus = "guest";
+      state.authError = null;
+      state.resumeProfile = null;
+      state.resumePreferences = null;
+      state.profileCompleteness = null;
+      state.resumeStatus = "idle";
+      state.resumeError = null;
+      state.jobs = [];
+      state.selectedJob = null;
+      state.jobsStatus = "idle";
+      state.jobsError = null;
+      state.pipelineRun = null;
+      state.pipelineResults = null;
+      state.pipelineStatus = "idle";
+      state.pipelineError = null;
+      state.stats = [
+        { label: "Jobs Found", value: "0" },
+        { label: "Pending Approval", value: "0" },
+        { label: "Applied", value: "0" },
+        { label: "Replies", value: "0" },
+      ];
+    },
     setPipelineLoading(state: RootState) {
       state.pipelineStatus = "loading";
       state.pipelineError = null;
@@ -254,6 +278,19 @@ export const store = createStore<RootState>({
       } catch {
         commit("setGuest");
       }
+    },
+    async logout({ commit }) {
+      try {
+        const { logout } = await import("../services/auth");
+        await logout();
+      } catch {
+        // Ignore logout failures and clear the local session state either way.
+      } finally {
+        commit("clearSessionState");
+      }
+    },
+    handleAuthRequired({ commit }) {
+      commit("clearSessionState");
     },
     async login({ commit }, payload: { email: string; password: string }) {
       commit("setAuthLoading");
@@ -397,16 +434,13 @@ export const store = createStore<RootState>({
       commit("setPipelineLoading");
 
       try {
-        const { getPipelineResults, getPipelineStatus } = await import("../services/pipeline");
-        const [pipelineResults, pipelineStatus] = await Promise.all([
-          getPipelineResults(resolvedRunId),
-          getPipelineStatus(resolvedRunId),
-        ]);
+        const { getPipelineResults } = await import("../services/pipeline");
+        const pipelineResults = await getPipelineResults(resolvedRunId);
 
         commit("setPipelineRun", {
           run_id: pipelineResults.run_id,
           status: pipelineResults.status,
-          current_node: pipelineStatus.current_node,
+          current_node: pipelineResults.current_node,
           jobs_found: pipelineResults.jobs_found,
           jobs_matched: pipelineResults.jobs_matched,
           applications_submitted: pipelineResults.applications_submitted,

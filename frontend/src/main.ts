@@ -4,9 +4,17 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import { router } from "./router";
 import { store } from "./store";
+import { AUTH_REQUIRED_EVENT } from "./services/api";
 import "./styles.css";
 
 const app = createApp(App);
+
+window.addEventListener(AUTH_REQUIRED_EVENT, async () => {
+  await store.dispatch("handleAuthRequired");
+  if (router.currentRoute.value.name !== "login") {
+    await router.replace({ name: "login" });
+  }
+});
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
 if (sentryDsn) {

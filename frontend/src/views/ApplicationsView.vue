@@ -120,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 
 import type {
   ApplicationDetail,
@@ -128,18 +128,39 @@ import type {
   ApplicationsStats,
   NotificationItem,
 } from "../services/applications";
-import { getApplicationDetail, getApplications, getApplicationsStats, getNotifications } from "../services/applications";
+import {
+  getApplicationDetail,
+  getApplications,
+  getApplicationsStats,
+  getNotifications,
+  subscribeNotifications,
+} from "../services/applications";
 
 const applications = ref<ApplicationListItem[]>([]);
 const selectedApplication = ref<ApplicationDetail | null>(null);
 const notifications = ref<NotificationItem[]>([]);
 const stats = ref<ApplicationsStats | null>(null);
 const error = ref<string | null>(null);
+let stopNotificationsStream: (() => void) | null = null;
 
 onMounted(async () => {
   await loadApplications();
   await loadStats();
   await loadNotifications();
+
+  stopNotificationsStream = subscribeNotifications(
+    (notificationPayload) => {
+      notifications.value = notificationPayload.items;
+    },
+    (streamError) => {
+      error.value = streamError.message;
+    },
+  );
+});
+
+onBeforeUnmount(() => {
+  stopNotificationsStream?.();
+  stopNotificationsStream = null;
 });
 
 async function loadApplications() {

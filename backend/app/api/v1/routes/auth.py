@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user, get_db_session
+from app.core.rate_limit import RedisRateLimiter
 from app.core.security import create_token, decode_token, get_password_hash, hash_token, verify_password
 from app.models.refresh_token_session import RefreshTokenSession
 from app.models.user import User
@@ -92,6 +93,51 @@ def _clear_auth_cookies(request: Request, response: Response) -> None:
     response.delete_cookie(settings.refresh_cookie_name, path="/")
 
 
+def _client_identifier(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",", 1)[0].strip().lower()
+
+    if request.client is not None and request.client.host:
+        return request.client.host.lower()
+
+    return "unknown"
+
+
+async def _enforce_auth_rate_limit(
+    request: Request,
+    *,
+    action: str,
+    subjects: list[tuple[str, str]],
+) -> None:
+    settings = request.app.state.settings
+    limiter = RedisRateLimiter(request.app.state.redis)
+    limit = getattr(settings, f"auth_{action}_rate_limit")
+
+    for subject_name, subject_value in subjects:
+        allowed = await limiter.allow(
+            key=f"auth:{action}:{subject_name}:{subject_value}",
+            limit=limit,
+            window_seconds=settings.auth_rate_window_seconds,
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many authentication attempts. Please retry later.",
+            )
+
+
+async def _revoke_all_refresh_sessions(session: AsyncSession, *, user_id: str) -> None:
+    refresh_sessions = list(
+        await session.scalars(
+            select(RefreshTokenSession).where(RefreshTokenSession.user_id == user_id)
+        )
+    )
+    revoked_at = datetime.now(timezone.utc)
+    for refresh_session in refresh_sessions:
+        refresh_session.revoked_at = revoked_at
+
+
 async def _persist_refresh_session(
     *,
     session: AsyncSession,
@@ -123,6 +169,11 @@ async def register(
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[AuthSessionData]:
     normalized_email = payload.email.strip().lower()
+    await _enforce_auth_rate_limit(
+        request,
+        action="register",
+        subjects=[("ip", _client_identifier(request)), ("email", normalized_email)],
+    )
     existing_user = await session.scalar(select(User).where(User.email == normalized_email))
 
     if existing_user is not None:
@@ -166,6 +217,11 @@ async def login(
     session: AsyncSession = Depends(get_db_session),
 ) -> Envelope[AuthSessionData]:
     normalized_email = payload.email.strip().lower()
+    await _enforce_auth_rate_limit(
+        request,
+        action="login",
+        subjects=[("ip", _client_identifier(request)), ("email", normalized_email)],
+    )
     user = await session.scalar(select(User).where(User.email == normalized_email))
 
     if user is None or not verify_password(payload.password, user.hashed_password):
@@ -231,6 +287,10 @@ async def refresh_token(
     if refresh_session is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token session not found")
     if refresh_session.revoked_at is not None:
+        if refresh_session.replaced_by_token_hash is not None:
+            await _revoke_all_refresh_sessions(session, user_id=user.id)
+            await session.commit()
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token reuse detected")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token already rotated")
     expires_at = refresh_session.expires_at
     if expires_at.tzinfo is None:
@@ -260,6 +320,41 @@ async def refresh_token(
 @router.get("/me", response_model=Envelope[MeData])
 async def me(current_user: User = Depends(get_current_user)) -> Envelope[MeData]:
     return Envelope(success=True, data=MeData(user=_build_auth_user(current_user)), error=None)
+
+
+@router.post("/logout", response_model=Envelope[dict[str, bool]])
+async def logout(
+    request: Request,
+    response: Response,
+    session: AsyncSession = Depends(get_db_session),
+) -> Envelope[dict[str, bool]]:
+    settings = request.app.state.settings
+    refresh_token = request.cookies.get(settings.refresh_cookie_name)
+
+    if refresh_token is not None:
+        try:
+            payload = decode_token(
+                refresh_token,
+                secret_key=settings.jwt_secret_key,
+                algorithm=settings.jwt_algorithm,
+            )
+        except Exception:
+            payload = None
+
+        if payload is not None and payload.get("type") == "refresh":
+            token_fingerprint = hash_token(refresh_token)
+            refresh_session = await session.scalar(
+                select(RefreshTokenSession).where(
+                    RefreshTokenSession.user_id == payload.get("sub"),
+                    RefreshTokenSession.token_hash == token_fingerprint,
+                )
+            )
+            if refresh_session is not None and refresh_session.revoked_at is None:
+                refresh_session.revoked_at = datetime.now(timezone.utc)
+                await session.commit()
+
+    _clear_auth_cookies(request, response)
+    return Envelope(success=True, data={"logged_out": True}, error=None)
 
 
 @router.delete("/account", response_model=Envelope[DeleteAccountData])

@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+from typing import AsyncIterator
 
+import anyio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
@@ -198,6 +200,31 @@ class EmailMonitorService:
         payload = f"event: notifications\ndata: {json.dumps(data.model_dump(mode='json'))}\n\n"
         log_debug(logger, "email_monitor.get_notifications_event.complete", user_id=user.id, payload_length=len(payload))
         return payload
+
+    async def stream_notifications_events(
+        self,
+        *,
+        session: AsyncSession,
+        user: User,
+        poll_interval_seconds: float = 5.0,
+    ) -> AsyncIterator[str]:
+        log_debug(
+            logger,
+            "email_monitor.stream_notifications.start",
+            user_id=user.id,
+            poll_interval_seconds=poll_interval_seconds,
+        )
+        last_payload: str | None = None
+        while True:
+            data = await self.get_notifications(session=session, user=user)
+            serialized = json.dumps(data.model_dump(mode="json"))
+            if serialized != last_payload:
+                yield f"event: notifications\ndata: {serialized}\n\n"
+                last_payload = serialized
+            else:
+                yield "event: heartbeat\ndata: {}\n\n"
+
+            await anyio.sleep(poll_interval_seconds)
 
 
 def _application_status_for_classification(classification: str, current_status: str) -> str:

@@ -116,6 +116,42 @@ export async function getPipelineStatus(runId: string): Promise<PipelineResults>
   return JSON.parse(dataLine.slice(5).trim()) as PipelineResults;
 }
 
+export function subscribePipelineStatus(
+  runId: string,
+  onStatus: (pipelineResults: PipelineResults) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const source = new EventSource(`${API_BASE_URL}/api/v1/pipeline/${runId}/status/stream`, {
+    withCredentials: true,
+  });
+  let closed = false;
+
+  const handleStatus = (event: MessageEvent<string>) => {
+    const pipelineResults = JSON.parse(event.data) as PipelineResults;
+    onStatus(pipelineResults);
+
+    if (pipelineResults.status === "complete" || pipelineResults.status === "failed" || pipelineResults.status === "timed_out") {
+      closed = true;
+      source.close();
+    }
+  };
+
+  source.addEventListener("status", handleStatus as EventListener);
+  source.onerror = () => {
+    if (closed) {
+      return;
+    }
+    if (source.readyState === EventSource.CLOSED) {
+      onError?.(new ApiError("Pipeline status stream disconnected", 503));
+    }
+  };
+
+  return () => {
+    closed = true;
+    source.close();
+  };
+}
+
 export async function approvePipeline(runId: string, applicationIds: string[]): Promise<PipelineRunSummary> {
   return apiRequest<PipelineRunSummary>(`/api/v1/pipeline/${runId}/approve`, {
     method: "POST",

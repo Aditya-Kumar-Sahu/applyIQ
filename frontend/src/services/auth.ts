@@ -38,3 +38,9 @@ export async function me(): Promise<AuthUser> {
   const response = await apiRequest<MeResponse>("/api/v1/auth/me");
   return response.user;
 }
+
+export async function logout(): Promise<void> {
+  await apiRequest<{ logged_out: boolean }>("/api/v1/auth/logout", {
+    method: "POST",
+  });
+}

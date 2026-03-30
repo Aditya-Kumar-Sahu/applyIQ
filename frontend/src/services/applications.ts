@@ -109,3 +109,33 @@ export async function getNotifications(): Promise<NotificationsResponse> {
 
   return JSON.parse(dataLine.slice(5).trim()) as NotificationsResponse;
 }
+
+export function subscribeNotifications(
+  onNotifications: (notifications: NotificationsResponse) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const source = new EventSource(`${API_BASE_URL}/api/v1/notifications/stream`, {
+    withCredentials: true,
+  });
+  let closed = false;
+
+  const handleNotifications = (event: MessageEvent<string>) => {
+    const notifications = JSON.parse(event.data) as NotificationsResponse;
+    onNotifications(notifications);
+  };
+
+  source.addEventListener("notifications", handleNotifications as EventListener);
+  source.onerror = () => {
+    if (closed) {
+      return;
+    }
+    if (source.readyState === EventSource.CLOSED) {
+      onError?.(new ApiError("Notifications stream disconnected", 503));
+    }
+  };
+
+  return () => {
+    closed = true;
+    source.close();
+  };
+}
