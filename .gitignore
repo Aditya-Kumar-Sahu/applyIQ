@@ -23,3 +23,5 @@ logs/
 celerybeat-schedule**
 backend/celerybeat-schedule**
 PLAN.md
+UI_plan.md
+designs/

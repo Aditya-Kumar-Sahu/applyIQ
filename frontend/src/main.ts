@@ -5,13 +5,16 @@ import App from "./App.vue";
 import { router } from "./router";
 import { store } from "./store";
 import { AUTH_REQUIRED_EVENT } from "./services/api";
-import "./styles.css";
+import "./styles/main.css";
 
 const app = createApp(App);
 
 window.addEventListener(AUTH_REQUIRED_EVENT, async () => {
   await store.dispatch("handleAuthRequired");
-  if (router.currentRoute.value.name !== "login") {
+  const currentRoute = router.currentRoute.value;
+  const requiresAuth = currentRoute.meta.requiresAuth === true;
+
+  if (requiresAuth && currentRoute.name !== "login") {
     await router.replace({ name: "login" });
   }
 });

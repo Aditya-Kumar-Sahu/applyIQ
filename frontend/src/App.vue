@@ -1,43 +1,27 @@
 <template>
-  <div class="shell">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">ApplyIQ</p>
-      </div>
-      <nav class="nav">
-        <RouterLink to="/">Overview</RouterLink>
-        <RouterLink v-if="!isAuthenticated" to="/login">Login</RouterLink>
-        <RouterLink v-if="!isAuthenticated" to="/register">Register</RouterLink>
-        <RouterLink to="/dashboard">Dashboard</RouterLink>
-        <RouterLink v-if="isAuthenticated" to="/resume">Resume</RouterLink>
-        <RouterLink v-if="isAuthenticated" to="/jobs">Jobs</RouterLink>
-        <RouterLink v-if="isAuthenticated" to="/applications">Applications</RouterLink>
-        <RouterLink v-if="isAuthenticated" to="/pipeline">Pipeline</RouterLink>
-        <RouterLink v-if="isAuthenticated" to="/vault">Vault</RouterLink>
-        <RouterLink v-if="isAuthenticated" to="/settings">Settings</RouterLink>
-        <button v-if="isAuthenticated" class="nav-action" type="button" @click="handleLogout">Logout</button>
-      </nav>
-    </header>
+  <template v-if="isAuthRoute">
+    <div class="app-shell--auth">
+      <RouterView />
+    </div>
+  </template>
 
-    <RouterView />
-  </div>
+  <template v-else>
+    <AppShell>
+      <RouterView v-slot="{ Component, route }">
+        <Transition name="fade-slide" mode="out-in">
+          <component :is="Component" :key="route.fullPath" />
+        </Transition>
+      </RouterView>
+    </AppShell>
+  </template>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { RouterLink, RouterView } from "vue-router";
+import { RouterView, useRoute } from "vue-router";
+import AppShell from "./components/layout/AppShell.vue";
 
-import { useRouter } from "vue-router";
-import { store } from "./store";
+const route = useRoute();
 
-const isAuthenticated = computed(() => store.getters.isAuthenticated as boolean);
-
-const router = useRouter();
-
-async function handleLogout() {
-  await store.dispatch("logout");
-  if (router.currentRoute.value.name !== "login") {
-    await router.replace({ name: "login" });
-  }
-}
+const isAuthRoute = computed(() => route.meta.guestOnly === true || route.name === "login" || route.name === "register");
 </script>

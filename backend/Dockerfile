@@ -10,7 +10,7 @@ RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 
 COPY requirements.txt ./
 RUN pip install uv && \
-    uv pip install --no-cache-dir --prefix=/install -r requirements.txt
+    uv pip install --system --no-cache-dir -r requirements.txt
 
 COPY . .
 
@@ -19,4 +19,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

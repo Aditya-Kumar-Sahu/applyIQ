@@ -1,50 +1,85 @@
 <template>
-  <main class="grid">
-    <section class="panel auth-panel">
-      <p class="eyebrow">Register</p>
-      <h2>Create your ApplyIQ account</h2>
-      <form class="auth-form" @submit.prevent="submit">
-        <label>
-          <span>Full name</span>
-          <input v-model="fullName" type="text" autocomplete="name" required />
-        </label>
+  <div class="app-shell--auth">
+    <div class="auth-card">
+      <p class="auth-card__brand">ApplyIQ</p>
+      <p class="auth-card__tagline">The Digital Curator</p>
+      <h1 class="auth-card__title">Create your workspace</h1>
+      <p class="auth-card__sub">Start automating your job search in minutes.</p>
 
-        <label>
-          <span>Email</span>
-          <input v-model="email" type="email" autocomplete="email" required />
-        </label>
+      <form class="auth-form" @submit.prevent="submit" id="register-form">
+        <div class="field-group">
+          <label class="field-label" for="reg-name">Full name</label>
+          <input
+            id="reg-name"
+            v-model="fullName"
+            type="text"
+            class="field-input"
+            autocomplete="name"
+            placeholder="Alex Chen"
+            required
+          />
+        </div>
 
-        <label>
-          <span>Password</span>
-          <input v-model="password" type="password" autocomplete="new-password" required />
-        </label>
+        <div class="field-group">
+          <label class="field-label" for="reg-email">Email</label>
+          <input
+            id="reg-email"
+            v-model="email"
+            type="email"
+            class="field-input"
+            autocomplete="email"
+            placeholder="you@example.com"
+            required
+          />
+        </div>
 
-        <p v-if="errorMessage" class="auth-error">{{ errorMessage }}</p>
+        <div class="field-group">
+          <label class="field-label" for="reg-password">Password</label>
+          <input
+            id="reg-password"
+            v-model="password"
+            type="password"
+            class="field-input"
+            autocomplete="new-password"
+            placeholder="At least 8 characters"
+            required
+          />
+        </div>
 
-        <button class="button-link auth-button" type="submit">Create account</button>
+        <div v-if="errorMessage" class="auth-error">{{ errorMessage }}</div>
+
+        <button id="register-submit" class="btn btn-primary w-full" type="submit" style="margin-top:0.5rem;">
+          Create account
+        </button>
       </form>
-    </section>
-  </main>
+
+      <p class="auth-form__footer">
+        Already have an account?
+        <RouterLink to="/login">Sign in</RouterLink>
+      </p>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
-
+import { RouterLink, useRouter } from "vue-router";
 import { store } from "../store";
 
-const router = useRouter();
-const fullName = ref("");
-const email = ref("");
-const password = ref("");
+const router       = useRouter();
+const fullName     = ref("");
+const email        = ref("");
+const password     = ref("");
 const errorMessage = computed(() => store.getters.authError as string | null);
 
 async function submit() {
   await store.dispatch("register", {
-    email: email.value,
-    password: password.value,
     full_name: fullName.value,
+    email:     email.value,
+    password:  password.value,
   });
-  await router.push({ name: "dashboard" });
+  if (!store.getters.authError) {
+    await router.push({ name: "dashboard" });
+  }
 }
 </script>

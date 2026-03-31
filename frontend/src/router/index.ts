@@ -1,16 +1,15 @@
 import { createRouter, createWebHistory } from "vue-router";
 
-import ApplicationsView from "../views/ApplicationsView.vue";
-import DashboardView from "../views/DashboardView.vue";
-import HomeView from "../views/HomeView.vue";
-import JobsView from "../views/JobsView.vue";
-import LoginView from "../views/LoginView.vue";
-import PipelineView from "../views/PipelineView.vue";
-import RegisterView from "../views/RegisterView.vue";
-import ResumeView from "../views/ResumeView.vue";
-import SettingsView from "../views/SettingsView.vue";
-import VaultView from "../views/VaultView.vue";
-import { store } from "../store";
+import ApplicationsView  from "../views/ApplicationsView.vue";
+import ApprovalGateView  from "../views/ApprovalGateView.vue";
+import DashboardView     from "../views/DashboardView.vue";
+import LoginView         from "../views/LoginView.vue";
+import HomeView          from "../views/HomeView.vue";
+import PipelineView      from "../views/PipelineView.vue";
+import ProfileView       from "../views/ProfileView.vue";
+import RegisterView      from "../views/RegisterView.vue";
+import SettingsView      from "../views/SettingsView.vue";
+import { store }         from "../store";
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -19,29 +18,12 @@ export const router = createRouter({
       path: "/",
       name: "home",
       component: HomeView,
+      meta: { guestOnly: true },
     },
     {
       path: "/dashboard",
       name: "dashboard",
       component: DashboardView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: "/resume",
-      name: "resume",
-      component: ResumeView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: "/jobs",
-      name: "jobs",
-      component: JobsView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: "/applications",
-      name: "applications",
-      component: ApplicationsView,
       meta: { requiresAuth: true },
     },
     {
@@ -51,9 +33,21 @@ export const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: "/vault",
-      name: "vault",
-      component: VaultView,
+      path: "/applications",
+      name: "applications",
+      component: ApplicationsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: "/approval",
+      name: "approval",
+      component: ApprovalGateView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: "/profile",
+      name: "profile",
+      component: ProfileView,
       meta: { requiresAuth: true },
     },
     {
@@ -74,6 +68,11 @@ export const router = createRouter({
       component: RegisterView,
       meta: { guestOnly: true },
     },
+    // Legacy redirects so old routes still work
+    { path: "/resume", redirect: "/profile"   },
+    { path: "/jobs",   redirect: "/pipeline"  },
+    { path: "/vault",  redirect: "/dashboard" },
+    { path: "/home",   redirect: "/"          },
   ],
 });
 

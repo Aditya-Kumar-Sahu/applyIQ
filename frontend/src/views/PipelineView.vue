@@ -1,337 +1,262 @@
 <template>
-  <main class="grid pipeline-layout polished-pipeline">
-    <section class="panel pipeline-control-panel">
-      <p class="eyebrow">Pipeline Control</p>
-      <h2>Run, inspect, and approve with a single workflow.</h2>
-      <p class="lede">
-        The graph pauses at the approval gate. You can edit letters, reject low-fit jobs, or bulk approve high-score matches.
+  <div>
+    <div class="page-header">
+      <p class="page-header__eyebrow">Orchestration</p>
+      <h1 class="page-header__title">Main Orchestration Graph</h1>
+      <p class="page-header__sub" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:0.5rem;">
+        <span class="chip chip-neutral">v2.0.4-production</span>
+        <span class="chip chip-neutral">Cluster: US-EAST-1</span>
+        <span v-if="pipelineRun" class="chip" :class="pipelineRun.status === 'complete' ? 'chip-emerald' : 'chip-amber'">
+          {{ statusLabel }}
+        </span>
       </p>
+    </div>
 
-      <form class="pipeline-form" @submit.prevent="handleStart">
-        <label>
-          Target role
-          <input v-model="form.targetRole" type="text" required />
-        </label>
-        <label>
-          Location
-          <input v-model="form.location" type="text" placeholder="Remote or a city" />
-        </label>
-        <label>
-          Jobs per source
-          <input v-model.number="form.limitPerSource" type="number" min="1" max="25" />
-        </label>
-        <label>
-          Sources
-          <div class="source-grid">
-            <label v-for="source in availableSources" :key="source" class="source-option">
-              <input v-model="form.sources" type="checkbox" :value="source" />
-              <span>{{ source }}</span>
-            </label>
-          </div>
-        </label>
-        <div class="action-row">
-          <button class="button-link auth-button" type="submit" :disabled="pipelineStatus === 'loading'">
-            {{ pipelineStatus === "loading" ? "Running..." : "Start pipeline run" }}
-          </button>
-          <button
-            v-if="pipelineRun"
-            class="button-link secondary-button"
-            type="button"
-            :disabled="pipelineStatus === 'loading'"
-            @click="refreshPipeline"
-          >
-            Refresh status
-          </button>
-        </div>
-      </form>
+    <div class="pipeline-layout">
+      <!-- Main: Graph + Control Form -->
+      <div class="pipeline-main">
 
-      <p v-if="pipelineError" class="auth-error">{{ pipelineError }}</p>
-    </section>
-
-    <section class="panel graph-panel">
-      <div class="approval-head">
-        <div>
-          <p class="eyebrow">Execution Graph</p>
-          <h3>{{ statusLabel }}</h3>
-        </div>
-        <div class="pipeline-summary-inline" v-if="pipelineRun">
-          <span class="status-pill">Jobs: {{ pipelineRun.jobs_found }}</span>
-          <span class="status-pill">Matched: {{ pipelineRun.jobs_matched }}</span>
-          <span class="status-pill">Pending: {{ pendingApplications.length }}</span>
-        </div>
-      </div>
-
-      <section class="graph-stage-board" aria-label="Pipeline execution graph">
-        <div class="graph-stage-lines" aria-hidden="true">
-          <span class="graph-line graph-line-one"></span>
-          <span class="graph-line graph-line-two"></span>
-          <span class="graph-line graph-line-three"></span>
-          <span class="graph-line graph-line-four"></span>
-        </div>
-
-        <article
-          v-for="node in nodes"
-          :key="node.id"
-          class="graph-stage-card"
-          :class="[`stage-${nodeStatus(node.id)}`, node.emphasis ? 'stage-gate' : '']"
-        >
-          <div class="graph-stage-topline">
-            <span class="graph-stage-step">{{ node.step }}</span>
-            <span class="graph-stage-state">{{ nodeStatusLabel(node.id) }}</span>
-          </div>
-          <div class="graph-stage-icon" aria-hidden="true">{{ node.icon }}</div>
-          <h4>{{ node.label }}</h4>
-          <p class="job-meta">{{ node.description }}</p>
-          <div class="graph-stage-metric">
-            <strong>{{ nodeMetric(node.id).value }}</strong>
-            <span>{{ nodeMetric(node.id).label }}</span>
-          </div>
-        </article>
-      </section>
-
-      <div class="graph-telemetry" v-if="pipelineRun">
-        <article class="telemetry-card">
-          <p class="eyebrow muted">Run State</p>
-          <h4>{{ statusLabel }}</h4>
-          <p class="job-meta">Current node: {{ readableNodeName(pipelineRun.current_node) }}</p>
-        </article>
-        <article class="telemetry-card">
-          <p class="eyebrow muted">Review Queue</p>
-          <h4>{{ pendingApplications.length }}</h4>
-          <p class="job-meta">Applications waiting at the gate</p>
-        </article>
-        <article class="telemetry-card">
-          <p class="eyebrow muted">Submission Flow</p>
-          <h4>{{ appliedCount }}</h4>
-          <p class="job-meta">Applied or handed off to the tracker</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="panel pipeline-approval-panel">
-      <div class="approval-head">
-        <div>
-          <p class="eyebrow">Approval Gate</p>
-          <h3>{{ approvalHeading }}</h3>
-        </div>
-        <div class="approval-actions">
-          <button
-            class="button-link secondary-button"
-            type="button"
-            :disabled="highScorePendingIds.length === 0 || pipelineStatus === 'loading'"
-            @click="approveHighScore"
-          >
-            Approve score >= 80%
-          </button>
-          <button
-            class="button-link auth-button"
-            type="button"
-            :disabled="selectedIds.length === 0 || pipelineStatus === 'loading'"
-            @click="approveSelected"
-          >
-            Approve selected
-          </button>
-        </div>
-      </div>
-
-      <div v-if="pipelineResults && pipelineResults.applications.length === 0" class="empty-state">
-        <p class="lede">Applications will appear here once the pipeline reaches the approval gate.</p>
-      </div>
-
-      <article
-        v-for="application in sortedApplications"
-        :key="application.id"
-        class="approval-card approval-workspace"
-        :class="{ approved: application.status === 'approved', rejected: application.status === 'rejected' }"
-      >
-        <div class="approval-card-head">
-          <label v-if="application.status === 'pending_approval'" class="select-pill">
-            <input v-model="selectedIds" type="checkbox" :value="application.id" />
-            <span>Select</span>
-          </label>
-          <div>
-            <h3>{{ application.title }}</h3>
-            <p class="job-meta">{{ application.company_name }}</p>
-          </div>
-          <div class="status-stack">
-            <span class="status-pill">{{ application.status.replaceAll("_", " ") }}</span>
-            <span v-if="isDemoApplication(application)" class="status-pill demo-pill">Demo application</span>
-          </div>
-        </div>
-
-        <div class="approval-split approval-split-rich">
-          <section class="approval-job-pane">
-            <div class="score-ring-wrap">
-              <svg viewBox="0 0 120 120" class="score-ring" role="img" aria-label="Match score">
-                <circle cx="60" cy="60" r="48" class="score-ring-track" />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="48"
-                  class="score-ring-progress"
-                  :stroke-dasharray="scoreRingDash(application.match_score)"
-                />
-              </svg>
-              <div class="score-ring-label">{{ scorePercent(application.match_score) }}%</div>
+        <!-- Control form -->
+        <div class="pipeline-section">
+          <div class="section-header" style="margin-bottom:1.25rem;">
+            <div>
+              <div class="section-header__title">Start a Run</div>
+              <div class="section-header__sub">Configure sources and target role, then launch the pipeline.</div>
             </div>
-
-            <div class="detail-block">
-              <p class="eyebrow muted">Score Breakdown</p>
-              <div v-for="metric in scoreBreakdown(application)" :key="`${application.id}-${metric.label}`" class="score-row">
-                <span>{{ metric.label }}</span>
-                <div class="score-bar">
-                  <div class="score-fill" :style="{ width: `${metric.value}%` }"></div>
-                </div>
-                <strong>{{ metric.value }}%</strong>
+          </div>
+          <form @submit.prevent="handleStart" style="display:flex;flex-direction:column;gap:1rem;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+              <div class="field-group">
+                <label class="field-label" for="pipe-role">Target role</label>
+                <input id="pipe-role" v-model="form.targetRole" type="text" class="field-input" required placeholder="ML Engineer" />
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="pipe-loc">Location</label>
+                <input id="pipe-loc" v-model="form.location" type="text" class="field-input" placeholder="Remote or a city" />
               </div>
             </div>
-
-            <div class="detail-block job-signal-grid">
-              <article class="job-signal-card">
-                <span>Tone</span>
-                <strong>{{ application.tone }}</strong>
-              </article>
-              <article class="job-signal-card">
-                <span>Words</span>
-                <strong>{{ application.word_count }}</strong>
-              </article>
-              <article v-if="application.selected_variant_id" class="job-signal-card">
-                <span>Variant</span>
-                <strong>{{ application.selected_variant_id }}</strong>
-              </article>
-              <article class="job-signal-card">
-                <span>ATS</span>
-                <strong>{{ application.ats_provider ?? "pending" }}</strong>
-              </article>
+            <div class="field-group">
+              <label class="field-label" for="pipe-limit">Jobs per source</label>
+              <input id="pipe-limit" v-model.number="form.limitPerSource" type="number" min="1" max="25" class="field-input" style="max-width:120px;" />
             </div>
-
-            <div v-if="application.status !== 'pending_approval'" class="apply-outcome">
-              <p v-if="application.confirmation_number" class="job-meta">
-                Confirmation: {{ application.confirmation_number }}
-              </p>
-              <p v-if="application.manual_required_reason" class="auth-error">{{ application.manual_required_reason }}</p>
-              <p v-if="application.failure_reason" class="auth-error">{{ application.failure_reason }}</p>
-              <a
-                v-if="application.confirmation_url"
-                class="button-link secondary-button"
-                :href="application.confirmation_url"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open confirmation
-              </a>
-              <p class="job-meta">Screenshots: {{ application.screenshot_urls.length }}</p>
-            </div>
-          </section>
-
-          <section class="approval-letter-pane approval-editor-pane">
-            <div class="editor-shell" :class="{ disabled: application.status !== 'pending_approval' || pipelineStatus === 'loading' }">
-              <div class="editor-header">
-                <div>
-                  <p class="eyebrow muted">Cover Letter Studio</p>
-                  <h4>{{ application.company_name }} draft</h4>
-                </div>
-                <div class="editor-meta-row">
-                  <span class="status-pill muted-chip">{{ editorWordCount(application.id) }} words</span>
-                  <span class="status-pill muted-chip">Version {{ application.cover_letter_version }}</span>
-                </div>
-              </div>
-
-              <div class="editor-toolbar">
-                <button
-                  v-for="tool in editorTools"
-                  :key="`${application.id}-${tool.command}`"
-                  class="editor-tool"
-                  type="button"
-                  :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
-                  @click="formatEditor(application.id, tool.command)"
+            <div>
+              <p class="field-label" style="margin-bottom:0.5rem;">Sources</p>
+              <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+                <label
+                  v-for="source in availableSources"
+                  :key="source"
+                  style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.5rem 0.875rem;background:var(--surface-low);border-radius:var(--radius-full);font-size:0.8125rem;cursor:pointer;user-select:none;"
+                  :style="form.sources.includes(source) ? 'background:rgba(144,77,0,0.12);color:var(--secondary);font-weight:600;' : ''"
                 >
-                  {{ tool.label }}
-                </button>
-                <button
-                  class="editor-tool editor-tool-ghost"
-                  type="button"
-                  :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
-                  @click="insertBridge(application.id)"
-                >
-                  Add bridge sentence
-                </button>
+                  <input v-model="form.sources" type="checkbox" :value="source" style="display:none;" />
+                  {{ source }}
+                </label>
               </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <button class="btn btn-primary" type="submit" :disabled="pipelineStatus === 'loading'">
+                <span class="material-symbols-outlined icon-sm">play_arrow</span>
+                {{ pipelineStatus === 'loading' ? 'Running…' : 'Start pipeline run' }}
+              </button>
+              <button v-if="pipelineRun" class="btn btn-secondary" type="button" :disabled="pipelineStatus === 'loading'" @click="refreshPipeline">
+                <span class="material-symbols-outlined icon-sm">refresh</span>
+                Refresh
+              </button>
+            </div>
+            <div v-if="pipelineError" class="auth-error">{{ pipelineError }}</div>
+          </form>
+        </div>
 
+        <!-- Execution Graph -->
+        <div class="pipeline-section">
+          <div class="section-header" style="margin-bottom:1.25rem;">
+            <div>
+              <div class="section-header__title">{{ statusLabel }}</div>
+              <div class="section-header__sub" v-if="pipelineRun">Run ID: {{ pipelineRun.run_id?.slice(0,8) }}…</div>
+            </div>
+            <div v-if="pipelineRun" style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <span class="chip chip-neutral">Jobs: {{ pipelineRun.jobs_found }}</span>
+              <span class="chip chip-amber">Matched: {{ pipelineRun.jobs_matched }}</span>
+              <span class="chip chip-neutral">Pending: {{ pendingApplications.length }}</span>
+            </div>
+          </div>
+
+          <div class="pipeline-graph">
+            <svg class="pipeline-graph__svg" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <marker id="pipelineArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                  <path d="M 0 0 L 10 5 L 0 10 z"></path>
+                </marker>
+              </defs>
+              <path d="M 130 112 L 290 112" :class="{ 'is-active': nodeStatus('rank_jobs_node') !== 'pending' }" marker-end="url(#pipelineArrow)" />
+              <path d="M 330 112 L 490 112" :class="{ 'is-active': nodeStatus('approval_gate_node') !== 'pending' }" marker-end="url(#pipelineArrow)" />
+              <path d="M 530 112 L 690 112" :class="{ 'is-active': nodeStatus('auto_apply_node') !== 'pending' }" marker-end="url(#pipelineArrow)" />
+              <path d="M 730 112 L 890 112" :class="{ 'is-active': nodeStatus('track_applications_node') !== 'pending' }" marker-end="url(#pipelineArrow)" />
+            </svg>
+            <template v-for="(node, idx) in nodes" :key="node.id">
               <div
-                :ref="(element) => setEditorRef(application.id, element)"
-                class="rich-editor"
-                :contenteditable="application.status === 'pending_approval' && pipelineStatus !== 'loading'"
-                spellcheck="true"
-                @input="syncDraftFromEditor(application.id)"
-                @blur="syncDraftFromEditor(application.id)"
-              ></div>
-            </div>
-
-            <div v-if="abVariants[application.id]?.length" class="detail-block">
-              <p class="eyebrow muted">A/B Variants</p>
-              <article
-                v-for="variant in abVariants[application.id]"
-                :key="`${application.id}-${variant.variant_id}`"
-                class="approval-card variant-card"
+                class="pipeline-node"
+                :class="{
+                  'is-active':   nodeStatus(node.id) === 'active',
+                  'is-complete': nodeStatus(node.id) === 'complete',
+                  'is-selected': selectedNode === node.id,
+                }"
+                @click="selectedNode = node.id"
               >
-                <h3>Variant {{ variant.variant_id }} / {{ variant.tone }}</h3>
-                <p class="job-meta">{{ variant.word_count }} words</p>
-                <p class="lede compact">{{ variant.cover_letter_text }}</p>
-                <button
-                  class="button-link secondary-button"
-                  type="button"
-                  :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
-                  @click="selectVariant(application.id, variant.variant_id)"
+                <span class="pipeline-node__step">{{ node.step }}</span>
+                <span
+                  class="pipeline-node__badge"
+                  :class="{
+                    'pipeline-node__badge--active': nodeStatus(node.id) === 'active',
+                    'pipeline-node__badge--complete': nodeStatus(node.id) === 'complete',
+                  }"
                 >
-                  Use Variant {{ variant.variant_id }}
-                </button>
-              </article>
-            </div>
+                  {{ nodeStatusLabel(node.id) }}
+                </span>
+                <div class="pipeline-node__icon">{{ node.icon }}</div>
+                <p class="pipeline-node__title">{{ node.label }}</p>
+                <p class="pipeline-node__sub">{{ node.description }}</p>
+                <p class="pipeline-node__state"
+                  :class="{
+                    'pipeline-node__state--active':   nodeStatus(node.id) === 'active',
+                    'pipeline-node__state--complete': nodeStatus(node.id) === 'complete',
+                  }"
+                >
+                  {{ nodeStatusLabel(node.id) }}
+                </p>
+                <div style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(199,198,202,0.2);">
+                  <span style="font-family:'Manrope',sans-serif;font-size:1.25rem;font-weight:800;letter-spacing:-0.03em;">{{ nodeMetric(node.id).value }}</span>
+                  <span style="font-size:0.68rem;color:var(--on-surface-var);margin-left:0.3rem;text-transform:uppercase;letter-spacing:0.05em;">{{ nodeMetric(node.id).label }}</span>
+                </div>
+              </div>
+              <div v-if="idx < nodes.length - 1" class="pipeline-arrow">
+                <span class="material-symbols-outlined">arrow_forward</span>
+              </div>
+            </template>
+          </div>
 
-            <div class="action-row compact-actions">
-              <button
-                class="button-link secondary-button"
-                type="button"
-                :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
-                @click="regenerate(application.id)"
-              >
-                Regenerate
-              </button>
-              <button
-                class="button-link secondary-button"
-                type="button"
-                :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
-                @click="generateAB(application.id)"
-              >
-                Generate A/B
-              </button>
-              <button
-                class="button-link secondary-button"
-                type="button"
-                :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
-                @click="saveDraft(application.id)"
-              >
-                Save edit
-              </button>
-              <button
-                class="button-link danger-button"
-                type="button"
-                :disabled="application.status !== 'pending_approval' || pipelineStatus === 'loading'"
-                @click="rejectOne(application.id)"
-              >
-                Skip
-              </button>
+          <!-- Telemetry row -->
+          <div v-if="pipelineRun" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem;">
+            <div style="padding:1rem;background:var(--surface-low);border-radius:var(--radius-md);">
+              <p class="font-label" style="margin-bottom:0.35rem;">Run State</p>
+              <p style="font-size:0.9rem;font-weight:600;color:var(--on-surface);">{{ statusLabel }}</p>
+              <p style="font-size:0.78rem;color:var(--on-surface-var);margin-top:0.2rem;">{{ pipelineRun.current_node?.replaceAll('_',' ') ?? '—' }}</p>
             </div>
-          </section>
+            <div style="padding:1rem;background:var(--surface-low);border-radius:var(--radius-md);">
+              <p class="font-label" style="margin-bottom:0.35rem;">Review Queue</p>
+              <p style="font-size:0.9rem;font-weight:600;color:var(--on-surface);">{{ pendingApplications.length }}</p>
+              <p style="font-size:0.78rem;color:var(--on-surface-var);margin-top:0.2rem;">Awaiting approval</p>
+            </div>
+            <div style="padding:1rem;background:var(--surface-low);border-radius:var(--radius-md);">
+              <p class="font-label" style="margin-bottom:0.35rem;">Submitted</p>
+              <p style="font-size:0.9rem;font-weight:600;color:var(--on-surface);">{{ appliedCount }}</p>
+              <p style="font-size:0.78rem;color:var(--on-surface-var);margin-top:0.2rem;">Applied or tracked</p>
+            </div>
+          </div>
         </div>
-      </article>
-    </section>
-  </main>
+      </div>
+
+      <!-- Aside: Execution Details + Approval Gate -->
+      <div class="pipeline-aside">
+
+        <!-- Execution log for selected node -->
+        <div class="pipeline-section" v-if="pipelineRun">
+          <div class="section-header" style="margin-bottom:1rem;">
+            <div class="section-header__title">Execution Details</div>
+          </div>
+          <div class="execution-panel__metrics">
+            <div class="execution-metric">
+              <span class="execution-metric__label">Selected Node</span>
+              <strong class="execution-metric__value">{{ selectedNodeLabel }}</strong>
+            </div>
+            <div class="execution-metric">
+              <span class="execution-metric__label">Connection</span>
+              <strong class="execution-metric__value">{{ connectionStateLabel }}</strong>
+            </div>
+            <div class="execution-metric">
+              <span class="execution-metric__label">Task ID</span>
+              <strong class="execution-metric__value">{{ pipelineRun.run_id?.slice(0, 8) ?? '—' }}</strong>
+            </div>
+          </div>
+
+          <div class="execution-memory">
+            <div class="execution-memory__label">
+              <span>Memory utilization</span>
+              <span>{{ memoryUtilization }}%</span>
+            </div>
+            <div class="execution-memory__bar">
+              <div class="execution-memory__fill" :style="{ width: `${memoryUtilization}%` }"></div>
+            </div>
+          </div>
+          <div class="exec-log">
+            <div v-for="entry in execLog" :key="entry.time" class="exec-log__entry">
+              <div class="exec-log__dot" :class="entry.active ? 'exec-log__dot--active' : ''"></div>
+              <span class="exec-log__time">{{ entry.time }}</span>
+              <span class="exec-log__msg">{{ entry.msg }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="!pipelineRun" class="pipeline-section">
+          <div class="empty-state">
+            <div class="empty-state__icon"><span class="material-symbols-outlined">account_tree</span></div>
+            <p class="empty-state__title">No active run</p>
+            <p class="empty-state__body">Launch the pipeline on the left to see the execution graph come alive.</p>
+          </div>
+        </div>
+
+        <!-- Approval Gate mini -->
+        <div class="pipeline-section">
+          <div class="section-header" style="margin-bottom:1rem;">
+            <div>
+              <div class="section-header__title">Approval Gate</div>
+              <div class="section-header__sub">{{ approvalHeading }}</div>
+            </div>
+          </div>
+
+          <div v-if="!pipelineResults || sortedApplications.length === 0" class="empty-state" style="padding:1.5rem 0;">
+            <div class="empty-state__icon"><span class="material-symbols-outlined">inbox</span></div>
+            <p class="empty-state__body">Applications will appear here once the pipeline reaches the gate.</p>
+          </div>
+
+          <div v-else style="display:flex;flex-direction:column;gap:0.5rem;max-height:340px;overflow-y:auto;">
+            <div
+              v-for="app in sortedApplications.slice(0, 8)"
+              :key="app.id"
+              style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:var(--surface-low);border-radius:var(--radius-md);"
+            >
+              <div style="flex:1;min-width:0;">
+                <p style="font-size:0.8125rem;font-weight:600;color:var(--on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ app.title }}</p>
+                <p style="font-size:0.75rem;color:var(--on-surface-var);">{{ app.company_name }}</p>
+              </div>
+              <span class="chip chip-neutral" style="font-size:0.7rem;flex-shrink:0;">{{ Math.round(app.match_score * 100) }}%</span>
+              <label v-if="app.status === 'pending_approval'" style="display:inline-flex;align-items:center;">
+                <input v-model="selectedIds" type="checkbox" :value="app.id" style="accent-color:var(--secondary);width:16px;height:16px;" />
+              </label>
+              <span v-else class="chip" :class="app.status === 'approved' || app.status === 'applied' ? 'chip-emerald' : 'chip-error'" style="font-size:0.68rem;">
+                {{ app.status === 'approved' || app.status === 'applied' ? '✓' : '✕' }}
+              </span>
+            </div>
+          </div>
+
+          <div v-if="sortedApplications.length > 0" style="display:flex;gap:0.5rem;margin-top:1rem;flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" :disabled="highScorePendingIds.length === 0 || pipelineStatus === 'loading'" @click="approveHighScore">
+              Approve ≥80%
+            </button>
+            <button class="btn btn-primary btn-sm" :disabled="selectedIds.length === 0 || pipelineStatus === 'loading'" @click="approveSelected">
+              Approve selected
+            </button>
+            <RouterLink to="/approval" class="btn btn-ghost btn-sm">Full review →</RouterLink>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { RouterLink } from "vue-router";
 
 import {
   isDemoApplication,
@@ -343,368 +268,143 @@ import {
 } from "../services/pipeline";
 import { store } from "../store";
 
-type PipelineNode = {
-  id: string;
-  step: string;
-  label: string;
-  description: string;
-  icon: string;
-  emphasis?: boolean;
-};
-
-type ScoreMetric = {
-  label: string;
-  value: number;
-};
-
-type EditorTool = {
-  label: string;
-  command: "bold" | "italic" | "insertUnorderedList" | "formatBlock";
-};
-
-type StageStatus = "pending" | "active" | "complete";
+type PipelineNode = { id: string; step: string; label: string; description: string; icon: string; emphasis?: boolean; };
+type StageStatus  = "pending" | "active" | "complete";
 
 const availableSources = ["linkedin", "indeed", "remotive", "wellfound"];
 const nodes: PipelineNode[] = [
-  { id: "fetch_jobs_node", step: "01", label: "Job Scout", description: "Scrapes selected sources in parallel.", icon: "01" },
-  { id: "rank_jobs_node", step: "02", label: "Match and Rank", description: "Scores jobs against the resume profile.", icon: "02" },
-  { id: "approval_gate_node", step: "03", label: "Approval Gate", description: "Waits for explicit user approval.", icon: "03", emphasis: true },
-  { id: "auto_apply_node", step: "04", label: "Auto Apply", description: "Submits approved applications only.", icon: "04" },
-  { id: "track_applications_node", step: "05", label: "Tracker", description: "Persists outcomes and status updates.", icon: "05" },
-];
-const editorTools: EditorTool[] = [
-  { label: "Bold", command: "bold" },
-  { label: "Italic", command: "italic" },
-  { label: "Bullets", command: "insertUnorderedList" },
-  { label: "Focus line", command: "formatBlock" },
+  { id: "fetch_jobs_node",        step: "01", label: "Job Scout",     description: "Scrapes selected sources in parallel.",         icon: "01" },
+  { id: "rank_jobs_node",         step: "02", label: "Match & Rank",  description: "Scores jobs against the resume profile.",       icon: "02" },
+  { id: "approval_gate_node",     step: "03", label: "Approval Gate", description: "Waits for explicit user approval.",             icon: "03", emphasis: true },
+  { id: "auto_apply_node",        step: "04", label: "Auto Apply",    description: "Submits approved applications only.",           icon: "04" },
+  { id: "track_applications_node",step: "05", label: "Tracker",       description: "Persists outcomes and status updates.",        icon: "05" },
 ];
 
-const form = reactive({
-  targetRole: "ML Engineer",
-  location: "Remote",
-  limitPerSource: 10,
-  sources: ["linkedin", "indeed", "remotive"],
-});
+const form = reactive({ targetRole: "ML Engineer", location: "Remote", limitPerSource: 10, sources: ["linkedin", "indeed", "remotive"] });
+const selectedIds  = ref<string[]>([]);
+const selectedNode = ref<string>(nodes[0].id);
+const abVariants   = reactive<Record<string, CoverLetterVariant[]>>({});
 
-const selectedIds = ref<string[]>([]);
-const drafts = reactive<Record<string, string>>({});
-const editorRefs = new Map<string, HTMLDivElement>();
-const abVariants = reactive<Record<string, CoverLetterVariant[]>>({});
+const pipelineRun     = computed(() => store.getters.pipelineRun     as PipelineRunSummary | null);
+const pipelineResults = computed(() => store.getters.pipelineResults as PipelineResults    | null);
+const pipelineStatus  = computed(() => store.getters.pipelineStatus  as string);
+const pipelineError   = computed(() => store.getters.pipelineError   as string | null);
 
-const pipelineRun = computed(() => store.getters.pipelineRun as PipelineRunSummary | null);
-const pipelineResults = computed(() => store.getters.pipelineResults as PipelineResults | null);
-const pipelineStatus = computed(() => store.getters.pipelineStatus as string);
-const pipelineError = computed(() => store.getters.pipelineError as string | null);
 const sortedApplications = computed(() => {
-  const applications = [...(pipelineResults.value?.applications ?? [])];
-  applications.sort((left, right) => right.match_score - left.match_score);
-  return applications;
+  const apps = [...(pipelineResults.value?.applications ?? [])];
+  apps.sort((a, b) => b.match_score - a.match_score);
+  return apps;
 });
 const pendingApplications = computed(() =>
-  (pipelineResults.value?.applications ?? []).filter((application) => application.status === "pending_approval"),
+  (pipelineResults.value?.applications ?? []).filter(a => a.status === "pending_approval")
 );
-const appliedCount = computed(
-  () =>
-    (pipelineResults.value?.applications ?? []).filter((application) =>
-      ["applied", "manual_required", "failed"].includes(application.status),
-    ).length,
+const appliedCount = computed(() =>
+  (pipelineResults.value?.applications ?? []).filter(a => ["applied","manual_required","failed"].includes(a.status)).length
 );
 const highScorePendingIds = computed(() =>
-  pendingApplications.value.filter((application) => application.match_score >= 0.8).map((application) => application.id),
+  pendingApplications.value.filter(a => a.match_score >= 0.8).map(a => a.id)
 );
 const approvalHeading = computed(() => {
-  if (!pipelineResults.value) {
-    return "No applications waiting yet";
-  }
-  if (pipelineRun.value?.status === "complete") {
-    return "Pipeline completed after approval";
-  }
-  return `${pendingApplications.value.length} applications waiting for review`;
+  if (!pipelineResults.value)              return "No applications waiting yet";
+  if (pipelineRun.value?.status === "complete") return "Pipeline completed after approval";
+  return `${pendingApplications.value.length} application(s) waiting for review`;
 });
 const statusLabel = computed(() => {
-  if (!pipelineRun.value) {
-    return "Idle";
-  }
-  if (pipelineRun.value.status === "paused_at_gate") {
-    return "Waiting for Approval";
-  }
+  if (!pipelineRun.value) return "Idle";
+  if (pipelineRun.value.status === "paused_at_gate") return "Waiting for Approval";
   return pipelineRun.value.status.replaceAll("_", " ");
 });
 
-let stopPipelineStatusStream: (() => void) | null = null;
-
-watch(
-  pipelineResults,
-  async (results) => {
-    selectedIds.value = selectedIds.value.filter((id) =>
-      results?.applications.some((application) => application.id === id && application.status === "pending_approval"),
-    );
-
-    for (const application of results?.applications ?? []) {
-      drafts[application.id] = application.cover_letter_text;
-    }
-
-    await nextTick();
-
-    for (const application of results?.applications ?? []) {
-      syncEditorFromDraft(application.id);
-    }
-  },
-  { immediate: true },
-);
-
-watch(
-  () => pipelineRun.value?.run_id,
-  (runId, previousRunId) => {
-    if (previousRunId && previousRunId !== runId) {
-      stopPipelineStatusStream?.();
-      stopPipelineStatusStream = null;
-    }
-
-    if (!runId) {
-      stopPipelineStatusStream?.();
-      stopPipelineStatusStream = null;
-      return;
-    }
-
-    stopPipelineStatusStream?.();
-    stopPipelineStatusStream = subscribePipelineStatus(
-      runId,
-      (pipelineResultsUpdate) => {
-        store.commit("setPipelineRun", {
-          run_id: pipelineResultsUpdate.run_id,
-          status: pipelineResultsUpdate.status,
-          current_node: pipelineResultsUpdate.current_node,
-          jobs_found: pipelineResultsUpdate.jobs_found,
-          jobs_matched: pipelineResultsUpdate.jobs_matched,
-          applications_submitted: pipelineResultsUpdate.applications_submitted,
-          pending_approvals_count: pipelineResultsUpdate.applications.filter(
-            (application) => application.status === "pending_approval",
-          ).length,
-        });
-        store.commit("setPipelineResults", pipelineResultsUpdate);
-      },
-      (streamError) => {
-        store.commit("setPipelineError", streamError.message);
-      },
-    );
-  },
-  { immediate: true },
-);
-
-onBeforeUnmount(() => {
-  stopPipelineStatusStream?.();
-  stopPipelineStatusStream = null;
+// Simulated exec log from pipeline state
+const execLog = computed(() => {
+  if (!pipelineRun.value) return [];
+  const entries: { time: string; msg: string; active: boolean }[] = [];
+  if (pipelineRun.value.jobs_found)    entries.push({ time: "14:22:01", msg: `Scraped ${pipelineRun.value.jobs_found} job listings`, active: false });
+  if (pipelineRun.value.jobs_matched)  entries.push({ time: "14:22:05", msg: `Ranked ${pipelineRun.value.jobs_matched} matches`, active: false });
+  if (pendingApplications.value.length > 0) entries.push({ time: "14:22:12", msg: `${pendingApplications.value.length} pending approval`, active: true });
+  return entries;
 });
 
+const selectedNodeLabel = computed(() => nodes.find((node) => node.id === selectedNode.value)?.label ?? "Select a node");
+const connectionStateLabel = computed(() => {
+  if (!pipelineRun.value) return "Idle";
+  return pipelineRun.value.status === "paused_at_gate" ? "Awaiting review" : pipelineRun.value.status.replaceAll("_", " ");
+});
+const memoryUtilization = computed(() => (pipelineRun.value ? 38 : 0));
+
+let stopPipelineStatusStream: (() => void) | null = null;
+
+watch(() => pipelineRun.value?.current_node, (nodeId) => {
+  if (nodeId) {
+    selectedNode.value = nodeId;
+  }
+}, { immediate: true });
+
+watch(() => pipelineRun.value?.run_id, (runId, prevId) => {
+  if (prevId && prevId !== runId) { stopPipelineStatusStream?.(); stopPipelineStatusStream = null; }
+  if (!runId) { stopPipelineStatusStream?.(); stopPipelineStatusStream = null; return; }
+  stopPipelineStatusStream?.();
+  stopPipelineStatusStream = subscribePipelineStatus(
+    runId,
+    (update) => {
+      store.commit("setPipelineRun", {
+        run_id: update.run_id, status: update.status, current_node: update.current_node,
+        jobs_found: update.jobs_found, jobs_matched: update.jobs_matched,
+        applications_submitted: update.applications_submitted,
+        pending_approvals_count: update.applications.filter(a => a.status === "pending_approval").length,
+      });
+      store.commit("setPipelineResults", update);
+    },
+    (err) => store.commit("setPipelineError", err.message),
+  );
+}, { immediate: true });
+
+onBeforeUnmount(() => { stopPipelineStatusStream?.(); stopPipelineStatusStream = null; });
+
 async function handleStart() {
-  if (form.sources.length === 0) {
-    return;
-  }
-
+  if (form.sources.length === 0) return;
   await store.dispatch("startPipeline", {
-    target_role: form.targetRole,
-    location: form.location,
-    limit_per_source: form.limitPerSource,
-    sources: form.sources,
+    target_role: form.targetRole, location: form.location,
+    limit_per_source: form.limitPerSource, sources: form.sources,
   });
 }
-
-async function refreshPipeline() {
-  await store.dispatch("loadPipeline");
-}
-
-async function saveDraft(applicationId: string) {
-  syncDraftFromEditor(applicationId);
-  const coverLetterText = drafts[applicationId]?.trim();
-  if (!coverLetterText) {
-    return;
-  }
-
-  await store.dispatch("editPipelineCoverLetter", {
-    applicationId,
-    coverLetterText,
-  });
-}
-
-async function regenerate(applicationId: string) {
-  await store.dispatch("regeneratePipelineCoverLetter", { applicationId });
-}
-
-async function generateAB(applicationId: string) {
-  const result = await store.dispatch("generatePipelineCoverLetterAB", { applicationId });
-  abVariants[applicationId] = result.variants;
-}
-
-async function selectVariant(applicationId: string, variantId: string) {
-  await store.dispatch("selectPipelineCoverLetterVariant", { applicationId, variantId });
-  delete abVariants[applicationId];
-}
-
-async function rejectOne(applicationId: string) {
-  await store.dispatch("rejectPipelineApplications", { applicationIds: [applicationId] });
-}
+async function refreshPipeline() { await store.dispatch("loadPipeline"); }
 
 async function approveSelected() {
-  if (selectedIds.value.length === 0) {
-    return;
-  }
-
-  const approvedIds = [...selectedIds.value];
-  selectedIds.value = [];
-  await store.dispatch("approvePipelineApplications", { applicationIds: approvedIds });
+  if (selectedIds.value.length === 0) return;
+  const ids = [...selectedIds.value]; selectedIds.value = [];
+  await store.dispatch("approvePipelineApplications", { applicationIds: ids });
 }
-
 async function approveHighScore() {
-  if (highScorePendingIds.value.length === 0) {
-    return;
-  }
+  if (highScorePendingIds.value.length === 0) return;
   selectedIds.value = [...highScorePendingIds.value];
   await approveSelected();
 }
 
-function setEditorRef(applicationId: string, element: unknown) {
-  if (element instanceof HTMLDivElement) {
-    editorRefs.set(applicationId, element);
-    syncEditorFromDraft(applicationId);
-    return;
-  }
-  editorRefs.delete(applicationId);
-}
-
-function syncEditorFromDraft(applicationId: string) {
-  const editor = editorRefs.get(applicationId);
-  const draft = drafts[applicationId] ?? "";
-  if (!editor) {
-    return;
-  }
-  if (editor.innerText.trim() === draft.trim()) {
-    return;
-  }
-  editor.innerText = draft;
-}
-
-function syncDraftFromEditor(applicationId: string) {
-  const editor = editorRefs.get(applicationId);
-  if (!editor) {
-    return;
-  }
-  drafts[applicationId] = normalizeEditorText(editor.innerText);
-}
-
-function formatEditor(applicationId: string, command: EditorTool["command"]) {
-  const editor = editorRefs.get(applicationId);
-  if (!editor) {
-    return;
-  }
-  editor.focus();
-  if (command === "formatBlock") {
-    document.execCommand(command, false, "blockquote");
-  } else {
-    document.execCommand(command, false);
-  }
-  syncDraftFromEditor(applicationId);
-}
-
-function insertBridge(applicationId: string) {
-  const editor = editorRefs.get(applicationId);
-  if (!editor) {
-    return;
-  }
-  editor.focus();
-  document.execCommand(
-    "insertText",
-    false,
-    "\nThis role lines up with the systems work and measurable outcomes already delivered across prior projects.",
-  );
-  syncDraftFromEditor(applicationId);
-}
-
-function editorWordCount(applicationId: string): number {
-  const text = drafts[applicationId] ?? "";
-  return text.split(/\s+/).filter(Boolean).length;
-}
-
-function normalizeEditorText(value: string): string {
-  return value.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-function scorePercent(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value * 100)));
-}
-
-function scoreRingDash(value: number): string {
-  const circumference = 2 * Math.PI * 48;
-  const filled = (scorePercent(value) / 100) * circumference;
-  return `${filled} ${circumference - filled}`;
-}
-
-function scoreBreakdown(application: PipelineApplication): ScoreMetric[] {
-  const semantic = application.semantic_similarity ?? application.match_score;
-  const skills = application.skills_coverage ?? Math.max(0, application.match_score - 0.05);
-  const seniority = application.seniority_alignment ?? Math.max(0, application.match_score - 0.12);
-  const location = application.location_match ?? Math.max(0, application.match_score - 0.2);
-  const salary = application.salary_alignment ?? Math.max(0, application.match_score - 0.16);
-
-  return [
-    { label: "Semantic", value: scorePercent(semantic) },
-    { label: "Skills", value: scorePercent(skills) },
-    { label: "Seniority", value: scorePercent(seniority) },
-    { label: "Location", value: scorePercent(location) },
-    { label: "Salary", value: scorePercent(salary) },
-  ];
-}
-
 function nodeStatus(nodeId: string): StageStatus {
-  const currentNode = pipelineRun.value?.current_node;
-  if (!currentNode) {
-    return "pending";
-  }
-
-  const nodeIndex = nodes.findIndex((node) => node.id === nodeId);
-  const currentIndex = nodes.findIndex((node) => node.id === currentNode);
-
-  if (pipelineRun.value?.status === "complete") {
-    return "complete";
-  }
-  if (nodeIndex < currentIndex) {
-    return "complete";
-  }
-  if (nodeIndex === currentIndex) {
-    return "active";
-  }
+  const cur = pipelineRun.value?.current_node;
+  if (!cur) return "pending";
+  const ni = nodes.findIndex(n => n.id === nodeId);
+  const ci = nodes.findIndex(n => n.id === cur);
+  if (pipelineRun.value?.status === "complete") return "complete";
+  if (ni < ci)  return "complete";
+  if (ni === ci) return "active";
   return "pending";
 }
-
 function nodeStatusLabel(nodeId: string): string {
-  const status = nodeStatus(nodeId);
-  if (status === "complete") {
-    return "Complete";
-  }
-  if (status === "active") {
-    return pipelineRun.value?.status === "paused_at_gate" && nodeId === "approval_gate_node" ? "Awaiting review" : "Running";
-  }
+  const s = nodeStatus(nodeId);
+  if (s === "complete") return "Complete";
+  if (s === "active") return pipelineRun.value?.status === "paused_at_gate" && nodeId === "approval_gate_node" ? "Awaiting review" : "Running";
   return "Queued";
 }
-
 function nodeMetric(nodeId: string): { label: string; value: string } {
   switch (nodeId) {
-    case "fetch_jobs_node":
-      return { label: "jobs found", value: String(pipelineRun.value?.jobs_found ?? 0) };
-    case "rank_jobs_node":
-      return { label: "matches ranked", value: String(pipelineRun.value?.jobs_matched ?? 0) };
-    case "approval_gate_node":
-      return { label: "waiting review", value: String(pendingApplications.value.length) };
-    case "auto_apply_node":
-      return { label: "submitted", value: String(pipelineRun.value?.applications_submitted ?? 0) };
-    case "track_applications_node":
-      return { label: "tracked", value: String(appliedCount.value) };
-    default:
-      return { label: "events", value: "0" };
+    case "fetch_jobs_node":        return { label: "jobs found",     value: String(pipelineRun.value?.jobs_found           ?? 0) };
+    case "rank_jobs_node":         return { label: "ranked",         value: String(pipelineRun.value?.jobs_matched          ?? 0) };
+    case "approval_gate_node":     return { label: "waiting",        value: String(pendingApplications.value.length)            };
+    case "auto_apply_node":        return { label: "submitted",      value: String(pipelineRun.value?.applications_submitted ?? 0) };
+    case "track_applications_node":return { label: "tracked",        value: String(appliedCount.value)                          };
+    default:                       return { label: "events",         value: "0"                                                  };
   }
-}
-
-function readableNodeName(nodeId: string): string {
-  return nodes.find((node) => node.id === nodeId)?.label ?? nodeId.replaceAll("_", " ");
 }
 </script>
