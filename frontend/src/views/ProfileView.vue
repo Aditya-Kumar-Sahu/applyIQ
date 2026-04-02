@@ -48,11 +48,11 @@
           <form @submit.prevent="savePreferences" style="display:flex;flex-direction:column;gap:0.875rem;">
             <div class="field-group">
               <label class="field-label">Target roles</label>
-              <input v-model="targetRoles" type="text" class="field-input" placeholder="ML Engineer, AI Engineer" />
+              <input v-model="targetRoles" type="text" class="field-input" placeholder="Target roles" />
             </div>
             <div class="field-group">
               <label class="field-label">Locations</label>
-              <input v-model="preferredLocations" type="text" class="field-input" placeholder="Remote, Bengaluru" />
+              <input v-model="preferredLocations" type="text" class="field-input" placeholder="Preferred locations" />
             </div>
             <div class="field-group">
               <label class="field-label">Remote preference</label>
@@ -68,8 +68,8 @@
               <div class="field-group"><label class="field-label">Salary max</label><input v-model.number="salaryMax" type="number" min="0" class="field-input" /></div>
             </div>
             <div class="field-group"><label class="field-label">Currency</label><input v-model="currency" type="text" class="field-input" /></div>
-            <div class="field-group"><label class="field-label">Excluded companies</label><input v-model="excludedCompanies" type="text" class="field-input" placeholder="Example Corp" /></div>
-            <div class="field-group"><label class="field-label">Seniority level</label><input v-model="seniorityLevel" type="text" class="field-input" placeholder="senior" /></div>
+            <div class="field-group"><label class="field-label">Excluded companies</label><input v-model="excludedCompanies" type="text" class="field-input" placeholder="Companies to exclude" /></div>
+            <div class="field-group"><label class="field-label">Seniority level</label><input v-model="seniorityLevel" type="text" class="field-input" placeholder="Seniority level" /></div>
             <button class="btn btn-primary w-full" type="submit">Save preferences</button>
           </form>
         </div>

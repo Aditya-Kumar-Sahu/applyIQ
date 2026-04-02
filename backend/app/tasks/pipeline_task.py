@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import anyio
+from types import SimpleNamespace
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -59,6 +60,12 @@ async def _run_start(payload: dict) -> dict:
             if pipeline_run is None or user is None:
                 return {"processed": False, "reason": "run_or_user_missing"}
 
+            pipeline_user = SimpleNamespace(
+                id=str(payload["user_id"]),
+                resume_profile=user.resume_profile,
+                search_preferences=user.search_preferences,
+            )
+
             pipeline_run.status = "running"
             pipeline_run.current_node = "fetch_jobs_node"
             await session.commit()
@@ -66,7 +73,7 @@ async def _run_start(payload: dict) -> dict:
             await graph_runner.run_until_approval(
                 session=session,
                 pipeline_run=pipeline_run,
-                user=user,
+                user=pipeline_user,
                 initial_state=payload["state"],
             )
             return {"processed": True, "run_id": pipeline_run.id}
@@ -120,6 +127,12 @@ async def _run_resume(payload: dict) -> dict:
             if pipeline_run is None or user is None:
                 return {"processed": False, "reason": "run_or_user_missing"}
 
+            pipeline_user = SimpleNamespace(
+                id=str(payload["user_id"]),
+                resume_profile=user.resume_profile,
+                search_preferences=user.search_preferences,
+            )
+
             pipeline_run.status = "resuming"
             pipeline_run.current_node = "approval_gate_node"
             await session.commit()
@@ -127,7 +140,7 @@ async def _run_resume(payload: dict) -> dict:
             await graph_runner.resume_after_approval(
                 session=session,
                 pipeline_run=pipeline_run,
-                user=user,
+                user=pipeline_user,
                 run_id=pipeline_run.id,
             )
             return {"processed": True, "run_id": pipeline_run.id}

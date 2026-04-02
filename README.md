@@ -189,11 +189,11 @@ Important variables:
 - structured logging and auditability
 - no shortcuts around security or platform rules
 
-## Demo Placeholders
+## Release Assets
 
-- Live demo URL: `TBD`
-- Product screenshots: `TBD`
-- Demo video: `TBD`
+- Live demo URL: not published yet
+- Product screenshots: not published yet
+- Demo video: not published yet
 
 ## Repository Structure
 

@@ -213,8 +213,5 @@ export async function selectCoverLetterVariant(
 }
 
 export function isDemoApplication(application: PipelineApplication): boolean {
-  if (application.is_demo === true) {
-    return true;
-  }
-  return (application.confirmation_number ?? "").startsWith("DEMO-");
+  return application.is_demo === true;
 }

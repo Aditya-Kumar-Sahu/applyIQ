@@ -153,7 +153,6 @@
                 <StatusChip :tone="statusTone(app.status)">
                   {{ app.status.replaceAll('_', ' ') }}
                 </StatusChip>
-                <span class="chip chip-neutral" v-if="isDemoApplication(app)">Demo</span>
                 <span class="list-row__meta">{{ percent(app.match_score) }}</span>
                 <span v-if="app.latest_email_classification" class="list-row__meta">
                   <span class="material-symbols-outlined icon-sm">mail</span>
@@ -178,7 +177,6 @@
               <span class="chip" :class="statusChipClass(selectedApplication.status)">
                 {{ selectedApplication.status.replaceAll('_', ' ') }}
               </span>
-              <span class="chip chip-neutral" v-if="isDemoApplication(selectedApplication)">Demo</span>
             </div>
           </div>
 
@@ -271,7 +269,6 @@ import {
   getApplications,
   getApplicationsStats,
   getNotifications,
-  isDemoApplication,
   subscribeNotifications,
   updateApplicationStatus,
 } from "../services/applications";

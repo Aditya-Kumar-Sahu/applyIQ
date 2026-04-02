@@ -15,7 +15,7 @@
             type="email"
             class="field-input"
             autocomplete="email"
-            placeholder="you@example.com"
+            placeholder="Email address"
             required
           />
         </div>
@@ -28,7 +28,7 @@
             type="password"
             class="field-input"
             autocomplete="current-password"
-            placeholder="••••••••"
+            placeholder="Password"
             required
           />
         </div>

@@ -9,6 +9,19 @@ from app.services.auto_apply_service import AutoApplyService
 
 def test_supported_ats_returns_success_with_audit_artifacts() -> None:
     service = AutoApplyService()
+
+    class StubBrowserTool:
+        def run(self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]) -> BrowserApplyResult:
+            assert application_id == "app-1"
+            assert ats_provider == "indeed_apply"
+            assert len(screenshot_urls) == 2
+            return BrowserApplyResult(
+                status="success",
+                confirmation_url=f"{job_url}/submitted",
+                confirmation_number="INDEED-APP1",
+            )
+
+    service._build_browser_tool = lambda: StubBrowserTool()
     application = Application(id="app-1", user_id="user-1", job_id="job-1", pipeline_run_id="run-1")
     job = Job(
         id="job-1",
@@ -30,10 +43,10 @@ def test_supported_ats_returns_success_with_audit_artifacts() -> None:
 
     assert result.status == "success"
     assert result.ats_provider == "indeed_apply"
-    assert result.is_demo is True
+    assert result.is_demo is False
     assert result.confirmation_url is not None
     assert result.confirmation_number is not None
-    assert result.confirmation_number.startswith("DEMO-")
+    assert result.confirmation_number == "INDEED-APP1"
     assert len(result.screenshot_urls) == 2
     assert result.manual_required_reason is None
 
@@ -69,7 +82,6 @@ def test_unsupported_or_captcha_paths_fall_back_to_manual_required() -> None:
 
 def test_browser_mode_uses_real_browser_tool_when_available(monkeypatch) -> None:
     monkeypatch.setenv("AUTO_APPLY_USE_BROWSER", "true")
-    monkeypatch.setenv("AUTO_APPLY_DEMO_MODE", "true")
 
     class StubBrowserTool:
         def run(self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]) -> BrowserApplyResult:

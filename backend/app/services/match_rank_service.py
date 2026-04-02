@@ -5,6 +5,7 @@ import math
 import re
 from dataclasses import dataclass
 
+from sqlalchemy import inspect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
@@ -43,27 +44,36 @@ class RankedJobResult:
 logger = structlog.get_logger(__name__)
 
 
+def _user_id(user: User) -> str:
+    identity = inspect(user).identity
+    if identity and identity[0] is not None:
+        return str(identity[0])
+    raise ValueError("User identity is unavailable")
+
+
 class MatchRankService:
     def __init__(self, *, embedding_service: EmbeddingService) -> None:
         self._embedding_service = embedding_service
 
     async def list_ranked_jobs(self, *, session: AsyncSession, user: User) -> JobsListData:
-        log_debug(logger, "match_rank.list_ranked_jobs.start", user_id=user.id)
+        user_id = _user_id(user)
+        log_debug(logger, "match_rank.list_ranked_jobs.start", user_id=user_id)
         try:
             ranked = await self._rank_jobs(session=session, user=user)
             log_debug(
                 logger,
                 "match_rank.list_ranked_jobs.complete",
-                user_id=user.id,
+                user_id=user_id,
                 ranked_count=len(ranked),
             )
             return JobsListData(total=len(ranked), items=[result.item for result in ranked])
         except Exception as error:
-            log_exception(logger, "match_rank.list_ranked_jobs.failed", error, user_id=user.id)
+            log_exception(logger, "match_rank.list_ranked_jobs.failed", error, user_id=user_id)
             raise
 
     async def get_job_detail(self, *, session: AsyncSession, user: User, job_id: str) -> JobDetailData | None:
-        log_debug(logger, "match_rank.get_job_detail.start", user_id=user.id, job_id=job_id)
+        user_id = _user_id(user)
+        log_debug(logger, "match_rank.get_job_detail.start", user_id=user_id, job_id=job_id)
         try:
             ranked = await self._rank_jobs(session=session, user=user)
             for result in ranked:
@@ -71,7 +81,7 @@ class MatchRankService:
                     log_debug(
                         logger,
                         "match_rank.get_job_detail.found",
-                        user_id=user.id,
+                        user_id=user_id,
                         job_id=job_id,
                         match_score=result.item.match_score,
                     )
@@ -81,17 +91,18 @@ class MatchRankService:
                         description_text=result.job.description_text,
                         posted_at=result.job.posted_at,
                     )
-            log_debug(logger, "match_rank.get_job_detail.not_found", user_id=user.id, job_id=job_id)
+            log_debug(logger, "match_rank.get_job_detail.not_found", user_id=user_id, job_id=job_id)
             return None
         except Exception as error:
-            log_exception(logger, "match_rank.get_job_detail.failed", error, user_id=user.id, job_id=job_id)
+            log_exception(logger, "match_rank.get_job_detail.failed", error, user_id=user_id, job_id=job_id)
             raise
 
     async def semantic_search(self, *, session: AsyncSession, user: User, query: str) -> JobsListData:
+        user_id = _user_id(user)
         log_debug(
             logger,
             "match_rank.semantic_search.start",
-            user_id=user.id,
+            user_id=user_id,
             query_length=len(query),
         )
         try:
@@ -105,7 +116,7 @@ class MatchRankService:
             log_debug(
                 logger,
                 "match_rank.semantic_search.complete",
-                user_id=user.id,
+                user_id=user_id,
                 total_ranked=len(sorted_ranked),
             )
             return JobsListData(total=len(sorted_ranked), items=[result.item for result in sorted_ranked])
@@ -114,15 +125,16 @@ class MatchRankService:
                 logger,
                 "match_rank.semantic_search.failed",
                 error,
-                user_id=user.id,
+                user_id=user_id,
                 query_length=len(query),
             )
             raise
 
     async def _rank_jobs(self, *, session: AsyncSession, user: User) -> list[RankedJobResult]:
-        log_debug(logger, "match_rank.rank_jobs.start", user_id=user.id)
+        user_id = _user_id(user)
+        log_debug(logger, "match_rank.rank_jobs.start", user_id=user_id)
         if user.resume_profile is None:
-            log_debug(logger, "match_rank.rank_jobs.no_resume_profile", user_id=user.id)
+            log_debug(logger, "match_rank.rank_jobs.no_resume_profile", user_id=user_id)
             return []
 
         try:
@@ -132,14 +144,14 @@ class MatchRankService:
             from app.models.application import Application
 
             seen_job_ids = set(
-                (await session.scalars(select(Application.job_id).where(Application.user_id == user.id))).all()
+                (await session.scalars(select(Application.job_id).where(Application.user_id == user_id))).all()
             )
 
             jobs = list(await session.scalars(select(Job).where(Job.is_active.is_(True)).order_by(Job.scraped_at.desc())))
             log_debug(
                 logger,
                 "match_rank.rank_jobs.loaded_inputs",
-                user_id=user.id,
+                user_id=user_id,
                 total_jobs=len(jobs),
                 already_seen_jobs=len(seen_job_ids),
                 preference_locations_count=len(preferences.preferred_locations),
@@ -161,7 +173,7 @@ class MatchRankService:
             log_debug(
                 logger,
                 "match_rank.rank_jobs.filtered",
-                user_id=user.id,
+                user_id=user_id,
                 kept_jobs=len(filtered_jobs),
                 dropped_jobs=len(jobs) - len(filtered_jobs),
                 filter_reasons=dict(filter_reasons),
@@ -176,7 +188,7 @@ class MatchRankService:
                     log_debug(
                         logger,
                         "match_rank.rank_jobs.scored_job",
-                        user_id=user.id,
+                        user_id=user_id,
                         job_id=job.id,
                         ordinal=index,
                         total=len(filtered_jobs),
@@ -188,7 +200,7 @@ class MatchRankService:
                         logger,
                         "match_rank.rank_jobs.score_failed",
                         error,
-                        user_id=user.id,
+                        user_id=user_id,
                         job_id=job.id,
                         job_title=job.title,
                         company_name=job.company_name,
@@ -200,12 +212,12 @@ class MatchRankService:
             log_debug(
                 logger,
                 "match_rank.rank_jobs.complete",
-                user_id=user.id,
+                user_id=user_id,
                 ranked_count=len(ranked_results),
             )
             return ranked_results
         except Exception as error:
-            log_exception(logger, "match_rank.rank_jobs.failed", error, user_id=user.id)
+            log_exception(logger, "match_rank.rank_jobs.failed", error, user_id=user_id)
             raise
 
     def _serialize_preferences(self, user: User) -> SearchPreferencesPayload:
@@ -370,18 +382,19 @@ class MatchRankService:
         return 0.35
 
     async def _upsert_job_match(self, *, session: AsyncSession, user: User, result: RankedJobResult) -> None:
+        user_id = _user_id(user)
         log_debug(
             logger,
             "match_rank.upsert_job_match.start",
-            user_id=user.id,
+            user_id=user_id,
             job_id=result.job.id,
         )
         existing = await session.scalar(
-            select(JobMatch).where(JobMatch.user_id == user.id, JobMatch.job_id == result.job.id)
+            select(JobMatch).where(JobMatch.user_id == user_id, JobMatch.job_id == result.job.id)
         )
         created = False
         if existing is None:
-            existing = JobMatch(user_id=user.id, job_id=result.job.id)
+            existing = JobMatch(user_id=user_id, job_id=result.job.id)
             session.add(existing)
             created = True
 
@@ -394,7 +407,7 @@ class MatchRankService:
         log_debug(
             logger,
             "match_rank.upsert_job_match.complete",
-            user_id=user.id,
+            user_id=user_id,
             job_id=result.job.id,
             created=created,
             match_score=result.item.match_score,

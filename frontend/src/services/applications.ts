@@ -161,11 +161,5 @@ export function subscribeNotifications(
 }
 
 export function isDemoApplication(application: ApplicationListItem | ApplicationDetail): boolean {
-  if (application.is_demo === true) {
-    return true;
-  }
-  if ("confirmation_number" in application) {
-    return (application.confirmation_number ?? "").startsWith("DEMO-");
-  }
-  return false;
+  return application.is_demo === true;
 }

@@ -8,6 +8,8 @@ services:
       - .env
     environment:
       LOG_FILE_NAME: backend.log
+      PLAYWRIGHT_ENABLED: "true"
+      AUTO_APPLY_DEMO_MODE: "false"
     ports:
       - "8001:8000"
     volumes:
@@ -26,6 +28,8 @@ services:
       - .env
     environment:
       LOG_FILE_NAME: worker.log
+      PLAYWRIGHT_ENABLED: "true"
+      AUTO_APPLY_DEMO_MODE: "false"
     command: celery -A app.worker:celery_app worker --loglevel=info
     volumes:
       - ./backend:/app
@@ -44,6 +48,8 @@ services:
     environment:
       LOG_FILE_NAME: beat.log
       CELERY_BEAT_SCHEDULE_FILENAME: /tmp/celerybeat-schedule
+      PLAYWRIGHT_ENABLED: "true"
+      AUTO_APPLY_DEMO_MODE: "false"
     command: celery -A app.worker:celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
     volumes:
       - ./backend:/app

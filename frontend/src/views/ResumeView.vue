@@ -49,12 +49,12 @@
       <form class="auth-form" @submit.prevent="savePreferences">
         <label>
           <span>Target roles</span>
-          <input v-model="targetRoles" type="text" placeholder="ML Engineer, AI Engineer" />
+          <input v-model="targetRoles" type="text" placeholder="Target roles" />
         </label>
 
         <label>
           <span>Preferred locations</span>
-          <input v-model="preferredLocations" type="text" placeholder="Remote, Bengaluru" />
+          <input v-model="preferredLocations" type="text" placeholder="Preferred locations" />
         </label>
 
         <label>
@@ -84,12 +84,12 @@
 
         <label>
           <span>Excluded companies</span>
-          <input v-model="excludedCompanies" type="text" placeholder="Example Corp" />
+          <input v-model="excludedCompanies" type="text" placeholder="Companies to exclude" />
         </label>
 
         <label>
           <span>Seniority level</span>
-          <input v-model="seniorityLevel" type="text" placeholder="senior" />
+          <input v-model="seniorityLevel" type="text" placeholder="Seniority level" />
         </label>
 
         <button class="button-link auth-button" type="submit">Save preferences</button>

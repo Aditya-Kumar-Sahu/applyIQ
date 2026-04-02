@@ -14,10 +14,12 @@ from app.models.application import Application
 from app.models.base import Base
 from app.models.job import Job
 from app.models.user import User
+from app.agents.auto_apply.ats.base import BrowserApplyResult
+from app.services.auto_apply_service import AutoApplyService
 from app.services.email_monitor_service import EmailMessage, EmailMonitorService
 
 
-def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path) -> None:
+def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path, monkeypatch) -> None:
     settings = Settings(
         environment="test",
         database_url=f"sqlite+aiosqlite:///{tmp_path / 'applications.db'}",
@@ -32,6 +34,19 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path)
 
     app = create_app(settings=settings, health_reporter=healthy_reporter)
     app.state.redis = _InMemoryRedisClient()
+
+    class StubBrowserTool:
+        def run(self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]) -> BrowserApplyResult:
+            assert application_id
+            assert ats_provider
+            assert len(screenshot_urls) == 2
+            return BrowserApplyResult(
+                status="success",
+                confirmation_url=f"{job_url}/submitted",
+                confirmation_number=f"CONF-{application_id[:8].upper()}",
+            )
+
+    monkeypatch.setattr(AutoApplyService, "_build_browser_tool", lambda self: StubBrowserTool())
 
     with TestClient(app) as client:
         anyio.run(_create_all_tables, app.state.database.engine)
@@ -70,7 +85,7 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path)
         assert len(applications_payload) >= 1
         tracked_application = next(item for item in applications_payload if item["id"] == application_id)
         assert tracked_application["status"] == "interview_requested"
-        assert tracked_application["is_demo"] is True
+        assert tracked_application["is_demo"] is False
         assert tracked_application["latest_email_classification"] == "interview_request"
 
         detail_response = client.get(f"/api/v1/applications/{application_id}")
@@ -78,7 +93,7 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path)
         assert detail_response.status_code == 200
         detail_payload = detail_response.json()["data"]
         assert detail_payload["status"] == "interview_requested"
-        assert detail_payload["is_demo"] is True
+        assert detail_payload["is_demo"] is False
         assert detail_payload["email_monitor"] is not None
         assert detail_payload["email_monitor"]["latest_classification"] == "interview_request"
         assert "interview" in detail_payload["email_monitor"]["snippet"].lower()

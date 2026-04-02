@@ -1,5 +1,9 @@
 <template>
-  <template v-if="isAuthRoute">
+  <template v-if="isLandingRoute">
+    <RouterView />
+  </template>
+
+  <template v-else-if="isAuthRoute">
     <div class="app-shell--auth">
       <RouterView />
     </div>
@@ -22,6 +26,8 @@ import { RouterView, useRoute } from "vue-router";
 import AppShell from "./components/layout/AppShell.vue";
 
 const route = useRoute();
+
+const isLandingRoute = computed(() => route.name === "home");
 
 const isAuthRoute = computed(() => route.meta.guestOnly === true || route.name === "login" || route.name === "register");
 </script>

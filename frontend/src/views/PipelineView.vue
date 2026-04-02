@@ -28,11 +28,11 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
               <div class="field-group">
                 <label class="field-label" for="pipe-role">Target role</label>
-                <input id="pipe-role" v-model="form.targetRole" type="text" class="field-input" required placeholder="ML Engineer" />
+                <input id="pipe-role" v-model="form.targetRole" type="text" class="field-input" required placeholder="Target role" />
               </div>
               <div class="field-group">
                 <label class="field-label" for="pipe-loc">Location</label>
-                <input id="pipe-loc" v-model="form.location" type="text" class="field-input" placeholder="Remote or a city" />
+                <input id="pipe-loc" v-model="form.location" type="text" class="field-input" placeholder="Location" />
               </div>
             </div>
             <div class="field-group">
@@ -189,9 +189,9 @@
             </div>
           </div>
           <div class="exec-log">
-            <div v-for="entry in execLog" :key="entry.time" class="exec-log__entry">
+            <div v-for="entry in execLog" :key="entry.label" class="exec-log__entry">
               <div class="exec-log__dot" :class="entry.active ? 'exec-log__dot--active' : ''"></div>
-              <span class="exec-log__time">{{ entry.time }}</span>
+              <span class="exec-log__time">{{ entry.label }}</span>
               <span class="exec-log__msg">{{ entry.msg }}</span>
             </div>
           </div>
@@ -315,13 +315,13 @@ const statusLabel = computed(() => {
   return pipelineRun.value.status.replaceAll("_", " ");
 });
 
-// Simulated exec log from pipeline state
+// Execution log derived from pipeline state
 const execLog = computed(() => {
   if (!pipelineRun.value) return [];
-  const entries: { time: string; msg: string; active: boolean }[] = [];
-  if (pipelineRun.value.jobs_found)    entries.push({ time: "14:22:01", msg: `Scraped ${pipelineRun.value.jobs_found} job listings`, active: false });
-  if (pipelineRun.value.jobs_matched)  entries.push({ time: "14:22:05", msg: `Ranked ${pipelineRun.value.jobs_matched} matches`, active: false });
-  if (pendingApplications.value.length > 0) entries.push({ time: "14:22:12", msg: `${pendingApplications.value.length} pending approval`, active: true });
+  const entries: { label: string; msg: string; active: boolean }[] = [];
+  if (pipelineRun.value.jobs_found)    entries.push({ label: "Scout", msg: `Scraped ${pipelineRun.value.jobs_found} job listings`, active: false });
+  if (pipelineRun.value.jobs_matched)  entries.push({ label: "Rank", msg: `Ranked ${pipelineRun.value.jobs_matched} matches`, active: false });
+  if (pendingApplications.value.length > 0) entries.push({ label: "Gate", msg: `${pendingApplications.value.length} pending approval`, active: true });
   return entries;
 });
 

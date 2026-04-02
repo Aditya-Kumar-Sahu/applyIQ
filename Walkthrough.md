@@ -45,7 +45,7 @@ The backend:
 
 The pipeline state is checkpointed in Redis so the run can be resumed after approval.
 
-Screenshot placeholder:
+Screenshot asset pending:
 
 ![Pipeline graph](docs/screenshots/pipeline.png)
 

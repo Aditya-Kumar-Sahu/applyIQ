@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.application import Application
@@ -12,10 +12,17 @@ from app.models.user import User
 from app.pipeline.checkpointer import PipelineCheckpointer
 from app.pipeline.state import ApplyIQState
 from app.schemas.resume import ParsedResumeProfile
-from app.services.cover_letter_service import CoverLetterService
 from app.scrapers.base import ScrapeQuery
+from app.services.cover_letter_service import CoverLetterService
 from app.services.match_rank_service import MatchRankService
 from app.services.scrape_service import ScrapeService
+
+
+def _user_id(user: User) -> str:
+    identity = inspect(user).identity
+    if identity and identity[0] is not None:
+        return str(identity[0])
+    raise ValueError("User identity is unavailable")
 
 
 async def fetch_jobs_node(
@@ -84,6 +91,8 @@ async def approval_gate_node(
     encryption_service,
     cover_letter_service: CoverLetterService,
 ) -> ApplyIQState:
+    user_id = _user_id(user)
+
     if user.resume_profile is None:
         raise ValueError("Resume profile is required before generating cover letters")
 
@@ -95,7 +104,7 @@ async def approval_gate_node(
         pipeline_run.status = "complete"
         pipeline_run.current_node = "track_applications_node"
         pipeline_run.completed_at = datetime.now(timezone.utc)
-        pipeline_run.state_snapshot = encryption_service.encrypt_for_user(user.id, _serialize_state(state))
+        pipeline_run.state_snapshot = encryption_service.encrypt_for_user(user_id, _serialize_state(state))
         await session.commit()
         await checkpointer.delete(pipeline_run.id)
         return state
@@ -115,7 +124,7 @@ async def approval_gate_node(
             variant=index,
         )
         application = Application(
-            user_id=user.id,
+            user_id=user_id,
             job_id=str(ranked_job["job_id"]),
             pipeline_run_id=pipeline_run.id,
             status="pending_approval",
@@ -145,7 +154,7 @@ async def approval_gate_node(
     state["current_node"] = "approval_gate_node"
     pipeline_run.status = "paused_at_gate"
     pipeline_run.current_node = "approval_gate_node"
-    pipeline_run.state_snapshot = encryption_service.encrypt_for_user(user.id, _serialize_state(state))
+    pipeline_run.state_snapshot = encryption_service.encrypt_for_user(user_id, _serialize_state(state))
     await session.commit()
     await checkpointer.save(pipeline_run.id, state)
     return state
@@ -161,6 +170,7 @@ async def auto_apply_node(
     vault_service,
     encryption_service,
 ) -> ApplyIQState:
+    user_id = _user_id(user)
     applications = list(
         await session.scalars(
             select(Application).where(
@@ -192,7 +202,7 @@ async def auto_apply_node(
 
             credential = await vault_service.resolve_credential(
                 session=session,
-                user_id=user.id,
+                user_id=user_id,
                 site_names=[job.source, auto_apply_service.detect_ats(job)],
                 encryption_service=encryption_service,
             )

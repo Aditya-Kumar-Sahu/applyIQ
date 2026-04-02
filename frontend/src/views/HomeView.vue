@@ -2,12 +2,12 @@
   <main class="home-view">
     <section class="home-hero">
       <div class="home-copy">
-        <StatusChip tone="amber">Portfolio flagship</StatusChip>
-        <p class="home-kicker">The Digital Curator</p>
-        <h1>Autonomous job hunting, with human approval at the edges.</h1>
+        <StatusChip tone="amber">Curated workflow</StatusChip>
+        <p class="home-kicker">Human-in-the-loop job search</p>
+        <h1>ApplyIQ: from search to submission.</h1>
         <p class="home-lede">
-          ApplyIQ scouts jobs, ranks them semantically, drafts tailored applications, pauses for
-          your approval, and only then automates the safe parts.
+          ApplyIQ helps organize roles, surface strong matches, and keep approval where it belongs:
+          with you. The page is intentionally illustrative, not a disguised live dashboard.
         </p>
 
         <div class="home-actions">
@@ -20,16 +20,16 @@
 
         <div class="home-metrics">
           <AppCard class="home-metric" tone="soft">
-            <span class="home-metric__label">Jobs tracked</span>
-            <strong class="home-metric__value">1,284</strong>
+            <span class="home-metric__label">Signal</span>
+            <strong class="home-metric__value">Source inputs</strong>
           </AppCard>
           <AppCard class="home-metric" tone="soft">
-            <span class="home-metric__label">Approval queue</span>
-            <strong class="home-metric__value home-metric__value--amber">05</strong>
+            <span class="home-metric__label">Review</span>
+            <strong class="home-metric__value home-metric__value--amber">Approval gate</strong>
           </AppCard>
           <AppCard class="home-metric" tone="soft">
-            <span class="home-metric__label">Successful apps</span>
-            <strong class="home-metric__value home-metric__value--emerald">42</strong>
+            <span class="home-metric__label">Output</span>
+            <strong class="home-metric__value home-metric__value--emerald">Submission path</strong>
           </AppCard>
         </div>
       </div>
@@ -37,26 +37,26 @@
       <AppCard class="home-preview" tone="glass">
         <div class="home-preview__header">
           <div>
-            <p class="home-preview__eyebrow">Live workflow</p>
-            <h2 class="home-preview__title">Your pipeline is actively hunting</h2>
+            <p class="home-preview__eyebrow">Interface study</p>
+            <h2 class="home-preview__title">Designed to feel composed under pressure</h2>
           </div>
-          <StatusChip tone="emerald">Active</StatusChip>
+          <StatusChip tone="neutral">Visual concept</StatusChip>
         </div>
 
         <div class="home-preview__panel">
           <div class="home-preview__ring">
             <div class="home-preview__ring-inner">
-              <span>84%</span>
-              <small>Match</small>
+              <span>Focus</span>
+              <small>Review</small>
             </div>
           </div>
 
           <div class="home-preview__copy">
-            <p class="home-preview__role">Lead Product Designer</p>
-            <p class="home-preview__company">Stripe · Remote, US</p>
+            <p class="home-preview__role">A visual system, not a scoreboard</p>
+            <p class="home-preview__company">Warm surfaces, clear hierarchy, and deliberate state changes</p>
             <div class="home-preview__chips">
-              <StatusChip tone="emerald">Matched skills</StatusChip>
-              <StatusChip tone="neutral">Skill gaps</StatusChip>
+              <StatusChip tone="emerald">Focus states</StatusChip>
+              <StatusChip tone="neutral">Clear boundaries</StatusChip>
             </div>
           </div>
         </div>
@@ -65,15 +65,15 @@
           <article class="home-preview__item">
             <span class="home-preview__dot home-preview__dot--amber"></span>
             <div>
-              <p>AI ranking complete</p>
-              <span>5 high-priority matches isolated</span>
+              <p>Layered decisions</p>
+              <span>Each stage has its own visual rhythm and stopping point.</span>
             </div>
           </article>
           <article class="home-preview__item">
             <span class="home-preview__dot home-preview__dot--emerald"></span>
             <div>
-              <p>Application submitted</p>
-              <span>Draft approved and sent through the gate</span>
+              <p>Motion language</p>
+              <span>Soft reveals and layered cards keep the interface calm.</span>
             </div>
           </article>
         </div>
@@ -83,7 +83,7 @@
     <section class="home-grid">
       <AppCard class="home-card" tone="default">
         <p class="home-card__eyebrow">Why this build matters</p>
-        <h3>Built to be autonomous, but not reckless.</h3>
+        <h3>Built to move quickly without blurring the line of approval.</h3>
         <ul class="home-list">
           <li>LangGraph orchestration with pause and resume.</li>
           <li>ToS-aware, multi-source job discovery.</li>
@@ -93,8 +93,8 @@
       </AppCard>
 
       <AppCard class="home-card" tone="soft">
-        <p class="home-card__eyebrow">Product flow</p>
-        <h3>From resume to approval queue.</h3>
+        <p class="home-card__eyebrow">Interface flow</p>
+        <h3>From profile to a deliberate decision.</h3>
         <div class="home-steps">
           <div class="home-step">
             <span class="home-step__index">01</span>
@@ -120,6 +120,72 @@
         </div>
       </AppCard>
     </section>
+
+    <section class="home-outro">
+      <AppCard class="home-outro__panel" tone="glass">
+        <div class="home-outro__header">
+          <p class="home-card__eyebrow">Design notes</p>
+          <h3>Clear states, softer motion, fewer surprises.</h3>
+        </div>
+
+        <p class="home-outro__lede">
+          The home page is meant to feel composed and editorial, not transactional. Each card,
+          glow, and label is there to guide attention without pretending to be live telemetry.
+        </p>
+
+        <div class="home-outro__grid">
+          <div class="home-outro__item">
+            <span class="home-outro__index">01</span>
+            <div>
+              <p>Anchored hierarchy</p>
+              <span>Large type, warm surfaces, and a restrained palette keep the page grounded.</span>
+            </div>
+          </div>
+          <div class="home-outro__item">
+            <span class="home-outro__index">02</span>
+            <div>
+              <p>Distinct states</p>
+              <span>Signals, review, and output are visually separated so nothing feels implied.</span>
+            </div>
+          </div>
+          <div class="home-outro__item">
+            <span class="home-outro__index">03</span>
+            <div>
+              <p>Controlled motion</p>
+              <span>Soft offsets and layered cards add movement without simulating activity.</span>
+            </div>
+          </div>
+        </div>
+      </AppCard>
+    </section>
+
+    <section class="home-cta">
+      <AppCard class="home-cta__panel" tone="default">
+        <div class="home-cta__copy">
+          <p class="home-card__eyebrow">Ready when you are</p>
+          <h3>One clear place for jobs, review, and next steps.</h3>
+          <p>
+            Use the dashboard when you want live data. Use this page as the calm front door:
+            a visual introduction that points to the workflow without pretending to be it.
+          </p>
+        </div>
+
+        <div class="home-cta__rail">
+          <div class="home-cta__tile">
+            <span>Dashboard</span>
+            <p>Operational views and current status.</p>
+          </div>
+          <div class="home-cta__tile">
+            <span>Pipeline</span>
+            <p>Structured stages with visible approvals.</p>
+          </div>
+          <div class="home-cta__tile">
+            <span>Profile</span>
+            <p>Inputs that shape the matching flow.</p>
+          </div>
+        </div>
+      </AppCard>
+    </section>
   </main>
 </template>
 
@@ -134,11 +200,16 @@ import StatusChip from "../components/shared/StatusChip.vue";
 <style scoped>
 .home-view {
   width: min(1180px, calc(100vw - 2rem));
-  padding: 3.5rem 1rem 2.5rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
   display: grid;
   gap: 1.25rem;
   position: relative;
-  overflow: hidden;
+  padding-bottom: 4rem;
+}
+
+:global(body) {
+  overflow-x: hidden;
 }
 
 .home-view::before,
@@ -187,9 +258,9 @@ import StatusChip from "../components/shared/StatusChip.vue";
 .home-copy {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 1rem;
-  padding: 0.5rem 0.25rem 0;
+  padding: 1rem 0.25rem;
 }
 
 .home-kicker,
@@ -204,7 +275,7 @@ import StatusChip from "../components/shared/StatusChip.vue";
 
 .home-copy h1 {
   font-family: 'Manrope', sans-serif;
-  font-size: clamp(2.4rem, 5.6vw, 4.2rem);
+  font-size: clamp(2.6rem, 6vw, 4.5rem);
   font-weight: 800;
   line-height: 0.98;
   letter-spacing: -0.05em;
@@ -416,6 +487,127 @@ import StatusChip from "../components/shared/StatusChip.vue";
   z-index: 1;
 }
 
+.home-outro {
+  position: relative;
+  z-index: 1;
+}
+
+.home-outro__panel {
+  padding: 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.home-outro__header h3 {
+  font-family: 'Manrope', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-top: 0.35rem;
+}
+
+.home-outro__lede {
+  max-width: 70ch;
+  color: var(--on-surface-var);
+  line-height: 1.7;
+}
+
+.home-outro__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.home-outro__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface-low);
+}
+
+.home-outro__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: rgba(254, 147, 44, 0.16);
+  color: var(--secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.home-outro__item p {
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+}
+
+.home-outro__item span {
+  font-size: 0.8125rem;
+  color: var(--on-surface-var);
+}
+
+.home-cta {
+  position: relative;
+  z-index: 1;
+}
+
+.home-cta__panel {
+  padding: 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.home-cta__copy {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 68ch;
+}
+
+.home-cta__copy h3 {
+  font-family: 'Manrope', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.home-cta__copy p:last-child {
+  color: var(--on-surface-var);
+  line-height: 1.7;
+}
+
+.home-cta__rail {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.home-cta__tile {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(254, 147, 44, 0.08), rgba(133, 248, 196, 0.05));
+  min-height: 7rem;
+}
+
+.home-cta__tile span {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-surface-var);
+  margin-bottom: 0.45rem;
+}
+
+.home-cta__tile p {
+  font-weight: 600;
+  line-height: 1.6;
+}
+
 .home-card {
   padding: 1.5rem;
 }
@@ -479,6 +671,14 @@ import StatusChip from "../components/shared/StatusChip.vue";
 @media (max-width: 980px) {
   .home-hero,
   .home-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-outro__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-cta__rail {
     grid-template-columns: 1fr;
   }
 

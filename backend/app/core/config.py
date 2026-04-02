@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = 0.0
     sentry_profiles_sample_rate: float = 0.0
     enable_auto_apply: bool = True
-    auto_apply_demo_mode: bool = True
-    playwright_enabled: bool = False
+    auto_apply_demo_mode: bool = False
+    playwright_enabled: bool = True
     auto_apply_headless: bool = True
     auto_apply_artifact_root: str = "artifacts"
     max_auto_apply_per_run: int = 20

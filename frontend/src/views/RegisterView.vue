@@ -15,7 +15,7 @@
             type="text"
             class="field-input"
             autocomplete="name"
-            placeholder="Alex Chen"
+            placeholder="Full name"
             required
           />
         </div>
@@ -28,7 +28,7 @@
             type="email"
             class="field-input"
             autocomplete="email"
-            placeholder="you@example.com"
+            placeholder="Email address"
             required
           />
         </div>
@@ -41,7 +41,7 @@
             type="password"
             class="field-input"
             autocomplete="new-password"
-            placeholder="At least 8 characters"
+            placeholder="Create a password"
             required
           />
         </div>

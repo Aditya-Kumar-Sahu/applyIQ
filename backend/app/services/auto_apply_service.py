@@ -42,11 +42,9 @@ class AutoApplyService:
         self,
         *,
         browser_mode_env: str = "AUTO_APPLY_USE_BROWSER",
-        demo_mode_env: str = "AUTO_APPLY_DEMO_MODE",
         artifact_root_env: str = "AUTO_APPLY_ARTIFACT_ROOT",
     ) -> None:
         self._browser_mode_env = browser_mode_env
-        self._demo_mode_env = demo_mode_env
         self._artifact_root_env = artifact_root_env
 
     def detect_ats(self, job: Job) -> str:
@@ -79,7 +77,6 @@ class AutoApplyService:
         screenshot_urls = self._artifact_paths(application.id, ats_provider)
         apply_url = job.apply_url.lower()
         browser_mode_enabled = self._is_browser_mode_enabled()
-        demo_mode_enabled = self._is_demo_mode_enabled()
         log_debug(
             logger,
             "auto_apply.apply.start",
@@ -88,7 +85,6 @@ class AutoApplyService:
             ats_provider=ats_provider,
             has_credentials=has_credentials,
             browser_mode_enabled=browser_mode_enabled,
-            demo_mode_enabled=demo_mode_enabled,
         )
 
         if "captcha" in apply_url or ats_provider in {"taleo"}:
@@ -137,37 +133,17 @@ class AutoApplyService:
             if browser_result is not None:
                 return browser_result
 
-        if not demo_mode_enabled:
-            return AutoApplyResult(
-                status="manual_required",
-                ats_provider=ats_provider,
-                confirmation_url=None,
-                confirmation_number=None,
-                screenshot_urls=screenshot_urls,
-                failure_reason=None,
-                manual_required_reason=(
-                    "Live browser automation is disabled and demo mode is off. "
-                    "No simulated application was submitted."
-                ),
-                is_demo=False,
-            )
-
-        logger.warning(
-            "AUTO_APPLY_DEMO_MODE",
-            application_id=application.id,
-            job_id=job.id,
-            message="AUTO_APPLY_DEMO_MODE: returning simulated result - no real application was submitted",
-        )
-        confirmation_number = f"DEMO-{application.id.split('-')[0].upper()}"
         return AutoApplyResult(
-            status="success",
+            status="manual_required",
             ats_provider=ats_provider,
-            confirmation_url=f"{job.apply_url.rstrip('/')}/demo-confirmation",
-            confirmation_number=confirmation_number,
+            confirmation_url=None,
+            confirmation_number=None,
             screenshot_urls=screenshot_urls,
             failure_reason=None,
-            manual_required_reason=None,
-            is_demo=True,
+            manual_required_reason=(
+                "Live browser automation is disabled. Enable browser mode to attempt a real application."
+            ),
+            is_demo=False,
         )
 
     def _run_browser_apply(
@@ -282,9 +258,5 @@ class AutoApplyService:
         return paths
 
     def _is_browser_mode_enabled(self) -> bool:
-        value = os.getenv("PLAYWRIGHT_ENABLED", os.getenv(self._browser_mode_env, "false"))
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-
-    def _is_demo_mode_enabled(self) -> bool:
-        value = os.getenv(self._demo_mode_env, "true")
+        value = os.getenv("PLAYWRIGHT_ENABLED", os.getenv(self._browser_mode_env, "true"))
         return value.strip().lower() in {"1", "true", "yes", "on"}

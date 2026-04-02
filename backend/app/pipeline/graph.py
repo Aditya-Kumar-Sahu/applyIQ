@@ -8,6 +8,7 @@ from typing import Any, Awaitable, Callable
 from cryptography.fernet import InvalidToken
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
+from sqlalchemy import inspect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +25,13 @@ from app.services.cover_letter_service import CoverLetterService
 from app.services.match_rank_service import MatchRankService
 from app.services.scrape_service import ScrapeService
 from app.services.vault_service import VaultService
+
+
+def _user_id(user: User) -> str:
+    identity = inspect(user).identity
+    if identity and identity[0] is not None:
+        return str(identity[0])
+    raise ValueError("User identity is unavailable")
 
 
 class PipelineGraphRunner:
@@ -252,6 +260,7 @@ class PipelineGraphRunner:
     ) -> ApplyIQState:
         pipeline_run_id = pipeline_run.id
         compiled_graph = self._build_graph(session=session, pipeline_run=pipeline_run, user=user)
+        user_id = _user_id(user)
         try:
             result = await compiled_graph.ainvoke(
                 Command(resume=True),
@@ -270,7 +279,7 @@ class PipelineGraphRunner:
             else:
                 try:
                     if pipeline_run.state_snapshot:
-                        decrypted_snapshot = self._encryption_service.decrypt_for_user(user.id, pipeline_run.state_snapshot)
+                        decrypted_snapshot = self._encryption_service.decrypt_for_user(user_id, pipeline_run.state_snapshot)
                         snapshot_state = json.loads(decrypted_snapshot)
                         if isinstance(snapshot_state, dict):
                             checkpoint_state = {**checkpoint_state, **snapshot_state}
@@ -341,11 +350,12 @@ class PipelineGraphRunner:
         pipeline_run: PipelineRun,
         user: User,
     ) -> ApplyIQState:
+        user_id = _user_id(user)
         applications = list(
             await session.scalars(
                 select(Application).where(
                     Application.pipeline_run_id == pipeline_run.id,
-                    Application.user_id == user.id,
+                    Application.user_id == user_id,
                 )
             )
         )
@@ -393,7 +403,7 @@ class PipelineGraphRunner:
 
         return {
             "run_id": pipeline_run.id,
-            "user_id": user.id,
+            "user_id": user_id,
             "target_role": search_preferences["target_roles"][0] if search_preferences and search_preferences["target_roles"] else "",
             "location": search_preferences["preferred_locations"][0] if search_preferences and search_preferences["preferred_locations"] else None,
             "limit_per_source": 10,
