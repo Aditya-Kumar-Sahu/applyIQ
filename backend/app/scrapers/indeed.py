@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from app.schemas.jobs import RawJob
-from app.scrapers.base import BaseJobScraper, ScrapeQuery, build_fixture_jobs
+from app.scrapers.search_api import SerpApiGoogleJobsScraper
 
 
-class IndeedScraper(BaseJobScraper):
+class IndeedScraper(SerpApiGoogleJobsScraper):
     source_name = "indeed"
-
-    async def fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
-        return build_fixture_jobs(self.source_name, query)
+    _source_domains = ("indeed.com",)

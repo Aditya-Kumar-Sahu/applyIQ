@@ -15,7 +15,6 @@ from app.core.config import Settings, get_settings
 from app.core.constants import (
     DEGRADED_STATUS,
     DOWN_STATUS,
-    FIXTURE_STATUS,
     HEALTHY_STATUS,
     NOT_CONFIGURED_STATUS,
     UP_STATUS,
@@ -106,8 +105,8 @@ async def _build_external_api_statuses(settings: Settings) -> dict[str, str]:
         "apify": apify,
         "serpapi": serpapi,
         "remotive": remotive,
-        "indeed": FIXTURE_STATUS,
-        "wellfound": FIXTURE_STATUS,
+        "indeed": serpapi,
+        "wellfound": serpapi,
         "ai_provider": ai_provider,
     }
 

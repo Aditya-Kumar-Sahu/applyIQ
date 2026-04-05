@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import structlog
 
-from app.core.config import Settings, get_settings
 from app.schemas.jobs import RawJob
 from app.scrapers.base import BaseJobScraper, ScrapeQuery
 from app.scrapers.etiquette import TolerantAsyncClient
@@ -14,33 +13,25 @@ class RemotiveScraper(BaseJobScraper):
     source_name = "remotive"
     base_url = "https://remotive.com"
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(self, settings: object | None = None) -> None:
         self._settings = settings
 
     async def fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
-        settings = self._settings or get_settings()
-        if settings.is_non_production:
-            # Import locally to avoid circular import issues if base uses this
-            from app.scrapers.base import build_fixture_jobs
-            return build_fixture_jobs(self.source_name, query)
-            
         params = {"search": query.target_role, "limit": query.limit_per_source}
         if query.location:
             params["location"] = query.location
-            
+
         try:
-            # We enforce scraping etiquette policy internally
-            client = TolerantAsyncClient(base_url=self.base_url, timeout=30.0)
             target_url = f"{self.base_url}/api/remote-jobs"
-            resp = await client.get_with_etiquette(target_url, params=params)
+            async with TolerantAsyncClient(base_url=self.base_url, timeout=30.0) as client:
+                resp = await client.get_with_etiquette(target_url, params=params)
             data = resp.json()
             jobs_results = data.get("jobs", [])
-            # Limiting to per source
             jobs_results = jobs_results[:query.limit_per_source]
             return self._normalize(jobs_results)
         except Exception as e:
             logger.error("scraper.remotive.error", error=str(e), source=self.source_name)
-            return []
+            raise RuntimeError("remotive scraping failed") from e
 
     def _normalize(self, items: list[dict]) -> list[RawJob]:
         jobs = []
@@ -49,7 +40,7 @@ class RemotiveScraper(BaseJobScraper):
             company_name = item.get("company_name", "Unknown Company")
             apply_url = item.get("url", "")
             job_id = item.get("id", f"remotive-{index}")
-            
+
             jobs.append(
                 RawJob(
                     external_id=str(job_id),

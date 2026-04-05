@@ -20,6 +20,7 @@ const props = withDefaults(
     variant?: 'primary' | 'secondary' | 'ghost';
     size?: 'sm' | 'md' | 'lg';
     type?: 'button' | 'submit' | 'reset';
+    href?: string;
   }>(),
   {
     as: 'button',
@@ -33,7 +34,7 @@ const tag = computed(() => props.as);
 
 const buttonAttributes = computed(() => {
   if (props.as !== 'button') {
-    return {};
+    return props.as === 'a' && props.href ? { href: props.href } : {};
   }
 
   return {

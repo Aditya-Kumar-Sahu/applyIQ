@@ -62,8 +62,8 @@ def test_health_endpoint_includes_api_statuses_in_production_like_environment(mo
             "apify": "up",
             "serpapi": "up",
             "remotive": "up",
-            "indeed": "fixture",
-            "wellfound": "fixture",
+            "indeed": "up",
+            "wellfound": "up",
             "ai_provider": "not_configured",
         }
 
@@ -82,8 +82,8 @@ def test_health_endpoint_includes_api_statuses_in_production_like_environment(mo
         "apify": "up",
         "serpapi": "up",
         "remotive": "up",
-        "indeed": "fixture",
-        "wellfound": "fixture",
+        "indeed": "up",
+        "wellfound": "up",
         "ai_provider": "not_configured",
     }
 
@@ -96,8 +96,8 @@ def test_health_endpoint_returns_503_when_required_external_api_is_down(monkeypa
             "apify": "up",
             "serpapi": "up",
             "remotive": "down",
-            "indeed": "fixture",
-            "wellfound": "fixture",
+            "indeed": "down",
+            "wellfound": "down",
             "ai_provider": "not_configured",
         }
 

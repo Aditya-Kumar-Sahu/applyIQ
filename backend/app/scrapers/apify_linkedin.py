@@ -8,7 +8,7 @@ import httpx
 
 from app.core.config import Settings, get_settings
 from app.schemas.jobs import RawJob
-from app.scrapers.base import BaseJobScraper, ScrapeQuery, build_fixture_jobs
+from app.scrapers.base import BaseJobScraper, ScrapeQuery
 
 logger = structlog.get_logger(__name__)
 
@@ -22,15 +22,15 @@ class ApifyLinkedInScraper(BaseJobScraper):
 
     async def fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
         settings = self._settings or get_settings()
-        if not settings.apify_api_token or settings.is_non_production:
-            return build_fixture_jobs(self.source_name, query)
+        if not settings.apify_api_token:
+            raise RuntimeError("Apify API token is required for LinkedIn scraping")
 
         try:
             jobs = await self._execute_apify_run(query, settings.apify_api_token)
             return jobs[: query.limit_per_source]
         except Exception as e:
             logger.error("scraper.apify.error", error=str(e), source=self.source_name)
-            return []
+            raise RuntimeError("linkedin scraping failed") from e
 
     async def _execute_apify_run(self, query: ScrapeQuery, token: str) -> list[RawJob]:
         input_data = self._build_input_data(query)
@@ -39,35 +39,35 @@ class ApifyLinkedInScraper(BaseJobScraper):
             run_resp = await client.post(
                 f"https://api.apify.com/v2/acts/{self._ACTOR_ID}/runs",
                 params={"token": token},
-                json=input_data
+                json=input_data,
             )
             run_resp.raise_for_status()
             run_data = run_resp.json()["data"]
             run_id = run_data["id"]
-            
+
             while True:
                 await asyncio.sleep(5)
                 status_resp = await client.get(
                     f"https://api.apify.com/v2/actor-runs/{run_id}",
-                    params={"token": token}
+                    params={"token": token},
                 )
                 status_resp.raise_for_status()
                 status_data = status_resp.json()["data"]
                 if status_data["status"] in {"SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"}:
                     break
-                    
+
             if status_data["status"] != "SUCCEEDED":
                 logger.warning("scraper.apify.failed", status=status_data["status"])
                 return []
-                
+
             dataset_id = status_data["defaultDatasetId"]
             dataset_resp = await client.get(
                 f"https://api.apify.com/v2/datasets/{dataset_id}/items",
-                params={"token": token}
+                params={"token": token},
             )
             dataset_resp.raise_for_status()
             items = dataset_resp.json()
-            
+
             return self._normalize(items)
 
     def _build_input_data(self, query: ScrapeQuery) -> dict[str, object]:

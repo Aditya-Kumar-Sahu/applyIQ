@@ -7,11 +7,32 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from app.api.v1.routes import scrape as scrape_routes
 from app.core.config import Settings
 from app.main import create_app
 from app.models.base import Base
 from app.models.job import Job
-from app.scrapers.indeed import IndeedScraper
+from app.scrapers.base import ScrapeQuery
+from app.scrapers.deduplicator import JobDeduplicator
+from app.services.embedding_service import EmbeddingService
+from app.services.scrape_service import ScrapeService
+from tests.helpers.scrape_fixtures import build_fixture_jobs
+
+
+class _FixtureScraper:
+    def __init__(self, source_name: str) -> None:
+        self.source_name = source_name
+
+    async def fetch_jobs(self, query: ScrapeQuery):
+        return build_fixture_jobs(self.source_name, query)
+
+
+class _FailingScraper:
+    def __init__(self, source_name: str) -> None:
+        self.source_name = source_name
+
+    async def fetch_jobs(self, query: ScrapeQuery):
+        raise RuntimeError(f"{self.source_name} scraper unavailable")
 
 
 def test_scrape_test_endpoint_persists_deduplicated_jobs_with_embeddings(tmp_path: Path) -> None:
@@ -126,10 +147,18 @@ def test_scrape_test_service_survives_partial_source_failure(tmp_path: Path, mon
 
     app = create_app(settings=settings, health_reporter=healthy_reporter)
 
-    async def _fail_indeed(self, query):
-        raise RuntimeError("indeed scraper unavailable")
+    def _factory(*, embedding_service, deduplicator, settings=None, scrapers=None):
+        return ScrapeService(
+            embedding_service=EmbeddingService(),
+            deduplicator=JobDeduplicator(),
+            settings=settings,
+            scrapers={
+                "linkedin": _FixtureScraper("linkedin"),
+                "indeed": _FailingScraper("indeed"),
+            },
+        )
 
-    monkeypatch.setattr(IndeedScraper, "fetch_jobs", _fail_indeed)
+    monkeypatch.setattr(scrape_routes, "ScrapeService", _factory)
 
     with TestClient(app) as client:
         anyio.run(_create_all_tables, app.state.database.engine)

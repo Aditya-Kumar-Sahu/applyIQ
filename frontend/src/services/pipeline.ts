@@ -50,6 +50,7 @@ export type PipelineResults = {
   jobs_found: number;
   jobs_matched: number;
   applications_submitted: number;
+  pending_approvals_count?: number;
   started_at: string;
   completed_at: string | null;
   applications: PipelineApplication[];

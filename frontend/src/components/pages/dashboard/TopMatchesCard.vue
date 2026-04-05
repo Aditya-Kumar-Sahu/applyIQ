@@ -1,5 +1,5 @@
 <template>
-  <AppCard class="top-matches-card app-card--interactive">
+  <AppCard class="top-matches-card" interactive>
     <div class="top-matches-card__header">
       <div>
         <p class="label-md top-matches-card__eyebrow">Review Top Matches</p>
