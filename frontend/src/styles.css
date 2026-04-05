@@ -809,9 +809,9 @@ textarea.field-input {
   display: flex;
   align-items: center;
   gap: 0;
-  overflow-x: auto;
-  padding: 1.75rem 0 1.5rem;
-  min-height: 14.5rem;
+  overflow-x: hidden;
+  padding: 1.5rem 0 1.25rem;
+  min-height: 13.5rem;
 }
 
 .pipeline-graph__svg {
@@ -858,8 +858,9 @@ textarea.field-input {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-width: 160px;
-  padding: 1.25rem 1rem;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.875rem 0.75rem;
   background: var(--surface-lowest);
   border-radius: var(--radius-lg);
   border: var(--border-ghost);
@@ -939,7 +940,7 @@ textarea.field-input {
 .pipeline-node__sub {
   font-size: 0.75rem;
   color: var(--on-surface-var);
-  line-height: 1.4;
+  line-height: 1.35;
 }
 .pipeline-node__state {
   font-size: 0.7rem;
@@ -954,7 +955,7 @@ textarea.field-input {
 .pipeline-arrow {
   display: flex;
   align-items: center;
-  padding: 0 0.5rem;
+  padding: 0 0.15rem;
   flex-shrink: 0;
   color: var(--outline-var);
 }
@@ -1218,14 +1219,15 @@ textarea.field-input {
    ============================================================ */
 .pipeline-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 1.5rem;
-  padding: 2rem 2.5rem;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 320px);
+  gap: 1rem;
+  padding: 1.5rem 1.75rem 2rem;
+  align-items: start;
   min-height: calc(100vh - 90px);
 }
 
-.pipeline-main  { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
-.pipeline-aside { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
+.pipeline-main  { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; align-self: start; }
+.pipeline-aside { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; align-self: start; }
 
 .pipeline-meta-bar {
   display: flex;
@@ -1712,3 +1714,17 @@ textarea.field-input {
 /* Legacy compat — keep .auth-error available */
 .auth-error { font-size: 0.8125rem; color: var(--error); padding: 0.625rem 0.875rem; background: var(--error-container); border-radius: var(--radius-md); }
 .muted { color: var(--on-surface-var); }
+
+@media (max-width: 1280px) {
+  .pipeline-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .pipeline-aside {
+    order: 2;
+  }
+
+  .pipeline-node {
+    min-width: 120px;
+  }
+}
