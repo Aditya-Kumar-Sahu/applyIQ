@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from app.models.job import Job
 from app.schemas.resume import SearchPreferencesPayload
 from app.services.embedding_service import EmbeddingService
@@ -52,3 +54,9 @@ def test_location_filters_accept_remote_aliases_and_normalized_city_names() -> N
     assert city_reason == "passed"
     assert service._location_match(job=remote_job, preferences=remote_preferences) == 1.0
     assert service._location_match(job=city_job, preferences=city_preferences) == 1.0
+
+
+def test_user_id_accepts_simple_namespace_proxy() -> None:
+    from app.services.match_rank_service import _user_id
+
+    assert _user_id(SimpleNamespace(id="user-123")) == "user-123"

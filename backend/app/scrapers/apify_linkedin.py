@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from datetime import datetime, timezone
 import structlog
 import httpx
@@ -11,9 +12,10 @@ from app.scrapers.base import BaseJobScraper, ScrapeQuery, build_fixture_jobs
 
 logger = structlog.get_logger(__name__)
 
+
 class ApifyLinkedInScraper(BaseJobScraper):
     source_name = "linkedin"
-    _ACTOR_ID = "bebity/linkedin-jobs-scraper"
+    _ACTOR_ID = "practicaltools/linkedin-jobs"
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings
@@ -24,18 +26,14 @@ class ApifyLinkedInScraper(BaseJobScraper):
             return build_fixture_jobs(self.source_name, query)
 
         try:
-            return await self._execute_apify_run(query, settings.apify_api_token)
+            jobs = await self._execute_apify_run(query, settings.apify_api_token)
+            return jobs[: query.limit_per_source]
         except Exception as e:
             logger.error("scraper.apify.error", error=str(e), source=self.source_name)
             return []
 
     async def _execute_apify_run(self, query: ScrapeQuery, token: str) -> list[RawJob]:
-        input_data = {
-            "searchKeywords": query.target_role,
-            "location": query.location or "Worldwide",
-            "limit": query.limit_per_source,
-            "sortBy": "recent",
-        }
+        input_data = self._build_input_data(query)
         
         async with httpx.AsyncClient(timeout=120.0) as client:
             run_resp = await client.post(
@@ -72,28 +70,52 @@ class ApifyLinkedInScraper(BaseJobScraper):
             
             return self._normalize(items)
 
+    def _build_input_data(self, query: ScrapeQuery) -> dict[str, object]:
+        return {
+            "keywords": query.target_role,
+            "location": query.location or "Worldwide",
+            "sortBy": "DD",
+            "maxPages": max(1, math.ceil(query.limit_per_source / 10)),
+            "fetchDescription": True,
+        }
+
     def _normalize(self, items: list[dict]) -> list[RawJob]:
         jobs = []
         for index, item in enumerate(items):
-            # Normalization into a single RawJob shape
-            title = item.get("title", "Unknown Role")
-            company_name = item.get("companyName", "Unknown Company")
-            apply_url = item.get("jobUrl", "")
+            title = str(item.get("title") or "Unknown Role")
+            company_name = str(item.get("company") or item.get("companyName") or "Unknown Company")
+            apply_url = str(item.get("url") or item.get("jobUrl") or "")
+            posted_at = _parse_posted_at(item.get("datePosted"))
             
             jobs.append(
                 RawJob(
-                    external_id=f"apify-li-{item.get('id', index)}",
+                    external_id=f"apify-li-{item.get('jobId', item.get('id', index))}",
                     source=self.source_name,
                     title=title,
                     company_name=company_name,
-                    company_domain=item.get("companyDomain", ""),
-                    location=item.get("location", "Remote"),
-                    is_remote="remote" in str(item.get("location", "")).lower(),
+                    company_domain=str(item.get("companyDomain") or ""),
+                    location=str(item.get("location") or "Remote"),
+                    is_remote="remote" in str(item.get("location") or "").lower(),
                     salary_min=item.get("salaryMin"),
                     salary_max=item.get("salaryMax"),
-                    description_text=item.get("description", f"{title} at {company_name}"),
+                    description_text=str(item.get("description") or f"{title} at {company_name}"),
                     apply_url=apply_url,
-                    posted_at=datetime.now(timezone.utc),
+                    posted_at=posted_at,
                 )
             )
         return jobs
+
+
+def _parse_posted_at(value: object) -> datetime:
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
+    if isinstance(value, str) and value.strip():
+        normalized = value.replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(normalized)
+            return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+    return datetime.now(timezone.utc)

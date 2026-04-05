@@ -23,7 +23,36 @@ from app.services.vault_service import VaultService
 from app.worker import celery_app
 
 
+def _build_pipeline_user(user: User) -> SimpleNamespace:
+    resume_profile = None
+    if user.resume_profile is not None:
+        resume_profile = SimpleNamespace(
+            parsed_profile=dict(user.resume_profile.parsed_profile or {}),
+        )
+
+    search_preferences = None
+    if user.search_preferences is not None:
+        search_preferences = SimpleNamespace(
+            target_roles=list(user.search_preferences.target_roles or []),
+            preferred_locations=list(user.search_preferences.preferred_locations or []),
+            remote_preference=user.search_preferences.remote_preference,
+            salary_min=user.search_preferences.salary_min,
+            salary_max=user.search_preferences.salary_max,
+            currency=user.search_preferences.currency,
+            excluded_companies=list(user.search_preferences.excluded_companies or []),
+            seniority_level=user.search_preferences.seniority_level,
+            is_active=user.search_preferences.is_active,
+        )
+
+    return SimpleNamespace(
+        id=str(user.id),
+        resume_profile=resume_profile,
+        search_preferences=search_preferences,
+    )
+
+
 async def _run_start(payload: dict) -> dict:
+    run_id = str(payload["run_id"])
     settings = get_settings()
     database = DatabaseManager(settings.database_url)
     redis_manager = RedisManager(settings.redis_url)
@@ -48,7 +77,7 @@ async def _run_start(payload: dict) -> dict:
 
     try:
         async with database.session() as session:
-            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == str(payload["run_id"])))
+            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
             user = await session.scalar(
                 select(User)
                 .where(User.id == str(payload["user_id"]))
@@ -60,11 +89,7 @@ async def _run_start(payload: dict) -> dict:
             if pipeline_run is None or user is None:
                 return {"processed": False, "reason": "run_or_user_missing"}
 
-            pipeline_user = SimpleNamespace(
-                id=str(payload["user_id"]),
-                resume_profile=user.resume_profile,
-                search_preferences=user.search_preferences,
-            )
+            pipeline_user = _build_pipeline_user(user)
 
             pipeline_run.status = "running"
             pipeline_run.current_node = "fetch_jobs_node"
@@ -76,10 +101,10 @@ async def _run_start(payload: dict) -> dict:
                 user=pipeline_user,
                 initial_state=payload["state"],
             )
-            return {"processed": True, "run_id": pipeline_run.id}
+            return {"processed": True, "run_id": run_id}
     except Exception:
         async with database.session() as session:
-            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == str(payload["run_id"])))
+            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
             if pipeline_run is not None:
                 pipeline_run.status = "failed"
                 pipeline_run.current_node = "pipeline_task_start"
@@ -91,6 +116,7 @@ async def _run_start(payload: dict) -> dict:
 
 
 async def _run_resume(payload: dict) -> dict:
+    run_id = str(payload["run_id"])
     settings = get_settings()
     database = DatabaseManager(settings.database_url)
     redis_manager = RedisManager(settings.redis_url)
@@ -115,7 +141,7 @@ async def _run_resume(payload: dict) -> dict:
 
     try:
         async with database.session() as session:
-            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == str(payload["run_id"])))
+            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
             user = await session.scalar(
                 select(User)
                 .where(User.id == str(payload["user_id"]))
@@ -127,11 +153,7 @@ async def _run_resume(payload: dict) -> dict:
             if pipeline_run is None or user is None:
                 return {"processed": False, "reason": "run_or_user_missing"}
 
-            pipeline_user = SimpleNamespace(
-                id=str(payload["user_id"]),
-                resume_profile=user.resume_profile,
-                search_preferences=user.search_preferences,
-            )
+            pipeline_user = _build_pipeline_user(user)
 
             pipeline_run.status = "resuming"
             pipeline_run.current_node = "approval_gate_node"
@@ -141,12 +163,12 @@ async def _run_resume(payload: dict) -> dict:
                 session=session,
                 pipeline_run=pipeline_run,
                 user=pipeline_user,
-                run_id=pipeline_run.id,
+                run_id=run_id,
             )
-            return {"processed": True, "run_id": pipeline_run.id}
+            return {"processed": True, "run_id": run_id}
     except Exception:
         async with database.session() as session:
-            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == str(payload["run_id"])))
+            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
             if pipeline_run is not None:
                 pipeline_run.status = "failed"
                 pipeline_run.current_node = "pipeline_task_resume"

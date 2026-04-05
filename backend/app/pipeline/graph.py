@@ -28,10 +28,25 @@ from app.services.vault_service import VaultService
 
 
 def _user_id(user: User) -> str:
+    user_id = getattr(user, "id", None)
+    if user_id is not None:
+        return str(user_id)
+
     identity = inspect(user).identity
     if identity and identity[0] is not None:
         return str(identity[0])
     raise ValueError("User identity is unavailable")
+
+
+def _pipeline_run_id(pipeline_run: PipelineRun) -> str:
+    run_id = getattr(pipeline_run, "id", None)
+    if run_id is not None:
+        return str(run_id)
+
+    identity = inspect(pipeline_run).identity
+    if identity and identity[0] is not None:
+        return str(identity[0])
+    raise ValueError("Pipeline run identity is unavailable")
 
 
 class PipelineGraphRunner:
@@ -140,7 +155,7 @@ class PipelineGraphRunner:
         pipeline_run: PipelineRun,
         user: User,
     ):
-        pipeline_run_id = pipeline_run.id
+        pipeline_run_id = _pipeline_run_id(pipeline_run)
 
         async def fetch_node(state: ApplyIQState) -> ApplyIQState:
             return await self._execute_with_agent_run(
@@ -153,6 +168,7 @@ class PipelineGraphRunner:
                     session=session,
                     scrape_service=self._scrape_service,
                     pipeline_run=pipeline_run,
+                    pipeline_run_id=pipeline_run_id,
                 ),
             )
 
@@ -168,6 +184,7 @@ class PipelineGraphRunner:
                     match_service=self._match_service,
                     pipeline_run=pipeline_run,
                     user=user,
+                    pipeline_run_id=pipeline_run_id,
                 ),
             )
 
@@ -182,6 +199,7 @@ class PipelineGraphRunner:
                     session=session,
                     pipeline_run=pipeline_run,
                     user=user,
+                    pipeline_run_id=pipeline_run_id,
                     checkpointer=self._checkpointer,
                     encryption_service=self._encryption_service,
                     cover_letter_service=self._cover_letter_service,
@@ -199,6 +217,7 @@ class PipelineGraphRunner:
                     session=session,
                     pipeline_run=pipeline_run,
                     user=user,
+                    pipeline_run_id=pipeline_run_id,
                     auto_apply_service=self._auto_apply_service,
                     vault_service=self._vault_service,
                     encryption_service=self._encryption_service,
@@ -215,6 +234,7 @@ class PipelineGraphRunner:
                     current_state,
                     session=session,
                     pipeline_run=pipeline_run,
+                    pipeline_run_id=pipeline_run_id,
                 ),
             )
 
@@ -242,7 +262,7 @@ class PipelineGraphRunner:
         user: User,
         initial_state: ApplyIQState,
     ) -> ApplyIQState:
-        pipeline_run_id = pipeline_run.id
+        pipeline_run_id = _pipeline_run_id(pipeline_run)
         compiled_graph = self._build_graph(session=session, pipeline_run=pipeline_run, user=user)
         result = await compiled_graph.ainvoke(
             initial_state,
@@ -258,7 +278,7 @@ class PipelineGraphRunner:
         user: User,
         run_id: str,
     ) -> ApplyIQState:
-        pipeline_run_id = pipeline_run.id
+        pipeline_run_id = run_id
         compiled_graph = self._build_graph(session=session, pipeline_run=pipeline_run, user=user)
         user_id = _user_id(user)
         try:
@@ -275,6 +295,7 @@ class PipelineGraphRunner:
                     session=session,
                     pipeline_run=pipeline_run,
                     user=user,
+                    run_id=run_id,
                 )
             else:
                 try:
@@ -288,6 +309,7 @@ class PipelineGraphRunner:
                         session=session,
                         pipeline_run=pipeline_run,
                         user=user,
+                        run_id=run_id,
                     )
 
             approved_rows = list(
@@ -314,6 +336,7 @@ class PipelineGraphRunner:
                         session=session,
                         pipeline_run=pipeline_run,
                         user=user,
+                        pipeline_run_id=pipeline_run_id,
                         auto_apply_service=self._auto_apply_service,
                         vault_service=self._vault_service,
                         encryption_service=self._encryption_service,
@@ -330,6 +353,7 @@ class PipelineGraphRunner:
                         current_state,
                         session=session,
                         pipeline_run=pipeline_run,
+                        pipeline_run_id=pipeline_run_id,
                     ),
                 )
 
@@ -349,12 +373,13 @@ class PipelineGraphRunner:
         session: AsyncSession,
         pipeline_run: PipelineRun,
         user: User,
+        run_id: str,
     ) -> ApplyIQState:
         user_id = _user_id(user)
         applications = list(
             await session.scalars(
                 select(Application).where(
-                    Application.pipeline_run_id == pipeline_run.id,
+                    Application.pipeline_run_id == run_id,
                     Application.user_id == user_id,
                 )
             )
@@ -402,7 +427,7 @@ class PipelineGraphRunner:
             resume = user.resume_profile.parsed_profile
 
         return {
-            "run_id": pipeline_run.id,
+            "run_id": run_id,
             "user_id": user_id,
             "target_role": search_preferences["target_roles"][0] if search_preferences and search_preferences["target_roles"] else "",
             "location": search_preferences["preferred_locations"][0] if search_preferences and search_preferences["preferred_locations"] else None,

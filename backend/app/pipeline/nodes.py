@@ -19,6 +19,10 @@ from app.services.scrape_service import ScrapeService
 
 
 def _user_id(user: User) -> str:
+    user_id = getattr(user, "id", None)
+    if user_id is not None:
+        return str(user_id)
+
     identity = inspect(user).identity
     if identity and identity[0] is not None:
         return str(identity[0])
@@ -31,6 +35,7 @@ async def fetch_jobs_node(
     session: AsyncSession,
     scrape_service: ScrapeService,
     pipeline_run: PipelineRun,
+    pipeline_run_id: str,
 ) -> ApplyIQState:
     summary = await scrape_service.run_test_scrape(
         session=session,
@@ -70,6 +75,7 @@ async def rank_jobs_node(
     match_service: MatchRankService,
     pipeline_run: PipelineRun,
     user: User,
+    pipeline_run_id: str,
 ) -> ApplyIQState:
     ranked_jobs = await match_service.list_ranked_jobs(session=session, user=user)
     pipeline_run.jobs_matched = ranked_jobs.total
@@ -87,6 +93,7 @@ async def approval_gate_node(
     session: AsyncSession,
     pipeline_run: PipelineRun,
     user: User,
+    pipeline_run_id: str,
     checkpointer: PipelineCheckpointer,
     encryption_service,
     cover_letter_service: CoverLetterService,
@@ -106,7 +113,7 @@ async def approval_gate_node(
         pipeline_run.completed_at = datetime.now(timezone.utc)
         pipeline_run.state_snapshot = encryption_service.encrypt_for_user(user_id, _serialize_state(state))
         await session.commit()
-        await checkpointer.delete(pipeline_run.id)
+        await checkpointer.delete(pipeline_run_id)
         return state
 
     resume = ParsedResumeProfile.model_validate(user.resume_profile.parsed_profile)
@@ -126,7 +133,7 @@ async def approval_gate_node(
         application = Application(
             user_id=user_id,
             job_id=str(ranked_job["job_id"]),
-            pipeline_run_id=pipeline_run.id,
+            pipeline_run_id=pipeline_run_id,
             status="pending_approval",
             match_score=float(ranked_job["match_score"]),
             cover_letter_text=draft.cover_letter,
@@ -156,7 +163,7 @@ async def approval_gate_node(
     pipeline_run.current_node = "approval_gate_node"
     pipeline_run.state_snapshot = encryption_service.encrypt_for_user(user_id, _serialize_state(state))
     await session.commit()
-    await checkpointer.save(pipeline_run.id, state)
+    await checkpointer.save(pipeline_run_id, state)
     return state
 
 
@@ -166,6 +173,7 @@ async def auto_apply_node(
     session: AsyncSession,
     pipeline_run: PipelineRun,
     user: User,
+    pipeline_run_id: str,
     auto_apply_service,
     vault_service,
     encryption_service,
@@ -174,7 +182,7 @@ async def auto_apply_node(
     applications = list(
         await session.scalars(
             select(Application).where(
-                Application.pipeline_run_id == pipeline_run.id,
+                Application.pipeline_run_id == pipeline_run_id,
                 Application.status == "approved",
             )
         )
@@ -261,11 +269,12 @@ async def track_applications_node(
     *,
     session: AsyncSession,
     pipeline_run: PipelineRun,
+    pipeline_run_id: str,
 ) -> ApplyIQState:
     applications = list(
         await session.scalars(
             select(Application).where(
-                Application.pipeline_run_id == pipeline_run.id,
+                Application.pipeline_run_id == pipeline_run_id,
             )
         )
     )

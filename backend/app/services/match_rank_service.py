@@ -45,6 +45,10 @@ logger = structlog.get_logger(__name__)
 
 
 def _user_id(user: User) -> str:
+    user_id = getattr(user, "id", None)
+    if user_id is not None:
+        return str(user_id)
+
     identity = inspect(user).identity
     if identity and identity[0] is not None:
         return str(identity[0])
