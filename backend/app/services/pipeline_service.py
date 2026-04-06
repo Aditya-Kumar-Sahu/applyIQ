@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
+from app.core.database import DatabaseManager
 from app.core.config import Settings
 from app.core.logging_safety import log_debug, log_exception
 from app.models.application import Application
@@ -197,10 +198,13 @@ class PipelineService:
         log_debug(logger, "pipeline.get_results.start", user_id=user.id, run_id=run_id)
         pipeline_run = await self._get_run(session=session, user=user, run_id=run_id)
         applications = list(await session.scalars(select(Application).where(Application.pipeline_run_id == run_id)))
+        job_ids = {application.job_id for application in applications}
+        jobs = list(await session.scalars(select(Job).where(Job.id.in_(job_ids)))) if job_ids else []
+        jobs_by_id = {job.id: job for job in jobs}
 
         items: list[PipelineApplicationItem] = []
         for application in applications:
-            job = await session.scalar(select(Job).where(Job.id == application.job_id))
+            job = jobs_by_id.get(application.job_id)
             notes = _load_notes(application.notes)
             selected_variant_id = _selected_variant_id(notes)
             items.append(
@@ -727,7 +731,7 @@ class PipelineService:
     async def stream_status_events(
         self,
         *,
-        session: AsyncSession,
+        database: DatabaseManager,
         user: User,
         run_id: str,
         poll_interval_seconds: float = 1.5,
@@ -741,7 +745,8 @@ class PipelineService:
         )
         last_payload: str | None = None
         while True:
-            data = await self.get_results(session=session, user=user, run_id=run_id)
+            async with database.session() as session:
+                data = await self.get_results(session=session, user=user, run_id=run_id)
             serialized = json.dumps(data.model_dump(mode="json"))
 
             if serialized != last_payload:

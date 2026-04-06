@@ -16,30 +16,7 @@ async def get_db_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
-def get_encryption_service(request: Request) -> EncryptionService:
-    settings = request.app.state.settings
-    return EncryptionService(
-        fernet_secret_key=settings.fernet_secret_key,
-        encryption_pepper=settings.encryption_pepper,
-    )
-
-
-def _extract_token(request: Request, cookie_name: str) -> str | None:
-    cookie_token = request.cookies.get(cookie_name)
-    if cookie_token:
-        return cookie_token
-
-    authorization = request.headers.get("Authorization")
-    if authorization and authorization.lower().startswith("bearer "):
-        return authorization.split(" ", 1)[1]
-
-    return None
-
-
-async def get_current_user(
-    request: Request,
-    session: AsyncSession = Depends(get_db_session),
-) -> User:
+async def _load_current_user(*, request: Request, session: AsyncSession) -> User:
     settings = request.app.state.settings
     token = _extract_token(request, settings.access_cookie_name)
 
@@ -68,3 +45,35 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     return user
+
+
+def get_encryption_service(request: Request) -> EncryptionService:
+    settings = request.app.state.settings
+    return EncryptionService(
+        fernet_secret_key=settings.fernet_secret_key,
+        encryption_pepper=settings.encryption_pepper,
+    )
+
+
+def _extract_token(request: Request, cookie_name: str) -> str | None:
+    cookie_token = request.cookies.get(cookie_name)
+    if cookie_token:
+        return cookie_token
+
+    authorization = request.headers.get("Authorization")
+    if authorization and authorization.lower().startswith("bearer "):
+        return authorization.split(" ", 1)[1]
+
+    return None
+
+
+async def get_current_user(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+) -> User:
+    return await _load_current_user(request=request, session=session)
+
+
+async def get_current_user_stream(request: Request) -> User:
+    async with request.app.state.database.session() as session:
+        return await _load_current_user(request=request, session=session)

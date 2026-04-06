@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
+from app.core.database import DatabaseManager
 from app.core.config import Settings
 from app.core.logging_safety import log_debug, log_exception, text_snapshot
 from app.models.application import Application
@@ -317,10 +318,21 @@ class EmailMonitorService:
                 )
             )
 
+            if not monitors:
+                log_debug(logger, "email_monitor.get_notifications.complete", user_id=user.id, count=0)
+                return NotificationsData(items=[])
+
+            application_ids = {monitor.application_id for monitor in monitors}
+            applications = list(await session.scalars(select(Application).where(Application.id.in_(application_ids))))
+            applications_by_id = {application.id: application for application in applications}
+            job_ids = {application.job_id for application in applications}
+            jobs = list(await session.scalars(select(Job).where(Job.id.in_(job_ids)))) if job_ids else []
+            jobs_by_id = {job.id: job for job in jobs}
+
             notifications: list[NotificationItem] = []
             for monitor in monitors:
-                application = await session.scalar(select(Application).where(Application.id == monitor.application_id))
-                job = await session.scalar(select(Job).where(Job.id == application.job_id)) if application else None
+                application = applications_by_id.get(monitor.application_id)
+                job = jobs_by_id.get(application.job_id) if application else None
                 if application is None or job is None:
                     continue
                 notifications.append(
@@ -351,7 +363,7 @@ class EmailMonitorService:
     async def stream_notifications_events(
         self,
         *,
-        session: AsyncSession,
+        database: DatabaseManager,
         user: User,
         poll_interval_seconds: float = 5.0,
     ) -> AsyncIterator[str]:
@@ -363,7 +375,8 @@ class EmailMonitorService:
         )
         last_payload: str | None = None
         while True:
-            data = await self.get_notifications(session=session, user=user)
+            async with database.session() as session:
+                data = await self.get_notifications(session=session, user=user)
             serialized = json.dumps(data.model_dump(mode="json"))
             if serialized != last_payload:
                 yield f"event: notifications\ndata: {serialized}\n\n"

@@ -64,6 +64,12 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         assert status_response.headers["content-type"].startswith("text/event-stream")
         assert "approval_gate_node" in status_response.text
 
+        status_stream_response = client.get(f"/api/v1/pipeline/{run_id}/status/stream")
+
+        assert status_stream_response.status_code == 200
+        assert status_stream_response.headers["content-type"].startswith("text/event-stream")
+        assert "approval_gate_node" in status_stream_response.text
+
         results_response = client.get(f"/api/v1/pipeline/{run_id}/results")
 
         assert results_response.status_code == 200
