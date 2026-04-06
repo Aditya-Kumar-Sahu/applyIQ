@@ -64,20 +64,20 @@
             <div class="toggle-row">
               <div class="toggle-row__info">
                 <p class="toggle-row__label">Automatic Follow-up</p>
-                <p class="toggle-row__desc">ApplyIQ will draft polite follow-up emails if a recruiter doesn't respond within 5 business days.</p>
+                <p class="toggle-row__desc">Preview only. Automatic follow-up drafting is not enabled in this build.</p>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" v-model="autoFollowup" />
+                <input type="checkbox" v-model="autoFollowup" disabled title="Coming soon" />
                 <span class="toggle-track"></span>
               </label>
             </div>
             <div class="toggle-row">
               <div class="toggle-row__info">
                 <p class="toggle-row__label">Ghost Mode</p>
-                <p class="toggle-row__desc">Prevent trackers from notifying senders when you open application-related emails.</p>
+                <p class="toggle-row__desc">Preview only. Ghost mode is not configurable in this build.</p>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" v-model="ghostMode" />
+                <input type="checkbox" v-model="ghostMode" disabled title="Coming soon" />
                 <span class="toggle-track"></span>
               </label>
             </div>
@@ -93,7 +93,7 @@
               <div>
                 <p style="font-size:1rem;font-weight:700;color:var(--on-surface);">{{ currentUser?.full_name ?? '—' }}</p>
                 <p style="font-size:0.8125rem;color:var(--on-surface-var);">{{ currentUser?.email ?? '—' }}</p>
-                <span class="chip chip-amber" style="margin-top:0.35rem;">Premium Plan</span>
+                <span class="chip chip-amber" style="margin-top:0.35rem;">{{ planLabel }}</span>
               </div>
             </div>
             <div class="advisory">
@@ -109,11 +109,11 @@
             <div class="section-header" style="margin-bottom:1.25rem;"><div class="section-header__title">Security & Privacy</div></div>
             <div class="advisory" style="margin-bottom:1.5rem;">
               <span class="material-symbols-outlined">lock</span>
-              <p class="advisory__text">Your data is secured with AES-256 bit encryption. ApplyIQ never shares your private mailbox data with third-party training models.</p>
+              <p class="advisory__text">Your data is encrypted server-side and private mailbox content is not shared with third-party training models.</p>
             </div>
             <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-              <button class="btn btn-secondary">Change Password</button>
-              <button class="btn btn-ghost" style="color:var(--error);">Delete Account</button>
+              <button class="btn btn-secondary" type="button" disabled title="Coming soon">Change Password</button>
+              <button class="btn btn-ghost" type="button" style="color:var(--error);" disabled title="Coming soon">Delete Account</button>
               <button class="btn btn-danger" @click="handleLogout">
                 <span class="material-symbols-outlined icon-sm">logout</span>
                 Sign out
@@ -126,13 +126,17 @@
         <template v-if="selectedCategory === 'integrations'">
           <div class="settings-section">
             <div class="section-header" style="margin-bottom:1.25rem;"><div class="section-header__title">External Integrations</div></div>
+            <div class="advisory" style="margin-bottom:1rem;">
+              <span class="material-symbols-outlined">info</span>
+              <p class="advisory__text">These connectors are shown for reference only and are not active in this build.</p>
+            </div>
             <div style="display:flex;flex-direction:column;gap:1rem;">
               <div v-for="intg in integrations" :key="intg.name" style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:var(--surface-low);border-radius:var(--radius-md);">
                 <div>
                   <p style="font-size:0.9rem;font-weight:600;color:var(--on-surface);">{{ intg.name }}</p>
                   <p style="font-size:0.78rem;color:var(--on-surface-var);margin-top:0.15rem;">{{ intg.desc }}</p>
                 </div>
-                <button class="btn btn-secondary btn-sm">Connect</button>
+                <button class="btn btn-secondary btn-sm" type="button" disabled title="Coming soon">Coming soon</button>
               </div>
             </div>
           </div>
@@ -176,7 +180,8 @@ const integrations = [
   { name: "Lever",      desc: "Track Lever-hosted job applications automatically." },
 ];
 
-const currentUser = computed(() => store.getters.authUser as { full_name: string; email: string } | null);
+const currentUser = computed(() => store.getters.authUser as { full_name: string; email: string; subscription_tier?: string } | null);
+const planLabel = computed(() => currentUser.value?.subscription_tier ?? "Plan unavailable");
 const initials    = computed(() => {
   const parts = (currentUser.value?.full_name ?? "?").split(" ");
   return parts.map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();

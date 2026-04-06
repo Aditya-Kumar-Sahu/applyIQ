@@ -4,8 +4,8 @@
       <p class="page-header__eyebrow">Orchestration</p>
       <h1 class="page-header__title">Main Orchestration Graph</h1>
       <p class="page-header__sub" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:0.5rem;">
-        <span class="chip chip-neutral">v2.0.4-production</span>
-        <span class="chip chip-neutral">Cluster: US-EAST-1</span>
+        <span class="chip chip-neutral">{{ availableSources.length }} sources</span>
+        <span class="chip chip-neutral">Approval first</span>
         <span v-if="pipelineRun" class="chip" :class="pipelineRun.status === 'complete' ? 'chip-emerald' : 'chip-amber'">
           {{ statusLabel }}
         </span>
@@ -185,11 +185,11 @@
 
           <div class="execution-memory">
             <div class="execution-memory__label">
-              <span>Memory utilization</span>
-              <span>{{ memoryUtilization }}%</span>
+              <span>Approval queue</span>
+              <span>{{ pendingApplications.length }} pending</span>
             </div>
             <div class="execution-memory__bar">
-              <div class="execution-memory__fill" :style="{ width: `${memoryUtilization}%` }"></div>
+              <div class="execution-memory__fill" :style="{ width: `${approvalQueuePct}%` }"></div>
             </div>
           </div>
           <div class="exec-log">
@@ -259,11 +259,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 
 import {
-  isDemoApplication,
   subscribePipelineStatus,
   type CoverLetterVariant,
   type PipelineApplication,
@@ -334,7 +333,14 @@ const connectionStateLabel = computed(() => {
   if (!pipelineRun.value) return "Idle";
   return pipelineRun.value.status === "paused_at_gate" ? "Awaiting review" : pipelineRun.value.status.replaceAll("_", " ");
 });
-const memoryUtilization = computed(() => (pipelineRun.value ? 38 : 0));
+const approvalQueuePct = computed(() => {
+  const totalApplications = sortedApplications.value.length;
+  if (totalApplications === 0) {
+    return 0;
+  }
+
+  return Math.round((pendingApplications.value.length / totalApplications) * 100);
+});
 
 let stopPipelineStatusStream: (() => void) | null = null;
 

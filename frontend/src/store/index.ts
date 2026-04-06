@@ -384,15 +384,10 @@ export const store = createStore<RootState>({
       commit("setJobsLoading");
 
       try {
-        const { getJobs, getJobDetail } = await import("../services/jobs");
+        const { getJobs } = await import("../services/jobs");
         const jobsResponse = await getJobs();
         commit("setJobs", jobsResponse.items);
-        if (jobsResponse.items.length > 0) {
-          const detail = await getJobDetail(jobsResponse.items[0].job_id);
-          commit("setSelectedJob", detail);
-        } else {
-          commit("setSelectedJob", null);
-        }
+        commit("setSelectedJob", null);
       } catch (error) {
         commit("setJobsError", error instanceof Error ? error.message : "Unable to load jobs");
       }
@@ -401,15 +396,10 @@ export const store = createStore<RootState>({
       commit("setJobsLoading");
 
       try {
-        const { searchJobs, getJobDetail } = await import("../services/jobs");
+        const { searchJobs } = await import("../services/jobs");
         const jobsResponse = await searchJobs(query);
         commit("setJobs", jobsResponse.items);
-        if (jobsResponse.items.length > 0) {
-          const detail = await getJobDetail(jobsResponse.items[0].job_id);
-          commit("setSelectedJob", detail);
-        } else {
-          commit("setSelectedJob", null);
-        }
+        commit("setSelectedJob", null);
       } catch (error) {
         commit("setJobsError", error instanceof Error ? error.message : "Unable to search jobs");
       }

@@ -20,6 +20,10 @@
       <p class="page-header__sub">
         Tracking {{ applications.length }} active opportunit{{ applications.length === 1 ? 'y' : 'ies' }} across recruitment stages.
       </p>
+      <div v-if="hasDemoApplications" class="advisory" style="margin-top:1rem;">
+        <span class="material-symbols-outlined">info</span>
+        <p class="advisory__text">Rows marked as simulated are demo records, not real submissions.</p>
+      </div>
     </div>
 
     <div v-if="error" style="padding:0 2.5rem 1rem;">
@@ -164,7 +168,7 @@
                 <div class="list-row__sub">{{ app.company_name }}</div>
                 <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.35rem;">
                   <span class="chip chip-neutral">{{ app.source }}</span>
-                  <span v-if="app.is_demo" class="chip chip-amber">Demo</span>
+                  <span v-if="app.is_demo" class="chip chip-amber">Simulated</span>
                 </div>
               </div>
               <div class="application-row__actions">
@@ -197,7 +201,7 @@
               <span class="chip" :class="statusChipClass(selectedApplication.status)">
                 {{ selectedApplication.status.replaceAll('_', ' ') }}
               </span>
-              <span v-if="selectedApplication.is_demo" class="chip chip-amber">Demo</span>
+              <span v-if="selectedApplication.is_demo" class="chip chip-amber">Simulated</span>
             </div>
           </div>
 
@@ -352,6 +356,7 @@ const availableStatusOptions = computed(() =>
 );
 
 const activePipelineRunId = computed(() => selectedApplication.value?.pipeline_run_id ?? applications.value[0]?.pipeline_run_id ?? null);
+const hasDemoApplications = computed(() => applications.value.some((application) => application.is_demo));
 
 watch(selectedApplication, (app) => {
   selectedStatus.value = app?.status ?? "";

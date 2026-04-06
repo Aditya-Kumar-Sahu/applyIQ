@@ -5,6 +5,7 @@ import ApprovalGateView  from "../views/ApprovalGateView.vue";
 import DashboardView     from "../views/DashboardView.vue";
 import LoginView         from "../views/LoginView.vue";
 import HomeView          from "../views/HomeView.vue";
+import JobsView          from "../views/JobsView.vue";
 import PipelineView      from "../views/PipelineView.vue";
 import ProfileView       from "../views/ProfileView.vue";
 import RegisterView      from "../views/RegisterView.vue";
@@ -30,6 +31,12 @@ export const router = createRouter({
       path: "/pipeline",
       name: "pipeline",
       component: PipelineView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: "/jobs",
+      name: "jobs",
+      component: JobsView,
       meta: { requiresAuth: true },
     },
     {
@@ -70,8 +77,6 @@ export const router = createRouter({
     },
     // Legacy redirects so old routes still work
     { path: "/resume", redirect: "/profile"   },
-    { path: "/jobs",   redirect: "/pipeline"  },
-    { path: "/vault",  redirect: "/dashboard" },
     { path: "/home",   redirect: "/"          },
   ],
 });

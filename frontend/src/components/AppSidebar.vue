@@ -36,9 +36,7 @@
         </div>
       </div>
       <div class="sidebar__footer-links">
-        <a href="#" @click.prevent>Documentation</a>
-        <a href="#" @click.prevent>Support</a>
-        <a href="#" @click.prevent style="color:var(--error)" @click="handleLogout">Logout</a>
+        <a href="#" style="color:var(--error)" @click.prevent="handleLogout">Logout</a>
       </div>
     </div>
   </aside>
@@ -55,6 +53,7 @@ const router = useRouter();
 const navItems = [
   { to: "/dashboard",    icon: "dashboard",    label: "Dashboard"    },
   { to: "/pipeline",     icon: "account_tree", label: "Pipeline"     },
+  { to: "/jobs",         icon: "search",       label: "Jobs"         },
   { to: "/applications", icon: "description",  label: "Applications" },
   { to: "/approval",     icon: "approval",     label: "Approval Gate"},
   { to: "/profile",      icon: "person",       label: "Profile"      },
@@ -62,10 +61,14 @@ const navItems = [
 ];
 
 const currentUser = computed(() => store.getters.authUser as { full_name: string; email: string; subscription_tier?: string } | null);
-const userName = computed(() => currentUser.value?.full_name ?? "Guest");
-const userPlan = computed(() => currentUser.value?.subscription_tier ?? "Premium Plan");
+const userName = computed(() => currentUser.value?.full_name ?? "Loading profile");
+const userPlan = computed(() => currentUser.value?.subscription_tier ?? "Plan unavailable");
 const initials = computed(() => {
-  const parts = (currentUser.value?.full_name ?? "?").split(" ");
+  if (!currentUser.value?.full_name) {
+    return "?";
+  }
+
+  const parts = currentUser.value.full_name.split(" ");
   return parts.map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
 });
 

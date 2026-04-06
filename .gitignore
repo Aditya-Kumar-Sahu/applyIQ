@@ -20,6 +20,7 @@ logs/
 .uv-cache/
 .uv-python/
 .docker/
+.github/agents/
 celerybeat-schedule**
 backend/celerybeat-schedule**
 PLAN.md
