@@ -91,6 +91,7 @@ type DashboardFeedEntry = {
 type DashboardMatch = {
   title: string;
   company: string;
+  source: string;
   location: string;
   salary: string;
   score?: number | null;
@@ -138,16 +139,18 @@ const heroStats = computed(() => {
 });
 
 const topMatches = computed<DashboardMatch[]>(() =>
+  pipelineResults.value ?
   [...jobs.value]
     .sort((left, right) => right.match_score - left.match_score)
     .slice(0, 4)
     .map((job) => ({
       title: job.title,
       company: job.company_name,
+      source: job.source,
       location: job.is_remote ? 'Remote' : job.location,
       salary: formatSalary(job.salary_min, job.salary_max),
       score: Math.round(job.match_score),
-    })),
+    })) : []
 );
 
 const feedEntries = computed<DashboardFeedEntry[]>(() => {

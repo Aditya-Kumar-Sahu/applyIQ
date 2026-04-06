@@ -59,11 +59,17 @@ class MatchRankService:
     def __init__(self, *, embedding_service: EmbeddingService) -> None:
         self._embedding_service = embedding_service
 
-    async def list_ranked_jobs(self, *, session: AsyncSession, user: User) -> JobsListData:
+    async def list_ranked_jobs(
+        self,
+        *,
+        session: AsyncSession,
+        user: User,
+        apply_urls: list[str] | None = None,
+    ) -> JobsListData:
         user_id = _user_id(user)
         log_debug(logger, "match_rank.list_ranked_jobs.start", user_id=user_id)
         try:
-            ranked = await self._rank_jobs(session=session, user=user)
+            ranked = await self._rank_jobs(session=session, user=user, apply_urls=apply_urls)
             log_debug(
                 logger,
                 "match_rank.list_ranked_jobs.complete",
@@ -134,11 +140,21 @@ class MatchRankService:
             )
             raise
 
-    async def _rank_jobs(self, *, session: AsyncSession, user: User) -> list[RankedJobResult]:
+    async def _rank_jobs(
+        self,
+        *,
+        session: AsyncSession,
+        user: User,
+        apply_urls: list[str] | None = None,
+    ) -> list[RankedJobResult]:
         user_id = _user_id(user)
         log_debug(logger, "match_rank.rank_jobs.start", user_id=user_id)
         if user.resume_profile is None:
             log_debug(logger, "match_rank.rank_jobs.no_resume_profile", user_id=user_id)
+            return []
+
+        if apply_urls is not None and len(apply_urls) == 0:
+            log_debug(logger, "match_rank.rank_jobs.empty_batch", user_id=user_id)
             return []
 
         try:
@@ -151,12 +167,28 @@ class MatchRankService:
                 (await session.scalars(select(Application.job_id).where(Application.user_id == user_id))).all()
             )
 
-            jobs = list(await session.scalars(select(Job).where(Job.is_active.is_(True)).order_by(Job.scraped_at.desc())))
+            job_query = select(Job).where(Job.is_active.is_(True))
+            if apply_urls:
+                job_query = job_query.where(Job.apply_url.in_(apply_urls))
+            jobs = list(await session.scalars(job_query.order_by(Job.scraped_at.desc())))
+            job_ids = [job.id for job in jobs]
+            existing_matches_by_job_id: dict[str, JobMatch] = {}
+            if job_ids:
+                existing_matches = list(
+                    await session.scalars(
+                        select(JobMatch).where(
+                            JobMatch.user_id == user_id,
+                            JobMatch.job_id.in_(job_ids),
+                        )
+                    )
+                )
+                existing_matches_by_job_id = {match.job_id: match for match in existing_matches}
             log_debug(
                 logger,
                 "match_rank.rank_jobs.loaded_inputs",
                 user_id=user_id,
                 total_jobs=len(jobs),
+                existing_matches=len(existing_matches_by_job_id),
                 already_seen_jobs=len(seen_job_ids),
                 preference_locations_count=len(preferences.preferred_locations),
                 preference_excluded_companies_count=len(preferences.excluded_companies),
@@ -188,7 +220,12 @@ class MatchRankService:
                 try:
                     result = self._score_job(job=job, resume=resume, preferences=preferences)
                     ranked_results.append(result)
-                    await self._upsert_job_match(session=session, user=user, result=result)
+                    await self._upsert_job_match(
+                        session=session,
+                        user=user,
+                        result=result,
+                        existing=existing_matches_by_job_id.get(job.id),
+                    )
                     log_debug(
                         logger,
                         "match_rank.rank_jobs.scored_job",
@@ -385,16 +422,20 @@ class MatchRankService:
             return 1.0
         return 0.35
 
-    async def _upsert_job_match(self, *, session: AsyncSession, user: User, result: RankedJobResult) -> None:
+    async def _upsert_job_match(
+        self,
+        *,
+        session: AsyncSession,
+        user: User,
+        result: RankedJobResult,
+        existing: JobMatch | None = None,
+    ) -> None:
         user_id = _user_id(user)
         log_debug(
             logger,
             "match_rank.upsert_job_match.start",
             user_id=user_id,
             job_id=result.job.id,
-        )
-        existing = await session.scalar(
-            select(JobMatch).where(JobMatch.user_id == user_id, JobMatch.job_id == result.job.id)
         )
         created = False
         if existing is None:

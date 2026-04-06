@@ -19,6 +19,8 @@ class EmailMonitorData(BaseModel):
 class ApplicationListItem(BaseModel):
     id: str
     job_id: str
+    source: str
+    pipeline_run_id: str
     title: str
     company_name: str
     status: str
@@ -59,6 +61,8 @@ class ApplicationsStatsData(BaseModel):
 class ApplicationDetailData(BaseModel):
     id: str
     job_id: str
+    source: str
+    pipeline_run_id: str
     title: str
     company_name: str
     status: str

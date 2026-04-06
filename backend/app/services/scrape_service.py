@@ -99,6 +99,7 @@ class ScrapeService:
                 raw_jobs_count=len(raw_jobs),
                 deduplicated_jobs_count=len(deduplicated_jobs),
                 stored_jobs_count=stored_jobs_count,
+                apply_urls=[job.apply_url for job in deduplicated_jobs],
                 jobs=[
                     ScrapedJobPreview(
                         title=job.title,

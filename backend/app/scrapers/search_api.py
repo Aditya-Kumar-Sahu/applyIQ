@@ -24,7 +24,8 @@ class SerpApiGoogleJobsScraper(BaseJobScraper):
     async def fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
         settings = self._settings or get_settings()
         if not settings.serpapi_api_key:
-            raise RuntimeError(f"SerpApi API key is required for {self.source_name} scraping")
+            logger.warning("scraper.serpapi.unconfigured", source=self.source_name)
+            return []
 
         try:
             return await self._execute_serpapi_run(query, settings.serpapi_api_key)

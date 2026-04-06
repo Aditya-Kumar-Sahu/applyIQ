@@ -53,6 +53,7 @@ async def fetch_jobs_node(
 
     state["raw_jobs_count"] = summary.raw_jobs_count
     state["deduplicated_jobs_count"] = summary.deduplicated_jobs_count
+    state["fresh_apply_urls"] = summary.apply_urls
     state["raw_jobs"] = [job.model_dump(mode="json") for job in summary.jobs]
     state["deduplicated_jobs"] = [job.model_dump(mode="json") for job in summary.jobs]
     if summary.failed_sources:
@@ -77,7 +78,11 @@ async def rank_jobs_node(
     user: User,
     pipeline_run_id: str,
 ) -> ApplyIQState:
-    ranked_jobs = await match_service.list_ranked_jobs(session=session, user=user)
+    ranked_jobs = await match_service.list_ranked_jobs(
+        session=session,
+        user=user,
+        apply_urls=state.get("fresh_apply_urls"),
+    )
     pipeline_run.jobs_matched = ranked_jobs.total
     pipeline_run.current_node = "rank_jobs_node"
     await session.commit()

@@ -5,6 +5,8 @@ export type ApplicationStatus = "interview_requested" | "rejected" | "offer" | "
 export type ApplicationListItem = {
   id: string;
   job_id: string;
+  source: string;
+  pipeline_run_id: string;
   title: string;
   company_name: string;
   status: string;
@@ -27,6 +29,8 @@ export type EmailMonitorData = {
 export type ApplicationDetail = {
   id: string;
   job_id: string;
+  source: string;
+  pipeline_run_id: string;
   title: string;
   company_name: string;
   status: string;

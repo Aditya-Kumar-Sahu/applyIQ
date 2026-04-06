@@ -3,21 +3,24 @@
     <div class="top-matches-card__header">
       <div>
         <p class="label-md top-matches-card__eyebrow">Review Top Matches</p>
-        <h2 class="top-matches-card__title">Curated roles for your profile</h2>
+        <h2 class="top-matches-card__title">Live roles from active sources</h2>
       </div>
       <StatusChip tone="amber">{{ matches.length }} Active</StatusChip>
     </div>
 
     <p class="top-matches-card__sub body-sm">
-      High-fit jobs surfaced from the pipeline with salary and location context.
+      High-fit jobs surfaced from the live job feed with salary, source, and location context.
     </p>
 
-    <div class="top-matches-card__list">
+    <div v-if="matches.length > 0" class="top-matches-card__list">
       <article v-for="match in matches" :key="match.title + match.company" class="top-match">
         <div class="top-match__content">
           <div>
             <h3 class="top-match__title">{{ match.title }}</h3>
             <p class="top-match__meta">{{ match.company }} · {{ match.location }}</p>
+            <div style="margin-top:0.4rem;">
+              <span class="chip chip-neutral">{{ match.source }}</span>
+            </div>
           </div>
           <div class="top-match__details">
             <span class="top-match__salary status-chip status-chip--neutral">{{ match.salary }}</span>
@@ -29,6 +32,11 @@
           <span class="material-symbols-outlined">arrow_forward</span>
         </BaseButton>
       </article>
+    </div>
+
+    <div v-else class="top-matches-card__empty">
+      <p class="top-matches-card__empty-title">No live matches right now</p>
+      <p class="top-matches-card__empty-body">Run a pipeline to populate this section with current job matches.</p>
     </div>
 
     <BaseButton as="a" href="/approval" variant="secondary" size="sm" class="top-matches-card__footer">
@@ -47,6 +55,7 @@ defineProps<{
   matches: Array<{
     title: string;
     company: string;
+    source: string;
     location: string;
     salary: string;
     score?: number | null;
@@ -54,7 +63,7 @@ defineProps<{
 }>();
 
 defineEmits<{
-  review: [match: { title: string; company: string; location: string; salary: string; score?: number | null }];
+  review: [match: { title: string; company: string; source: string; location: string; salary: string; score?: number | null }];
 }>();
 </script>
 
@@ -95,6 +104,28 @@ defineEmits<{
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
+}
+
+.top-matches-card__empty {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface-low);
+}
+
+.top-matches-card__empty-title,
+.top-matches-card__empty-body {
+  margin: 0;
+}
+
+.top-matches-card__empty-title {
+  font-weight: 700;
+  color: var(--on-surface);
+  margin-bottom: 0.35rem;
+}
+
+.top-matches-card__empty-body {
+  color: var(--on-surface-variant);
+  font-size: 0.875rem;
 }
 
 .top-match {

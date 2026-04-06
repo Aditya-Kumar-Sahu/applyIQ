@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import httpx
 import structlog
 
 from app.schemas.jobs import RawJob
 from app.scrapers.base import BaseJobScraper, ScrapeQuery
-from app.scrapers.etiquette import TolerantAsyncClient
 
 logger = structlog.get_logger(__name__)
 
@@ -22,9 +22,9 @@ class RemotiveScraper(BaseJobScraper):
             params["location"] = query.location
 
         try:
-            target_url = f"{self.base_url}/api/remote-jobs"
-            async with TolerantAsyncClient(base_url=self.base_url, timeout=30.0) as client:
-                resp = await client.get_with_etiquette(target_url, params=params)
+            async with httpx.AsyncClient(timeout=30.0, headers={"User-Agent": "Mozilla/5.0"}) as client:
+                resp = await client.get(f"{self.base_url}/api/remote-jobs", params=params)
+                resp.raise_for_status()
             data = resp.json()
             jobs_results = data.get("jobs", [])
             jobs_results = jobs_results[:query.limit_per_source]

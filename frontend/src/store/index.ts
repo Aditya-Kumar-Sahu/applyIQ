@@ -536,6 +536,18 @@ export const store = createStore<RootState>({
       await rejectPipeline(resolvedRunId, payload.applicationIds);
       await dispatch("loadPipeline", resolvedRunId);
     },
+    async resetPipelineRun({ commit, dispatch, state }, payload: { runId?: string }) {
+      const resolvedRunId = payload.runId ?? state.pipelineRun?.run_id;
+      if (!resolvedRunId) {
+        throw new Error("No pipeline run available");
+      }
+
+      const { resetPipeline } = await import("../services/pipeline");
+      await resetPipeline(resolvedRunId);
+      commit("setPipelineRun", null);
+      commit("setPipelineResults", null);
+      await dispatch("loadPipeline");
+    },
     async approvePipelineApplications(
       { commit, dispatch, state },
       payload: { runId?: string; applicationIds: string[] },

@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from app.core.config import Settings
 from app.main import create_app
 from app.models.agent_run import AgentRun
+from app.models.application import Application
 from app.models.base import Base
 from app.models.pipeline_run import PipelineRun
 
@@ -325,6 +326,73 @@ def test_delete_account_purges_pipeline_redis_state(tmp_path: Path) -> None:
         assert delete_response.status_code == 200
         assert anyio.run(_redis_key_exists, app.state.redis, snapshot_key) is False
         assert anyio.run(_redis_key_exists, app.state.redis, checkpoint_key) is False
+
+
+def test_pipeline_reset_removes_run_and_cached_state(tmp_path: Path) -> None:
+    settings = Settings(
+        environment="test",
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'pipeline-reset.db'}",
+        redis_url="redis://localhost:6395/0",
+        jwt_secret_key="test-jwt-secret-key-with-32-characters",
+        fernet_secret_key="wWKJg6WVKwwhFVWG2yt30YIOCwVDDDeWGPAHDLcGRID=",
+        encryption_pepper="pepper-for-tests",
+    )
+
+    async def healthy_reporter() -> dict[str, str]:
+        return {"status": "ok", "db": "up", "redis": "up"}
+
+    app = create_app(settings=settings, health_reporter=healthy_reporter)
+    app.state.redis = _InMemoryRedisClient()
+
+    with TestClient(app) as client:
+        anyio.run(_create_all_tables, app.state.database.engine)
+        _register_and_prepare_resume(client)
+
+        start_response = client.post(
+            "/api/v1/pipeline/start",
+            json={
+                "target_role": "ML Engineer",
+                "location": "Remote",
+                "limit_per_source": 10,
+                "sources": ["indeed"],
+            },
+        )
+
+        assert start_response.status_code == 202
+        run_id = start_response.json()["data"]["run_id"]
+
+        snapshot_key = f"pipeline_run_state:{run_id}"
+        checkpoint_key = f"pipeline_run_checkpoint:{run_id}"
+        assert anyio.run(_redis_key_exists, app.state.redis, snapshot_key) is True
+        assert anyio.run(_redis_key_exists, app.state.redis, checkpoint_key) is True
+
+        reset_response = client.post(f"/api/v1/pipeline/{run_id}/reset")
+
+        assert reset_response.status_code == 200
+        reset_payload = reset_response.json()["data"]
+        assert reset_payload["run_id"] == run_id
+        assert reset_payload["applications_deleted"] >= 0
+        assert reset_payload["pipeline_run_deleted"] is True
+        assert reset_payload["redis_state_cleared"] is True
+        assert anyio.run(_redis_key_exists, app.state.redis, snapshot_key) is False
+        assert anyio.run(_redis_key_exists, app.state.redis, checkpoint_key) is False
+
+        results_response = client.get(f"/api/v1/pipeline/{run_id}/results")
+        assert results_response.status_code == 404
+
+        remaining_runs = anyio.run(_count_pipeline_runs, app.state.database.engine)
+        assert remaining_runs == 0
+
+        async def count_applications() -> int:
+            from sqlalchemy.ext.asyncio import async_sessionmaker
+            from sqlalchemy import select, func
+
+            session_factory = async_sessionmaker(app.state.database.engine, expire_on_commit=False)
+            async with session_factory() as session:
+                result = await session.scalar(select(func.count()).select_from(Application))
+                return int(result or 0)
+
+        assert anyio.run(count_applications) == 0
 
 
 async def _create_all_tables(engine) -> None:

@@ -62,6 +62,10 @@
                 <span class="material-symbols-outlined icon-sm">refresh</span>
                 Refresh
               </button>
+              <button v-if="pipelineRun" class="btn btn-ghost" type="button" :disabled="pipelineStatus === 'loading'" @click="resetPipelineRun">
+                <span class="material-symbols-outlined icon-sm">restart_alt</span>
+                Reset run
+              </button>
             </div>
             <div v-if="pipelineError" class="auth-error">{{ pipelineError }}</div>
           </form>
@@ -369,6 +373,11 @@ async function handleStart() {
   });
 }
 async function refreshPipeline() { await store.dispatch("loadPipeline"); }
+
+async function resetPipelineRun() {
+  if (!pipelineRun.value) return;
+  await store.dispatch("resetPipelineRun", { runId: pipelineRun.value.run_id });
+}
 
 async function approveSelected() {
   if (selectedIds.value.length === 0) return;

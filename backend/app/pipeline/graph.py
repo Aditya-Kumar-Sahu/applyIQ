@@ -367,6 +367,9 @@ class PipelineGraphRunner:
             await self._checkpointer.delete(run_id)
             return state
 
+    async def clear_run_state(self, run_id: str) -> None:
+        await self._checkpointer.delete(run_id)
+
     async def _rebuild_resume_state(
         self,
         *,
@@ -435,6 +438,7 @@ class PipelineGraphRunner:
             "sources": ["linkedin", "indeed", "remotive"],
             "raw_jobs_count": 0,
             "deduplicated_jobs_count": 0,
+            "fresh_apply_urls": [],
             "ranked_jobs": [],
             "pending_approvals": pending_approvals,
             "approved_applications": approved_applications,

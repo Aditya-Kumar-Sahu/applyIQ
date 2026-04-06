@@ -29,6 +29,7 @@ from app.schemas.pipeline import (
     CoverLetterVariantSelectData,
     CoverLetterVariantSelectPayload,
     PipelineApplicationItem,
+    PipelineResetData,
     PipelineResultsData,
     PipelineRunData,
     PipelineStartRequest,
@@ -118,6 +119,7 @@ class PipelineService:
                 "sources": payload.sources,
                 "raw_jobs_count": 0,
                 "deduplicated_jobs_count": 0,
+                "fresh_apply_urls": [],
                 "ranked_jobs": [],
                 "pending_approvals": [],
                 "approved_applications": [],
@@ -358,6 +360,44 @@ class PipelineService:
             return result
         except Exception as error:
             log_exception(logger, "pipeline.reject.failed", error, user_id=user.id, run_id=run_id)
+            raise
+
+    async def reset_run(self, *, session: AsyncSession, user: User, run_id: str) -> PipelineResetData:
+        log_debug(logger, "pipeline.reset.start", user_id=user.id, run_id=run_id)
+        try:
+            pipeline_run = await self._get_run(session=session, user=user, run_id=run_id)
+            applications = list(
+                await session.scalars(
+                    select(Application).where(
+                        Application.pipeline_run_id == run_id,
+                        Application.user_id == user.id,
+                    )
+                )
+            )
+
+            for application in applications:
+                await session.delete(application)
+
+            await session.delete(pipeline_run)
+            await session.commit()
+            await self._graph_runner.clear_run_state(run_id)
+
+            result = PipelineResetData(
+                run_id=run_id,
+                applications_deleted=len(applications),
+                pipeline_run_deleted=True,
+                redis_state_cleared=True,
+            )
+            log_debug(
+                logger,
+                "pipeline.reset.complete",
+                user_id=user.id,
+                run_id=run_id,
+                applications_deleted=len(applications),
+            )
+            return result
+        except Exception as error:
+            log_exception(logger, "pipeline.reset.failed", error, user_id=user.id, run_id=run_id)
             raise
 
     async def edit_cover_letter(

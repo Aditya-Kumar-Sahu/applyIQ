@@ -18,6 +18,7 @@ from app.schemas.pipeline import (
     CoverLetterVariantSelectData,
     CoverLetterVariantSelectPayload,
     PipelineDecisionPayload,
+    PipelineResetData,
     PipelineResultsData,
     PipelineRunData,
     PipelineStartRequest,
@@ -196,6 +197,19 @@ async def reject_pipeline(
 ) -> Envelope[RejectData]:
     service = _build_pipeline_service(request, encryption_service)
     data = await service.reject(session=session, user=current_user, run_id=run_id, application_ids=payload.application_ids)
+    return Envelope(success=True, data=data, error=None)
+
+
+@router.post("/{run_id}/reset", response_model=Envelope[PipelineResetData])
+async def reset_pipeline(
+    run_id: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+    encryption_service=Depends(get_encryption_service),
+) -> Envelope[PipelineResetData]:
+    service = _build_pipeline_service(request, encryption_service)
+    data = await service.reset_run(session=session, user=current_user, run_id=run_id)
     return Envelope(success=True, data=data, error=None)
 
 

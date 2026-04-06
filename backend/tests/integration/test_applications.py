@@ -86,6 +86,8 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path,
         tracked_application = next(item for item in applications_payload if item["id"] == application_id)
         assert tracked_application["status"] == "interview_requested"
         assert tracked_application["is_demo"] is False
+        assert tracked_application["source"] == "indeed"
+        assert tracked_application["pipeline_run_id"]
         assert tracked_application["latest_email_classification"] == "interview_request"
 
         detail_response = client.get(f"/api/v1/applications/{application_id}")
@@ -94,6 +96,8 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path,
         detail_payload = detail_response.json()["data"]
         assert detail_payload["status"] == "interview_requested"
         assert detail_payload["is_demo"] is False
+        assert detail_payload["source"] == "indeed"
+        assert detail_payload["pipeline_run_id"] == tracked_application["pipeline_run_id"]
         assert detail_payload["email_monitor"] is not None
         assert detail_payload["email_monitor"]["latest_classification"] == "interview_request"
         assert "interview" in detail_payload["email_monitor"]["snippet"].lower()

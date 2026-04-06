@@ -58,6 +58,8 @@ class ApplicationService:
                     ApplicationListItem(
                         id=application.id,
                         job_id=application.job_id,
+                        source=job.source if job else "unknown",
+                        pipeline_run_id=application.pipeline_run_id,
                         title=job.title if job else "Unknown Job",
                         company_name=job.company_name if job else "Unknown Company",
                         status=application.status,
@@ -95,6 +97,8 @@ class ApplicationService:
             result = ApplicationDetailData(
                 id=application.id,
                 job_id=application.job_id,
+                source=job.source if job else "unknown",
+                pipeline_run_id=application.pipeline_run_id,
                 title=job.title if job else "Unknown Job",
                 company_name=job.company_name if job else "Unknown Company",
                 status=application.status,

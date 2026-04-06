@@ -98,3 +98,10 @@ class CoverLetterVariantSelectData(BaseModel):
 
 class RejectData(BaseModel):
     rejected_count: int
+
+
+class PipelineResetData(BaseModel):
+    run_id: str
+    applications_deleted: int
+    pipeline_run_deleted: bool
+    redis_state_cleared: bool

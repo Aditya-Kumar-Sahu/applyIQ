@@ -60,6 +60,13 @@ export type RejectResult = {
   rejected_count: number;
 };
 
+export type PipelineResetResult = {
+  run_id: string;
+  applications_deleted: number;
+  pipeline_run_deleted: boolean;
+  redis_state_cleared: boolean;
+};
+
 export type CoverLetterEditResult = {
   application_id: string;
   cover_letter_text: string;
@@ -170,6 +177,12 @@ export async function rejectPipeline(runId: string, applicationIds: string[]): P
   return apiRequest<RejectResult>(`/api/v1/pipeline/${runId}/reject`, {
     method: "POST",
     body: JSON.stringify({ application_ids: applicationIds }),
+  });
+}
+
+export async function resetPipeline(runId: string): Promise<PipelineResetResult> {
+  return apiRequest<PipelineResetResult>(`/api/v1/pipeline/${runId}/reset`, {
+    method: "POST",
   });
 }
 

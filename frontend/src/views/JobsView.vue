@@ -34,6 +34,9 @@
           <div>
             <h3>{{ job.title }}</h3>
             <p class="job-meta">{{ job.company_name }} · {{ job.location }}</p>
+            <div style="margin-top:0.35rem;">
+              <span class="chip">{{ job.source }}</span>
+            </div>
           </div>
           <div class="score-pill">{{ percent(job.match_score) }}</div>
         </div>
@@ -49,6 +52,7 @@
       <template v-if="selectedJob">
         <h3>{{ selectedJob.title }}</h3>
         <p class="lede">{{ selectedJob.company_name }} · {{ selectedJob.location }}</p>
+        <p class="lede compact">Source: {{ selectedJob.source }}</p>
         <div class="metrics-grid">
           <article class="metric-card">
             <span>Semantic</span>

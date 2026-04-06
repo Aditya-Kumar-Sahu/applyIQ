@@ -1,8 +1,22 @@
 <template>
   <div>
     <div class="page-header">
-      <p class="page-header__eyebrow">Applications</p>
-      <h1 class="page-header__title">Application Pipeline</h1>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+        <div>
+          <p class="page-header__eyebrow">Applications</p>
+          <h1 class="page-header__title">Application Pipeline</h1>
+        </div>
+        <button
+          v-if="activePipelineRunId"
+          class="btn btn-ghost"
+          type="button"
+          :disabled="resettingPipeline"
+          @click="resetPipelineRun"
+        >
+          <span class="material-symbols-outlined icon-sm">restart_alt</span>
+          {{ resettingPipeline ? 'Resetting…' : 'Reset pipeline' }}
+        </button>
+      </div>
       <p class="page-header__sub">
         Tracking {{ applications.length }} active opportunit{{ applications.length === 1 ? 'y' : 'ies' }} across recruitment stages.
       </p>
@@ -148,6 +162,10 @@
               <div class="list-row__main">
                 <div class="list-row__title">{{ app.title }}</div>
                 <div class="list-row__sub">{{ app.company_name }}</div>
+                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.35rem;">
+                  <span class="chip chip-neutral">{{ app.source }}</span>
+                  <span v-if="app.is_demo" class="chip chip-amber">Demo</span>
+                </div>
               </div>
               <div class="application-row__actions">
                 <StatusChip :tone="statusTone(app.status)">
@@ -171,12 +189,15 @@
           <div class="section-header" style="margin-bottom:1.25rem;">
             <div>
               <div class="section-header__title">{{ selectedApplication.title }}</div>
-              <div class="section-header__sub">{{ selectedApplication.company_name }} · ATS: {{ selectedApplication.ats_provider ?? 'n/a' }}</div>
+              <div class="section-header__sub">
+                {{ selectedApplication.company_name }} · {{ selectedApplication.source }} · ATS: {{ selectedApplication.ats_provider ?? 'n/a' }}
+              </div>
             </div>
             <div style="display:flex;gap:0.5rem;align-items:center;">
               <span class="chip" :class="statusChipClass(selectedApplication.status)">
                 {{ selectedApplication.status.replaceAll('_', ' ') }}
               </span>
+              <span v-if="selectedApplication.is_demo" class="chip chip-amber">Demo</span>
             </div>
           </div>
 
@@ -272,6 +293,7 @@ import {
   subscribeNotifications,
   updateApplicationStatus,
 } from "../services/applications";
+import { store } from "../store";
 
 const applications        = ref<ApplicationListItem[]>([]);
 const selectedApplication = ref<ApplicationDetail | null>(null);
@@ -280,6 +302,7 @@ const stats               = ref<ApplicationsStats | null>(null);
 const error               = ref<string | null>(null);
 const statusMessage       = ref<string | null>(null);
 const statusUpdating      = ref(false);
+const resettingPipeline   = ref(false);
 const selectedStatus      = ref<string>("");
 const searchQuery         = ref("");
 const statusFilter        = ref("");
@@ -328,6 +351,8 @@ const availableStatusOptions = computed(() =>
   selectedApplication.value ? (forwardTransitions[selectedApplication.value.status] ?? []) : []
 );
 
+const activePipelineRunId = computed(() => selectedApplication.value?.pipeline_run_id ?? applications.value[0]?.pipeline_run_id ?? null);
+
 watch(selectedApplication, (app) => {
   selectedStatus.value = app?.status ?? "";
   statusMessage.value  = null;
@@ -353,7 +378,11 @@ async function loadApplications() {
     error.value = null;
     const response = await getApplications();
     applications.value = response.items;
-    if (response.items.length > 0) await selectApplication(response.items[0].id);
+    if (response.items.length > 0) {
+      await selectApplication(response.items[0].id);
+    } else {
+      selectedApplication.value = null;
+    }
   } catch (e) { error.value = e instanceof Error ? e.message : "Unable to load applications"; }
 }
 
@@ -387,6 +416,22 @@ async function applyStatusUpdate() {
     error.value = e instanceof Error ? e.message : "Unable to update status";
     selectedStatus.value = selectedApplication.value.status;
   } finally { statusUpdating.value = false; }
+}
+
+async function resetPipelineRun() {
+  if (!activePipelineRunId.value) return;
+  resettingPipeline.value = true;
+  error.value = null;
+  try {
+    await store.dispatch("resetPipelineRun", { runId: activePipelineRunId.value });
+    await loadApplications();
+    await loadStats();
+    statusMessage.value = "Pipeline reset.";
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "Unable to reset pipeline";
+  } finally {
+    resettingPipeline.value = false;
+  }
 }
 
 function percent(value: number): string { return `${Math.round(value * 100)}%`; }

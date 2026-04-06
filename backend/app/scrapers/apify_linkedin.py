@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-import math
 from datetime import datetime, timezone
 import structlog
 import httpx
@@ -15,7 +13,7 @@ logger = structlog.get_logger(__name__)
 
 class ApifyLinkedInScraper(BaseJobScraper):
     source_name = "linkedin"
-    _ACTOR_ID = "practicaltools/linkedin-jobs"
+    _ACTOR_ID = "bebity~linkedin-jobs-scraper"
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings
@@ -23,7 +21,8 @@ class ApifyLinkedInScraper(BaseJobScraper):
     async def fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
         settings = self._settings or get_settings()
         if not settings.apify_api_token:
-            raise RuntimeError("Apify API token is required for LinkedIn scraping")
+            logger.warning("scraper.apify.unconfigured", source=self.source_name)
+            return []
 
         try:
             jobs = await self._execute_apify_run(query, settings.apify_api_token)
@@ -34,49 +33,30 @@ class ApifyLinkedInScraper(BaseJobScraper):
 
     async def _execute_apify_run(self, query: ScrapeQuery, token: str) -> list[RawJob]:
         input_data = self._build_input_data(query)
-        
+
         async with httpx.AsyncClient(timeout=120.0) as client:
             run_resp = await client.post(
-                f"https://api.apify.com/v2/acts/{self._ACTOR_ID}/runs",
+                f"https://api.apify.com/v2/acts/{self._ACTOR_ID}/run-sync-get-dataset-items",
                 params={"token": token},
                 json=input_data,
             )
             run_resp.raise_for_status()
-            run_data = run_resp.json()["data"]
-            run_id = run_data["id"]
+            payload = run_resp.json()
 
-            while True:
-                await asyncio.sleep(5)
-                status_resp = await client.get(
-                    f"https://api.apify.com/v2/actor-runs/{run_id}",
-                    params={"token": token},
-                )
-                status_resp.raise_for_status()
-                status_data = status_resp.json()["data"]
-                if status_data["status"] in {"SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"}:
-                    break
+        if isinstance(payload, list):
+            items = payload
+        elif isinstance(payload, dict):
+            items = payload.get("items") or payload.get("data") or []
+        else:
+            items = []
 
-            if status_data["status"] != "SUCCEEDED":
-                logger.warning("scraper.apify.failed", status=status_data["status"])
-                return []
-
-            dataset_id = status_data["defaultDatasetId"]
-            dataset_resp = await client.get(
-                f"https://api.apify.com/v2/datasets/{dataset_id}/items",
-                params={"token": token},
-            )
-            dataset_resp.raise_for_status()
-            items = dataset_resp.json()
-
-            return self._normalize(items)
+        return self._normalize(items)
 
     def _build_input_data(self, query: ScrapeQuery) -> dict[str, object]:
         return {
-            "keywords": query.target_role,
+            "title": query.target_role,
             "location": query.location or "Worldwide",
-            "sortBy": "DD",
-            "maxPages": max(1, math.ceil(query.limit_per_source / 10)),
-            "fetchDescription": True,
+            "rows": max(1, query.limit_per_source),
         }
 
     def _normalize(self, items: list[dict]) -> list[RawJob]:

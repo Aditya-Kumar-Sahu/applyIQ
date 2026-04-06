@@ -11,11 +11,9 @@ def test_apify_linkedin_scraper_builds_live_actor_payload() -> None:
         ScrapeQuery(target_role="ML Engineer", location="Remote", limit_per_source=15)
     )
 
-    assert payload["keywords"] == "ML Engineer"
+    assert payload["title"] == "ML Engineer"
     assert payload["location"] == "Remote"
-    assert payload["sortBy"] == "DD"
-    assert payload["maxPages"] == 2
-    assert payload["fetchDescription"] is True
+    assert payload["rows"] == 15
 
 
 def test_apify_linkedin_scraper_normalizes_current_actor_fields() -> None:

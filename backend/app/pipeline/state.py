@@ -49,6 +49,7 @@ class ApplyIQState(TypedDict):
     sources: list[str]
     raw_jobs_count: int
     deduplicated_jobs_count: int
+    fresh_apply_urls: NotRequired[list[str]]
     ranked_jobs: list[RankedJob]
     pending_approvals: list[PendingApproval]
     approved_applications: list[ApprovedApplication]
