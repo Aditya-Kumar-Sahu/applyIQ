@@ -22,6 +22,17 @@ class RawJob(BaseModel):
     apply_url: str
     posted_at: datetime | None = None
 
+    @field_validator("external_id")
+    @classmethod
+    def validate_external_id(cls, value: str) -> str:
+        # Base64 or highly nested identifiers exceeding 100 varchar restriction
+        if len(value) > 100:
+            import hashlib
+            hashed = hashlib.sha256(value.encode('utf-8')).hexdigest()
+            # Reserve enough chunk prefix, then affix the deterministic hash to prevent collisions
+            return f"{value[:35]}_{hashed}"
+        return value
+
 
 class ScrapeTestRequest(BaseModel):
     target_role: str = Field(min_length=2, max_length=120)

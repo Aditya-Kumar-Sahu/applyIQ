@@ -37,6 +37,7 @@ async def fetch_jobs_node(
     pipeline_run: PipelineRun,
     pipeline_run_id: str,
 ) -> ApplyIQState:
+    pipeline_run = await session.merge(pipeline_run)
     summary = await scrape_service.run_test_scrape(
         session=session,
         query=ScrapeQuery(
@@ -78,6 +79,7 @@ async def rank_jobs_node(
     user: User,
     pipeline_run_id: str,
 ) -> ApplyIQState:
+    pipeline_run = await session.merge(pipeline_run)
     ranked_jobs = await match_service.list_ranked_jobs(
         session=session,
         user=user,
@@ -103,6 +105,7 @@ async def approval_gate_node(
     encryption_service,
     cover_letter_service: CoverLetterService,
 ) -> ApplyIQState:
+    pipeline_run = await session.merge(pipeline_run)
     user_id = _user_id(user)
 
     if user.resume_profile is None:
@@ -183,6 +186,7 @@ async def auto_apply_node(
     vault_service,
     encryption_service,
 ) -> ApplyIQState:
+    pipeline_run = await session.merge(pipeline_run)
     user_id = _user_id(user)
     applications = list(
         await session.scalars(
@@ -276,6 +280,7 @@ async def track_applications_node(
     pipeline_run: PipelineRun,
     pipeline_run_id: str,
 ) -> ApplyIQState:
+    pipeline_run = await session.merge(pipeline_run)
     applications = list(
         await session.scalars(
             select(Application).where(

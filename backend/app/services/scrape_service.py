@@ -121,45 +121,50 @@ class ScrapeService:
         inserted_count = 0
         updated_count = 0
         for raw_job in jobs:
-            existing = await session.scalar(select(Job).where(Job.apply_url == raw_job.apply_url))
-            description_embedding = self._embedding_service.embed_text(
-                f"{raw_job.title} {raw_job.company_name} {raw_job.description_text}"
-            )
+            try:
+                async with session.begin_nested():
+                    existing = await session.scalar(select(Job).where(Job.apply_url == raw_job.apply_url))
+                    description_embedding = self._embedding_service.embed_text(
+                        f"{raw_job.title} {raw_job.company_name} {raw_job.description_text}"
+                    )
 
-            if existing is None:
-                existing = Job(
-                    external_id=raw_job.external_id,
-                    source=raw_job.source,
-                    title=raw_job.title,
-                    company_name=raw_job.company_name,
-                    company_domain=raw_job.company_domain,
-                    location=raw_job.location,
-                    is_remote=raw_job.is_remote,
-                    salary_min=raw_job.salary_min,
-                    salary_max=raw_job.salary_max,
-                    description_text=raw_job.description_text,
-                    description_embedding=description_embedding,
-                    apply_url=raw_job.apply_url,
-                    posted_at=raw_job.posted_at,
-                )
-                session.add(existing)
-                inserted_count += 1
+                    if existing is None:
+                        existing = Job(
+                            external_id=raw_job.external_id,
+                            source=raw_job.source,
+                            title=raw_job.title,
+                            company_name=raw_job.company_name,
+                            company_domain=raw_job.company_domain,
+                            location=raw_job.location,
+                            is_remote=raw_job.is_remote,
+                            salary_min=raw_job.salary_min,
+                            salary_max=raw_job.salary_max,
+                            description_text=raw_job.description_text,
+                            description_embedding=description_embedding,
+                            apply_url=raw_job.apply_url,
+                            posted_at=raw_job.posted_at,
+                        )
+                        session.add(existing)
+                        inserted_count += 1
+                        continue
+
+                    existing.external_id = raw_job.external_id
+                    existing.source = raw_job.source
+                    existing.title = raw_job.title
+                    existing.company_name = raw_job.company_name
+                    existing.company_domain = raw_job.company_domain
+                    existing.location = raw_job.location
+                    existing.is_remote = raw_job.is_remote
+                    existing.salary_min = raw_job.salary_min
+                    existing.salary_max = raw_job.salary_max
+                    existing.description_text = raw_job.description_text
+                    existing.description_embedding = description_embedding
+                    existing.posted_at = raw_job.posted_at
+                    existing.is_active = True
+                    updated_count += 1
+            except Exception as e:
+                log_exception(logger, "scrape.upsert_jobs.item_failed", e, url=raw_job.apply_url)
                 continue
-
-            existing.external_id = raw_job.external_id
-            existing.source = raw_job.source
-            existing.title = raw_job.title
-            existing.company_name = raw_job.company_name
-            existing.company_domain = raw_job.company_domain
-            existing.location = raw_job.location
-            existing.is_remote = raw_job.is_remote
-            existing.salary_min = raw_job.salary_min
-            existing.salary_max = raw_job.salary_max
-            existing.description_text = raw_job.description_text
-            existing.description_embedding = description_embedding
-            existing.posted_at = raw_job.posted_at
-            existing.is_active = True
-            updated_count += 1
 
         await session.commit()
         log_debug(

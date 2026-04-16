@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import re
 
 import httpx
@@ -148,6 +148,19 @@ def _parse_posted_at(value: object) -> datetime:
         return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
 
     if isinstance(value, str):
+        val_lower = value.strip().lower()
+        # Parse relative dates like "2 days ago", "19 hours ago"
+        match = re.match(r"(\d+)\s+(minute|hour|day|week|month)s?\s+ago", val_lower)
+        if match:
+            amount = int(match.group(1))
+            unit = match.group(2)
+            now = datetime.now(timezone.utc)
+            if unit == "minute": return now - timedelta(minutes=amount)
+            if unit == "hour": return now - timedelta(hours=amount)
+            if unit == "day": return now - timedelta(days=amount)
+            if unit == "week": return now - timedelta(weeks=amount)
+            if unit == "month": return now - timedelta(days=amount * 30)
+
         normalized = value.replace("Z", "+00:00")
         try:
             parsed = datetime.fromisoformat(normalized)
