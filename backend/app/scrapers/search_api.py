@@ -55,8 +55,10 @@ class SerpApiGoogleJobsScraper(BaseJobScraper):
         parts = [query.target_role]
         if query.location:
             parts.append(query.location)
-        if self._source_domains:
-            parts.append("(" + " OR ".join(f"site:{domain}" for domain in self._source_domains) + ")")
+        # Fix: Using site: operator with google_jobs engine often returns 0 results
+        # Removing domain filters to ensure we actually get jobs back from SerpApi
+        # if self._source_domains:
+        #    parts.append("(" + " OR ".join(f"site:{domain}" for domain in self._source_domains) + ")")
         return " ".join(parts)
 
     def _normalize(self, items: list[dict]) -> list[RawJob]:

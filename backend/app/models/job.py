@@ -15,7 +15,7 @@ class Job(Base):
     __table_args__ = (UniqueConstraint("apply_url", name="uq_jobs_apply_url"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    external_id: Mapped[str] = mapped_column(String(100), index=True)
+    external_id: Mapped[str] = mapped_column(String(2000), index=True)
     source: Mapped[str] = mapped_column(String(30), index=True)
     title: Mapped[str] = mapped_column(String(255), index=True)
     company_name: Mapped[str] = mapped_column(String(255), index=True)
