@@ -50,7 +50,7 @@ services:
       PLAYWRIGHT_ENABLED: "true"
       AUTO_APPLY_DEMO_MODE: "false"
     ports:
-      - "8001:8000"
+      - "8000:8000"
     volumes:
       - ./backend:/app
     develop: *backend-develop

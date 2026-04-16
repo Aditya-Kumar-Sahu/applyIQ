@@ -102,7 +102,7 @@ docker compose up --build
 Services:
 
 - Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8001`
+- Backend API: `http://localhost:8000`
 - Celery worker: runs inside Docker Compose as `worker`
 - PostgreSQL: `localhost:5433`
 - Redis: `localhost:6380`
@@ -137,7 +137,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend
 ### Health check
 
 ```powershell
-Invoke-RestMethod http://localhost:8001/health
+Invoke-RestMethod http://localhost:8000/health
 ```
 
 ## Environment Setup

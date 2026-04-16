@@ -133,7 +133,8 @@ def test_ranked_jobs_can_be_scoped_to_fresh_scrape_batch(tmp_path: Path) -> None
                         "inferred_salary_range": {"min": 2500000, "max": 3500000, "currency": "INR"},
                         "work_style_signals": [],
                         "summary_for_matching": "ML engineer with Python and FastAPI experience.",
-                    }
+                    },
+                    resume_embedding=[0.1] * 768
                 ),
                 search_preferences=SimpleNamespace(
                     target_roles=["ML Engineer"],
@@ -148,7 +149,7 @@ def test_ranked_jobs_can_be_scoped_to_fresh_scrape_batch(tmp_path: Path) -> None
                 ),
             )
 
-            def _score_job(*, job: Job, resume, preferences) -> RankedJobResult:
+            def _score_job(*, job: Job, resume, preferences, resume_embedding) -> RankedJobResult:
                 item = RankedJobItem(
                     job_id=job.id,
                     title=job.title,
@@ -272,7 +273,8 @@ def test_ranked_jobs_update_existing_matches_without_duplicate_inserts(tmp_path:
                         "inferred_salary_range": {"min": 2500000, "max": 3500000, "currency": "INR"},
                         "work_style_signals": [],
                         "summary_for_matching": "ML engineer with Python and FastAPI experience.",
-                    }
+                    },
+                    resume_embedding=[0.1] * 768
                 ),
                 search_preferences=SimpleNamespace(
                     target_roles=["ML Engineer"],
@@ -287,7 +289,7 @@ def test_ranked_jobs_update_existing_matches_without_duplicate_inserts(tmp_path:
                 ),
             )
 
-            def _score_job(*, job: Job, resume, preferences) -> RankedJobResult:
+            def _score_job(*, job: Job, resume, preferences, resume_embedding) -> RankedJobResult:
                 item = RankedJobItem(
                     job_id=job.id,
                     title=job.title,

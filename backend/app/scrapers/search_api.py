@@ -40,8 +40,8 @@ class SerpApiGoogleJobsScraper(BaseJobScraper):
             "api_key": api_key,
             "num": query.limit_per_source,
         }
-        if query.location:
-            params["location"] = query.location
+        # Do not use the specific location parameter to avoid 400 Bad Request errors.
+        # Instead, the location is appended to the text query inside _build_query()
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get("https://serpapi.com/search", params=params)
@@ -62,15 +62,29 @@ class SerpApiGoogleJobsScraper(BaseJobScraper):
     def _normalize(self, items: list[dict]) -> list[RawJob]:
         jobs: list[RawJob] = []
         for index, item in enumerate(items):
-            title = str(item.get("title") or "Unknown Role")
-            company_name = str(item.get("company_name") or item.get("company") or "Unknown Company")
+            title = str(item.get("title") or "")
+            if not title:
+                self.log_missing_field("title", "Unknown Role", item)
+                title = "Unknown Role"
+
+            company_name = str(item.get("company_name") or item.get("company") or "")
+            if not company_name:
+                self.log_missing_field("company_name", "Unknown Company", item)
+                company_name = "Unknown Company"
+
             apply_url = self._extract_apply_url(item)
+            if not apply_url:
+                self.log_missing_field("apply_url", "", item)
+
             posted_at = _parse_posted_at(
                 item.get("detected_extensions", {}).get("posted_at")
                 if isinstance(item.get("detected_extensions"), dict)
                 else item.get("date_posted")
             )
-            location = str(item.get("location") or "Remote")
+            location = str(item.get("location") or "")
+            if not location:
+                self.log_missing_field("location", "Remote", item)
+                location = "Remote"
 
             jobs.append(
                 RawJob(
@@ -124,15 +138,19 @@ def _coerce_int(value: object) -> int | None:
 
 
 def _parse_posted_at(value: object) -> datetime:
+    if not value or (isinstance(value, str) and not value.strip()):
+        logger.warning("scraper.search_api.missing_date", value=value, message="Defaulting to current UTC time.")
+        return datetime.now(timezone.utc)
+
     if isinstance(value, datetime):
         return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
 
-    if isinstance(value, str) and value.strip():
+    if isinstance(value, str):
         normalized = value.replace("Z", "+00:00")
         try:
             parsed = datetime.fromisoformat(normalized)
             return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.warning("scraper.search_api.date_parse_error", value=value, error=str(e), message="Failed to parse date string.")
 
     return datetime.now(timezone.utc)

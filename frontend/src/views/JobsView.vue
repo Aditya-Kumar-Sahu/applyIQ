@@ -74,7 +74,7 @@
 
         <div class="detail-block">
           <p class="eyebrow muted">Description</p>
-          <p class="lede compact">{{ selectedJob.description_text }}</p>
+          <div class="lede compact" v-html="selectedJob.description_text"></div>
         </div>
 
         <div class="detail-block">

@@ -36,10 +36,26 @@ class RemotiveScraper(BaseJobScraper):
     def _normalize(self, items: list[dict]) -> list[RawJob]:
         jobs = []
         for index, item in enumerate(items):
-            title = item.get("title", "Unknown Role")
-            company_name = item.get("company_name", "Unknown Company")
+            title = item.get("title")
+            if not title:
+                self.log_missing_field("title", "Unknown Role", item)
+                title = "Unknown Role"
+
+            company_name = item.get("company_name")
+            if not company_name:
+                self.log_missing_field("company_name", "Unknown Company", item)
+                company_name = "Unknown Company"
+
             apply_url = item.get("url", "")
+            if not apply_url:
+                self.log_missing_field("apply_url", "", item)
+
             job_id = item.get("id", f"remotive-{index}")
+            
+            location = item.get("candidate_required_location")
+            if not location:
+                self.log_missing_field("location", "Remote", item)
+                location = "Remote"
 
             jobs.append(
                 RawJob(
@@ -48,7 +64,7 @@ class RemotiveScraper(BaseJobScraper):
                     title=title,
                     company_name=company_name,
                     company_domain="",
-                    location=item.get("candidate_required_location", "Remote"),
+                    location=location,
                     is_remote=True,
                     salary_min=None,
                     salary_max=None,

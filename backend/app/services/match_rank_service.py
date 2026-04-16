@@ -215,10 +215,14 @@ class MatchRankService:
                 filter_reasons=dict(filter_reasons),
             )
 
+            resume_embedding = user.resume_profile.resume_embedding
+            if not resume_embedding:
+                resume_embedding = resume_summary_embedding(resume)
+
             ranked_results: list[RankedJobResult] = []
             for index, job in enumerate(filtered_jobs, start=1):
                 try:
-                    result = self._score_job(job=job, resume=resume, preferences=preferences)
+                    result = self._score_job(job=job, resume=resume, preferences=preferences, resume_embedding=resume_embedding)
                     ranked_results.append(result)
                     await self._upsert_job_match(
                         session=session,
@@ -309,6 +313,7 @@ class MatchRankService:
         job: Job,
         resume: ParsedResumeProfile,
         preferences: SearchPreferencesPayload,
+        resume_embedding: list[float],
     ) -> RankedJobResult:
         log_debug(
             logger,
@@ -317,7 +322,7 @@ class MatchRankService:
             job_title=job.title,
             company_name=job.company_name,
         )
-        semantic_similarity = self._cosine_similarity(resume_summary_embedding(resume), job.description_embedding)
+        semantic_similarity = self._cosine_similarity(resume_embedding, job.description_embedding)
         matched_skills, missing_skills, skills_coverage = self._skills_alignment(job=job, resume=resume)
         seniority_alignment = self._seniority_alignment(job=job, resume=resume, preferences=preferences)
         location_match = self._location_match(job=job, preferences=preferences)

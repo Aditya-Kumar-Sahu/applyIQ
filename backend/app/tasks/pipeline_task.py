@@ -28,6 +28,7 @@ def _build_pipeline_user(user: User) -> SimpleNamespace:
     if user.resume_profile is not None:
         resume_profile = SimpleNamespace(
             parsed_profile=dict(user.resume_profile.parsed_profile or {}),
+            resume_embedding=list(user.resume_profile.resume_embedding) if user.resume_profile.resume_embedding is not None else None,
         )
 
     search_preferences = None

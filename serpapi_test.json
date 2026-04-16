@@ -1,0 +1,21 @@
+{
+  "search_metadata": {
+    "id": "69d62e8f73d175590aacc313",
+    "status": "Success",
+    "json_endpoint": "https://serpapi.com/searches/SRw2FAAniGKOAokBvDnIiA/69d62e8f73d175590aacc313.json",
+    "created_at": "2026-04-08 10:31:43 UTC",
+    "processed_at": "2026-04-08 10:31:43 UTC",
+    "google_jobs_url": "https://www.google.com/search?q=ML+Engineer+Remote+%28site%3Aindeed.com%29&udm=8",
+    "raw_html_file": "https://serpapi.com/searches/SRw2FAAniGKOAokBvDnIiA/69d62e8f73d175590aacc313.html",
+    "total_time_taken": 2.55
+  },
+  "search_parameters": {
+    "q": "ML Engineer Remote (site:indeed.com)",
+    "engine": "google_jobs",
+    "google_domain": "google.com"
+  },
+  "search_information": {
+    "jobs_results_state": "Fully empty"
+  },
+  "error": "Google hasn't returned any results for this query."
+}
