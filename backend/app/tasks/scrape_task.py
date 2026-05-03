@@ -10,6 +10,7 @@ from app.scrapers.deduplicator import JobDeduplicator
 from app.services.embedding_service import EmbeddingService
 from app.services.scrape_service import ScrapeService
 from app.worker import celery_app
+from app.core.observability import otel_anyio_run
 
 
 async def _run_scrape(payload: dict) -> dict:
@@ -41,4 +42,4 @@ async def _run_scrape(payload: dict) -> dict:
 
 @celery_app.task(name="applyiq.scrape.test")
 def run_scrape_test_task(payload: dict) -> dict:
-    return anyio.run(_run_scrape, payload)
+    return otel_anyio_run(_run_scrape, payload)

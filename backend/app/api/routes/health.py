@@ -39,11 +39,18 @@ async def healthcheck(request: Request, response: Response) -> HealthStatus:
 
 async def _verify_metrics_secret(request: Request):
     settings = get_settings()
-    # In production, we'd use a real secret. For now, check if environment allows it.
+    # Support both Bearer and custom header for flexibility
     expected = request.app.state.settings.project_slug + "-metrics-secret"
-    provided = request.headers.get("X-Metrics-Secret")
+    provided_custom = request.headers.get("X-Metrics-Secret")
+    provided_auth = request.headers.get("Authorization")
     
-    if not request.app.state.settings.is_non_production and provided != expected:
+    is_valid = False
+    if provided_custom == expected:
+        is_valid = True
+    elif provided_auth == f"Bearer {expected}":
+        is_valid = True
+        
+    if not request.app.state.settings.is_non_production and not is_valid:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized metrics access")
 
 

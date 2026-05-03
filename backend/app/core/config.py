@@ -145,6 +145,13 @@ class Settings(BaseSettings):
     sentry_dsn_backend: str | None = None
     sentry_traces_sample_rate: float = 0.0
     sentry_profiles_sample_rate: float = 0.0
+
+    # OpenTelemetry
+    otel_service_name: str = PROJECT_SLUG
+    otel_exporter_otlp_endpoint: str | None = None # e.g. "http://collector:4317"
+    otel_traces_sampler: str = "parentbased_always_on"
+    otel_traces_sample_rate: float = 1.0
+
     enable_auto_apply: bool = True
     auto_apply_demo_mode: bool = False
     playwright_enabled: bool = True

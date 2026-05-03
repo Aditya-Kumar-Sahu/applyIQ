@@ -37,7 +37,6 @@ def create_app(
         log_file_max_bytes=resolved_settings.log_file_max_bytes,
         log_file_backup_count=resolved_settings.log_file_backup_count,
     )
-    configure_observability(resolved_settings)
     logger = structlog.get_logger(__name__)
     database = DatabaseManager(resolved_settings.database_url.get_secret_value())
     redis = RedisManager(resolved_settings.redis_url.get_secret_value())
@@ -52,6 +51,7 @@ def create_app(
         logger.info("app.shutdown")
 
     app = FastAPI(title=resolved_settings.app_name, lifespan=lifespan)
+    configure_observability(resolved_settings, app=app)
     app.state.settings = resolved_settings
     app.state.database = database
     app.state.redis = redis

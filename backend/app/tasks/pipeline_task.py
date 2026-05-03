@@ -4,12 +4,16 @@ from datetime import UTC
 from types import SimpleNamespace
 
 import anyio
+from opentelemetry import trace
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.core.database import DatabaseManager
+from app.core.observability import otel_anyio_run, set_scrubbed_attribute
 from app.core.redis import RedisManager
+
+tracer = trace.get_tracer(__name__)
 from app.core.security import EncryptionService
 from app.models.pipeline_run import PipelineRun
 from app.models.user import User
@@ -58,140 +62,156 @@ def _build_pipeline_user(user: User) -> SimpleNamespace:
 
 async def _run_start(payload: dict) -> dict:
     run_id = str(payload["run_id"])
-    settings = get_settings()
-    database = DatabaseManager(settings.database_url.get_secret_value())
-    redis_manager = RedisManager(settings.redis_url.get_secret_value())
-    encryption_service = EncryptionService(
-        fernet_secret_key=settings.fernet_secret_key.get_secret_value() if settings.fernet_secret_key else None,
-        encryption_pepper=settings.encryption_pepper.get_secret_value() if settings.encryption_pepper else None,
-    )
-    cover_letter_service = CoverLetterService()
-    graph_runner = PipelineGraphRunner(
-        scrape_service=ScrapeService(
-            embedding_service=EmbeddingService(),
-            deduplicator=JobDeduplicator(),
-            settings=settings,
-        ),
-        match_service=MatchRankService(embedding_service=EmbeddingService()),
-        checkpointer=PipelineCheckpointer(redis_manager, ttl_seconds=settings.pipeline_checkpoint_ttl_seconds),
-        encryption_service=encryption_service,
-        cover_letter_service=cover_letter_service,
-        auto_apply_service=AutoApplyService(),
-        vault_service=VaultService(),
-    )
+    with tracer.start_as_current_span("pipeline.run_start") as span:
+        span.set_attribute("run_id", run_id)
+        set_scrubbed_attribute(span, "pipeline.payload", payload)
+        
+        settings = get_settings()
+        database = DatabaseManager(settings.database_url.get_secret_value())
+        redis_manager = RedisManager(settings.redis_url.get_secret_value())
+        encryption_service = EncryptionService(
+            fernet_secret_key=settings.fernet_secret_key.get_secret_value() if settings.fernet_secret_key else None,
+            encryption_pepper=settings.encryption_pepper.get_secret_value() if settings.encryption_pepper else None,
+        )
+        cover_letter_service = CoverLetterService()
+        graph_runner = PipelineGraphRunner(
+            scrape_service=ScrapeService(
+                embedding_service=EmbeddingService(),
+                deduplicator=JobDeduplicator(),
+                settings=settings,
+            ),
+            match_service=MatchRankService(embedding_service=EmbeddingService()),
+            checkpointer=PipelineCheckpointer(redis_manager, ttl_seconds=settings.pipeline_checkpoint_ttl_seconds),
+            encryption_service=encryption_service,
+            cover_letter_service=cover_letter_service,
+            auto_apply_service=AutoApplyService(),
+            vault_service=VaultService(),
+        )
 
-    try:
-        async with database.session() as session:
-            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
-            user = await session.scalar(
-                select(User)
-                .where(User.id == str(payload["user_id"]))
-                .options(
-                    selectinload(User.resume_profile),
-                    selectinload(User.search_preferences),
+        try:
+            async with database.session() as session:
+                pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
+                user = await session.scalar(
+                    select(User)
+                    .where(User.id == str(payload["user_id"]))
+                    .options(
+                        selectinload(User.resume_profile),
+                        selectinload(User.search_preferences),
+                    )
                 )
-            )
-            if pipeline_run is None or user is None:
-                return {"processed": False, "reason": "run_or_user_missing"}
+                if pipeline_run is None or user is None:
+                    span.set_attribute("pipeline.result", "run_or_user_missing")
+                    return {"processed": False, "reason": "run_or_user_missing"}
 
-            pipeline_user = _build_pipeline_user(user)
+                pipeline_user = _build_pipeline_user(user)
 
-            pipeline_run.status = "running"
-            pipeline_run.current_node = "fetch_jobs_node"
-            await session.commit()
-
-            await graph_runner.run_until_approval(
-                session=session,
-                pipeline_run=pipeline_run,
-                user=pipeline_user,
-                initial_state=payload["state"],
-            )
-            return {"processed": True, "run_id": run_id}
-    except Exception:
-        async with database.session() as session:
-            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
-            if pipeline_run is not None:
-                pipeline_run.status = "failed"
-                pipeline_run.current_node = "pipeline_task_start"
+                pipeline_run.status = "running"
+                pipeline_run.current_node = "fetch_jobs_node"
                 await session.commit()
-        raise
-    finally:
-        await database.dispose()
-        await redis_manager.close()
+
+                await graph_runner.run_until_approval(
+                    session=session,
+                    pipeline_run=pipeline_run,
+                    user=pipeline_user,
+                    initial_state=payload["state"],
+                )
+                span.set_attribute("pipeline.result", "success")
+                return {"processed": True, "run_id": run_id}
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR))
+            async with database.session() as session:
+                pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
+                if pipeline_run is not None:
+                    pipeline_run.status = "failed"
+                    pipeline_run.current_node = "pipeline_task_start"
+                    await session.commit()
+            raise
+        finally:
+            await database.dispose()
+            await redis_manager.close()
 
 
 async def _run_resume(payload: dict) -> dict:
     run_id = str(payload["run_id"])
-    settings = get_settings()
-    database = DatabaseManager(settings.database_url.get_secret_value())
-    redis_manager = RedisManager(settings.redis_url.get_secret_value())
-    encryption_service = EncryptionService(
-        fernet_secret_key=settings.fernet_secret_key.get_secret_value() if settings.fernet_secret_key else None,
-        encryption_pepper=settings.encryption_pepper.get_secret_value() if settings.encryption_pepper else None,
-    )
-    cover_letter_service = CoverLetterService()
-    graph_runner = PipelineGraphRunner(
-        scrape_service=ScrapeService(
-            embedding_service=EmbeddingService(),
-            deduplicator=JobDeduplicator(),
-            settings=settings,
-        ),
-        match_service=MatchRankService(embedding_service=EmbeddingService()),
-        checkpointer=PipelineCheckpointer(redis_manager, ttl_seconds=settings.pipeline_checkpoint_ttl_seconds),
-        encryption_service=encryption_service,
-        cover_letter_service=cover_letter_service,
-        auto_apply_service=AutoApplyService(),
-        vault_service=VaultService(),
-    )
+    with tracer.start_as_current_span("pipeline.run_resume") as span:
+        span.set_attribute("run_id", run_id)
+        set_scrubbed_attribute(span, "pipeline.payload", payload)
 
-    try:
-        async with database.session() as session:
-            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
-            user = await session.scalar(
-                select(User)
-                .where(User.id == str(payload["user_id"]))
-                .options(
-                    selectinload(User.resume_profile),
-                    selectinload(User.search_preferences),
+        settings = get_settings()
+        database = DatabaseManager(settings.database_url.get_secret_value())
+        redis_manager = RedisManager(settings.redis_url.get_secret_value())
+        encryption_service = EncryptionService(
+            fernet_secret_key=settings.fernet_secret_key.get_secret_value() if settings.fernet_secret_key else None,
+            encryption_pepper=settings.encryption_pepper.get_secret_value() if settings.encryption_pepper else None,
+        )
+        cover_letter_service = CoverLetterService()
+        graph_runner = PipelineGraphRunner(
+            scrape_service=ScrapeService(
+                embedding_service=EmbeddingService(),
+                deduplicator=JobDeduplicator(),
+                settings=settings,
+            ),
+            match_service=MatchRankService(embedding_service=EmbeddingService()),
+            checkpointer=PipelineCheckpointer(redis_manager, ttl_seconds=settings.pipeline_checkpoint_ttl_seconds),
+            encryption_service=encryption_service,
+            cover_letter_service=cover_letter_service,
+            auto_apply_service=AutoApplyService(),
+            vault_service=VaultService(),
+        )
+
+        try:
+            async with database.session() as session:
+                pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
+                user = await session.scalar(
+                    select(User)
+                    .where(User.id == str(payload["user_id"]))
+                    .options(
+                        selectinload(User.resume_profile),
+                        selectinload(User.search_preferences),
+                    )
                 )
-            )
-            if pipeline_run is None or user is None:
-                return {"processed": False, "reason": "run_or_user_missing"}
+                if pipeline_run is None or user is None:
+                    span.set_attribute("pipeline.result", "run_or_user_missing")
+                    return {"processed": False, "reason": "run_or_user_missing"}
 
-            pipeline_user = _build_pipeline_user(user)
+                pipeline_user = _build_pipeline_user(user)
 
-            pipeline_run.status = "resuming"
-            pipeline_run.current_node = "approval_gate_node"
-            await session.commit()
-
-            await graph_runner.resume_after_approval(
-                session=session,
-                pipeline_run=pipeline_run,
-                user=pipeline_user,
-                run_id=run_id,
-            )
-            return {"processed": True, "run_id": run_id}
-    except Exception:
-        async with database.session() as session:
-            pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
-            if pipeline_run is not None:
-                pipeline_run.status = "failed"
-                pipeline_run.current_node = "pipeline_task_resume"
+                pipeline_run.status = "resuming"
+                pipeline_run.current_node = "approval_gate_node"
                 await session.commit()
-        raise
-    finally:
-        await database.dispose()
-        await redis_manager.close()
+
+                await graph_runner.resume_after_approval(
+                    session=session,
+                    pipeline_run=pipeline_run,
+                    user=pipeline_user,
+                    run_id=run_id,
+                )
+                span.set_attribute("pipeline.result", "success")
+                return {"processed": True, "run_id": run_id}
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR))
+            async with database.session() as session:
+                pipeline_run = await session.scalar(select(PipelineRun).where(PipelineRun.id == run_id))
+                if pipeline_run is not None:
+                    pipeline_run.status = "failed"
+                    pipeline_run.current_node = "pipeline_task_resume"
+                    await session.commit()
+            raise
+        finally:
+            await database.dispose()
+            await redis_manager.close()
 
 
 @celery_app.task(name="applyiq.pipeline.start")
 def run_pipeline_start_task(payload: dict) -> dict:
-    return anyio.run(_run_start, payload)
+    return otel_anyio_run(_run_start, payload)
 
 
 @celery_app.task(name="applyiq.pipeline.resume")
 def run_pipeline_resume_task(payload: dict) -> dict:
-    return anyio.run(_run_resume, payload)
+    return otel_anyio_run(_run_resume, payload)
 
 
 async def _sweep_stale():
@@ -222,4 +242,4 @@ async def _sweep_stale():
 
 @celery_app.task(name="applyiq.pipeline.sweep_stale")
 def run_pipeline_sweep_stale_task():
-    return anyio.run(_sweep_stale)
+    return otel_anyio_run(_sweep_stale)

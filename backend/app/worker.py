@@ -7,6 +7,7 @@ from celery.schedules import crontab
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.core.observability import configure_observability
 
 settings = get_settings()
 
@@ -18,6 +19,7 @@ configure_logging(
     log_file_max_bytes=settings.log_file_max_bytes,
     log_file_backup_count=settings.log_file_backup_count,
 )
+configure_observability(settings)
 
 celery_app = Celery(
     "applyiq",
