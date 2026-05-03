@@ -51,4 +51,3 @@ class LeverATSStrategy(ATSStrategy):
                 "Lever application loaded, but the form requires candidate data or review before submission."
             ),
         )
-

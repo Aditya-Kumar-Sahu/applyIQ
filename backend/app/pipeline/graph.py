@@ -306,7 +306,9 @@ class PipelineGraphRunner:
             else:
                 try:
                     if pipeline_run.state_snapshot:
-                        decrypted_snapshot = self._encryption_service.decrypt_for_user(user_id, pipeline_run.state_snapshot)
+                        decrypted_snapshot = self._encryption_service.decrypt_for_user(
+                            user_id, pipeline_run.state_snapshot
+                        )
                         snapshot_state = json.loads(decrypted_snapshot)
                         if isinstance(snapshot_state, dict):
                             checkpoint_state = {**checkpoint_state, **snapshot_state}
@@ -327,8 +329,7 @@ class PipelineGraphRunner:
                 )
             )
             checkpoint_state["approved_applications"] = [
-                {"id": application.id, "status": application.status}
-                for application in approved_rows
+                {"id": application.id, "status": application.status} for application in approved_rows
             ]
 
             async def auto_apply(state: ApplyIQState) -> ApplyIQState:
@@ -438,8 +439,12 @@ class PipelineGraphRunner:
         return {
             "run_id": run_id,
             "user_id": user_id,
-            "target_role": search_preferences["target_roles"][0] if search_preferences and search_preferences["target_roles"] else "",
-            "location": search_preferences["preferred_locations"][0] if search_preferences and search_preferences["preferred_locations"] else None,
+            "target_role": search_preferences["target_roles"][0]
+            if search_preferences and search_preferences["target_roles"]
+            else "",
+            "location": search_preferences["preferred_locations"][0]
+            if search_preferences and search_preferences["preferred_locations"]
+            else None,
             "limit_per_source": 10,
             "sources": ["linkedin", "indeed", "remotive"],
             "raw_jobs_count": 0,

@@ -40,4 +40,3 @@ class JobDetailData(RankedJobItem):
     company_domain: str | None = None
     description_text: str
     posted_at: datetime | None = None
-

@@ -50,7 +50,9 @@ def _build_indeed_jobs(query: ScrapeQuery) -> list[RawJob]:
     jobs: list[RawJob] = []
     for index in range(query.limit_per_source):
         if index < 4:
-            jobs.append(_make_job(source="indeed", query=query, index=index, global_index=index, duplicate_url_of=index))
+            jobs.append(
+                _make_job(source="indeed", query=query, index=index, global_index=index, duplicate_url_of=index)
+            )
             continue
         jobs.append(_make_job(source="indeed", query=query, index=index, global_index=100 + index))
     return jobs
@@ -75,7 +77,10 @@ def _build_remotive_jobs(query: ScrapeQuery) -> list[RawJob]:
 
 
 def _build_generic_jobs(query: ScrapeQuery, source: str, *, offset: int) -> list[RawJob]:
-    return [_make_job(source=source, query=query, index=index, global_index=offset + index) for index in range(query.limit_per_source)]
+    return [
+        _make_job(source=source, query=query, index=index, global_index=offset + index)
+        for index in range(query.limit_per_source)
+    ]
 
 
 def _make_job(

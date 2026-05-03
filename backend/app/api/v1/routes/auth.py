@@ -129,9 +129,7 @@ async def _enforce_auth_rate_limit(
 
 async def _revoke_all_refresh_sessions(session: AsyncSession, *, user_id: str) -> None:
     refresh_sessions = list(
-        await session.scalars(
-            select(RefreshTokenSession).where(RefreshTokenSession.user_id == user_id)
-        )
+        await session.scalars(select(RefreshTokenSession).where(RefreshTokenSession.user_id == user_id))
     )
     revoked_at = datetime.now(UTC)
     for refresh_session in refresh_sessions:
@@ -295,7 +293,7 @@ async def refresh_token(
     expires_at = refresh_session.expires_at
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=UTC)
-        
+
     if expires_at <= datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
 

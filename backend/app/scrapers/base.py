@@ -23,8 +23,11 @@ class BaseJobScraper(ABC):
         """Standardized warning for missing mandatory job data."""
         job_id = context.get("job_id", context.get("id", "Unknown ID")) if context else "Unknown ID"
         log.warning(
-            "Scraper [%s] missing field '%s' for job '%s'. Falling back to '%s'.", 
-            self.source_name, field_name, job_id, fallback_value
+            "Scraper [%s] missing field '%s' for job '%s'. Falling back to '%s'.",
+            self.source_name,
+            field_name,
+            job_id,
+            fallback_value,
         )
 
     @abstractmethod

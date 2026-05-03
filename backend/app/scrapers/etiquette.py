@@ -14,7 +14,7 @@ class EtiquettePolicy:
         self.rp = RobotFileParser()
         self.rp.set_url(f"{base_url}/robots.txt")
         self._robots_loaded = False
-        
+
     async def load_robots(self) -> None:
         if self._robots_loaded:
             return
@@ -34,11 +34,14 @@ class EtiquettePolicy:
 
 class TolerantAsyncClient(httpx.AsyncClient):
     """Client with backoff, limits, and random human-like headers."""
+
     def __init__(self, base_url: str, *args, **kwargs):
         self.policy = EtiquettePolicy(base_url)
         headers = kwargs.get("headers", {})
         if "User-Agent" not in headers:
-            headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            headers["User-Agent"] = (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
         kwargs["headers"] = headers
         super().__init__(*args, base_url=base_url, **kwargs)
 
@@ -47,11 +50,11 @@ class TolerantAsyncClient(httpx.AsyncClient):
         if not await self.policy.can_fetch(user_agent, url):
             logger.warning("etiquette.robots.blocked", url=url)
             raise ValueError(f"Blocked by robots.txt for {url}")
-            
+
         retries = kwargs.pop("retries", 3)
         backoff_factor = kwargs.pop("backoff_factor", 1.5)
         last_resp: httpx.Response | None = None
-        
+
         for attempt in range(retries):
             try:
                 # Add humanized random delay before request
@@ -67,7 +70,7 @@ class TolerantAsyncClient(httpx.AsyncClient):
                             request=resp.request,
                             response=resp,
                         )
-                    retry_after = int(retry_after_header or 2 ** attempt)
+                    retry_after = int(retry_after_header or 2**attempt)
                     await asyncio.sleep(retry_after)
                     continue
                 resp.raise_for_status()
@@ -75,7 +78,7 @@ class TolerantAsyncClient(httpx.AsyncClient):
             except Exception as e:
                 if attempt == retries - 1:
                     raise e
-                await asyncio.sleep(backoff_factor ** attempt)
+                await asyncio.sleep(backoff_factor**attempt)
 
         # Defensive guard for retry configurations such as retries=0.
         if last_resp is not None:

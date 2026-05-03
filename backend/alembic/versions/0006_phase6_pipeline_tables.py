@@ -4,6 +4,7 @@ Revision ID: 0006_phase6_pipeline_tables
 Revises: 0005_phase5_job_matches
 Create Date: 2026-03-24 18:30:00
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

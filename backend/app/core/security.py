@@ -30,6 +30,7 @@ def create_token(
     expires_delta: timedelta,
 ) -> str:
     import uuid
+
     now = datetime.now(UTC)
     payload = {
         "sub": subject,

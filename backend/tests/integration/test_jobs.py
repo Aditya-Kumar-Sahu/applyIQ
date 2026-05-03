@@ -229,9 +229,7 @@ async def _seed_jobs(engine) -> None:
                 salary_min=2800000,
                 salary_max=3600000,
                 description_text="Python FastAPI ML systems onsite role in Mumbai.",
-                description_embedding=embedding_service.embed_text(
-                    "Python FastAPI ML systems onsite role in Mumbai."
-                ),
+                description_embedding=embedding_service.embed_text("Python FastAPI ML systems onsite role in Mumbai."),
                 apply_url="https://cityai.example/jobs/ml-onsite",
             ),
             Job(
@@ -245,9 +243,7 @@ async def _seed_jobs(engine) -> None:
                 salary_min=1200000,
                 salary_max=1800000,
                 description_text="Python ML role but below salary preference.",
-                description_embedding=embedding_service.embed_text(
-                    "Python ML role but below salary preference."
-                ),
+                description_embedding=embedding_service.embed_text("Python ML role but below salary preference."),
                 apply_url="https://budget.example/jobs/ml",
             ),
             Job(
@@ -261,9 +257,7 @@ async def _seed_jobs(engine) -> None:
                 salary_min=2800000,
                 salary_max=3800000,
                 description_text="Strong match but excluded company.",
-                description_embedding=embedding_service.embed_text(
-                    "Strong match but excluded company."
-                ),
+                description_embedding=embedding_service.embed_text("Strong match but excluded company."),
                 apply_url="https://example.com/jobs/ai-engineer",
             ),
         ]

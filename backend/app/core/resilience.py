@@ -29,11 +29,13 @@ class CircuitState(Enum):
 
 class CircuitBreakerError(RuntimeError):
     """Base error for circuit breaker."""
+
     pass
 
 
 class CircuitBreakerOpenError(CircuitBreakerError):
     """Raised when a call is attempted while the circuit is open."""
+
     def __init__(self, name: str, remaining_time: float):
         super().__init__(f"Circuit breaker '{name}' is open. Remaining time: {remaining_time:.1f}s")
         self.name = name
@@ -50,7 +52,7 @@ class CircuitBreaker:
         self.name = name
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
-        
+
         self.state = CircuitState.CLOSED
         self.failure_count = 0
         self.last_failure_time: float | None = None
@@ -60,7 +62,7 @@ class CircuitBreaker:
         with self._lock:
             self.failure_count += 1
             self.last_failure_time = time.time()
-            
+
             if self.state == CircuitState.CLOSED:
                 if self.failure_count >= self.failure_threshold:
                     self._transition_to(CircuitState.OPEN)
@@ -79,14 +81,14 @@ class CircuitBreaker:
         self.state = target_state
         if target_state == CircuitState.CLOSED:
             self.failure_count = 0
-        
+
         log_debug(
-            logger, 
-            "circuit_breaker.state_change", 
-            name=self.name, 
-            from_state=old_state.value, 
+            logger,
+            "circuit_breaker.state_change",
+            name=self.name,
+            from_state=old_state.value,
             to_state=target_state.value,
-            failure_count=self.failure_count
+            failure_count=self.failure_count,
         )
 
     def check(self) -> None:
@@ -129,17 +131,16 @@ def circuit_breaker(
 
     def decorator(func: Callable) -> Callable:
         breaker_name = name or func.__name__
-        
+
         with _breakers_lock:
             if breaker_name not in _breakers:
                 _breakers[breaker_name] = CircuitBreaker(
-                    breaker_name, 
-                    failure_threshold=failure_threshold, 
-                    recovery_timeout=recovery_timeout
+                    breaker_name, failure_threshold=failure_threshold, recovery_timeout=recovery_timeout
                 )
             breaker = _breakers[breaker_name]
 
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 try:
@@ -150,8 +151,10 @@ def circuit_breaker(
                             return await fallback(*args, **kwargs)
                         return fallback(*args, **kwargs)
                     raise
+
             return async_wrapper
         else:
+
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 try:
@@ -160,6 +163,7 @@ def circuit_breaker(
                     if fallback:
                         return fallback(*args, **kwargs)
                     raise
+
             return sync_wrapper
 
     return decorator

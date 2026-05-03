@@ -37,7 +37,9 @@ def _patch_integration_scrape_services(monkeypatch, request):
     monkeypatch.setattr(pipeline_routes, "ScrapeService", _factory)
 
     class _StubBrowserTool:
-        def run(self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]) -> BrowserApplyResult:
+        def run(
+            self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]
+        ) -> BrowserApplyResult:
             return BrowserApplyResult(
                 status="success",
                 confirmation_url=f"{job_url}/submitted",

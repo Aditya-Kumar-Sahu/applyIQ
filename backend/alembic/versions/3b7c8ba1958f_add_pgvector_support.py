@@ -4,13 +4,14 @@ Revision ID: 3b7c8ba1958f
 Revises: 2c5f6a1d4e20
 Create Date: 2026-05-03 15:42:01.215433
 """
+
 from __future__ import annotations
 
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '3b7c8ba1958f'
-down_revision = '2c5f6a1d4e20'
+revision = "3b7c8ba1958f"
+down_revision = "2c5f6a1d4e20"
 branch_labels = None
 depends_on = None
 
@@ -49,11 +50,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # 1. Revert columns to JSON
-    op.execute(
-        "ALTER TABLE jobs ALTER COLUMN description_embedding TYPE JSON "
-        "USING description_embedding::text::json"
-    )
-    op.execute(
-        "ALTER TABLE resume_profiles ALTER COLUMN resume_embedding TYPE JSON "
-        "USING resume_embedding::text::json"
-    )
+    op.execute("ALTER TABLE jobs ALTER COLUMN description_embedding TYPE JSON USING description_embedding::text::json")
+    op.execute("ALTER TABLE resume_profiles ALTER COLUMN resume_embedding TYPE JSON USING resume_embedding::text::json")

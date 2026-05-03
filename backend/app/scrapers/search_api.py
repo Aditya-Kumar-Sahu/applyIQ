@@ -98,8 +98,12 @@ class SerpApiGoogleJobsScraper(BaseJobScraper):
                     company_domain=str(item.get("company_domain") or item.get("company_url") or ""),
                     location=location,
                     is_remote="remote" in location.lower(),
-                    salary_min=_coerce_int(item.get("salary_min") or item.get("salary_minimum") or item.get("min_salary")),
-                    salary_max=_coerce_int(item.get("salary_max") or item.get("salary_maximum") or item.get("max_salary")),
+                    salary_min=_coerce_int(
+                        item.get("salary_min") or item.get("salary_minimum") or item.get("min_salary")
+                    ),
+                    salary_max=_coerce_int(
+                        item.get("salary_max") or item.get("salary_maximum") or item.get("max_salary")
+                    ),
                     description_text=str(item.get("description") or f"{title} at {company_name}"),
                     apply_url=apply_url,
                     posted_at=posted_at,
@@ -156,17 +160,24 @@ def _parse_posted_at(value: object) -> datetime:
             amount = int(match.group(1))
             unit = match.group(2)
             now = datetime.now(UTC)
-            if unit == "minute": return now - timedelta(minutes=amount)
-            if unit == "hour": return now - timedelta(hours=amount)
-            if unit == "day": return now - timedelta(days=amount)
-            if unit == "week": return now - timedelta(weeks=amount)
-            if unit == "month": return now - timedelta(days=amount * 30)
+            if unit == "minute":
+                return now - timedelta(minutes=amount)
+            if unit == "hour":
+                return now - timedelta(hours=amount)
+            if unit == "day":
+                return now - timedelta(days=amount)
+            if unit == "week":
+                return now - timedelta(weeks=amount)
+            if unit == "month":
+                return now - timedelta(days=amount * 30)
 
         normalized = value.replace("Z", "+00:00")
         try:
             parsed = datetime.fromisoformat(normalized)
             return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
         except ValueError as e:
-            logger.warning("scraper.search_api.date_parse_error", value=value, error=str(e), message="Failed to parse date string.")
+            logger.warning(
+                "scraper.search_api.date_parse_error", value=value, error=str(e), message="Failed to parse date string."
+            )
 
     return datetime.now(UTC)

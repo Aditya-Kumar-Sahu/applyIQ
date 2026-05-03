@@ -18,8 +18,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("applications", sa.Column("cover_letter_tone", sa.String(length=30), nullable=False, server_default="formal"))
-    op.add_column("applications", sa.Column("cover_letter_word_count", sa.Integer(), nullable=False, server_default="0"))
+    op.add_column(
+        "applications", sa.Column("cover_letter_tone", sa.String(length=30), nullable=False, server_default="formal")
+    )
+    op.add_column(
+        "applications", sa.Column("cover_letter_word_count", sa.Integer(), nullable=False, server_default="0")
+    )
     op.alter_column("applications", "cover_letter_tone", server_default=None)
     op.alter_column("applications", "cover_letter_word_count", server_default=None)
 

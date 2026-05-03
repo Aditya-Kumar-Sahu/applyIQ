@@ -170,9 +170,7 @@ class GeminiClient:
             raise GeminiApiError(f"Gemini request failed for {path}: {error}") from error
 
         if response.status_code >= 400:
-            raise GeminiApiError(
-                f"Gemini request failed for {path}: {response.status_code} {response.text[:200]}"
-            )
+            raise GeminiApiError(f"Gemini request failed for {path}: {response.status_code} {response.text[:200]}")
         try:
             return response.json()
         except Exception as error:

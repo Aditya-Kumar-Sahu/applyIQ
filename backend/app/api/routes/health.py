@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import cast
+from typing import Any, cast
 
 from fastapi import APIRouter, Request, Response, status
 
-from app.core.constants import DEGRADED_STATUS, DOWN_STATUS, HEALTHY_STATUS
+from app.core.constants import HEALTHY_STATUS
 from app.schemas.health import HealthStatus
 
-HealthReporter = Callable[[], Awaitable[dict[str, str]]]
+HealthReporter = Callable[[], Awaitable[dict[str, Any]]]
 
 router = APIRouter(tags=["health"])
 
@@ -19,11 +19,20 @@ async def healthcheck(request: Request, response: Response) -> HealthStatus:
 
     try:
         payload = await reporter()
+        
+        # If any hard dependency is down, return 503
+        if payload.get("is_hard_failure", False):
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        
+        # We still return the payload so monitoring can see WHAT is down
+        return HealthStatus.model_validate(payload)
+        
     except Exception:
+        # Fallback for catastrophic service failure
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return HealthStatus(status=DEGRADED_STATUS, db=DOWN_STATUS, redis=DOWN_STATUS)
-
-    if payload["status"] != HEALTHY_STATUS:
-        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-
-    return HealthStatus.model_validate(payload)
+        return HealthStatus(
+            status="down",
+            db="down",
+            redis="down",
+            celery={"broker": "down", "workers": "down"}
+        )

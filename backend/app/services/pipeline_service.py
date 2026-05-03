@@ -71,10 +71,9 @@ class PipelineService:
         )
         try:
             active_run = await session.scalar(
-                select(PipelineRun)
-                .where(
+                select(PipelineRun).where(
                     PipelineRun.user_id == user.id,
-                    PipelineRun.status.in_(["queued", "running", "paused_at_gate", "resuming"])
+                    PipelineRun.status.in_(["queued", "running", "paused_at_gate", "resuming"]),
                 )
             )
             if active_run:
@@ -243,7 +242,9 @@ class PipelineService:
         log_debug(logger, "pipeline.get_results.complete", user_id=user.id, run_id=run_id, applications=len(items))
         return result
 
-    async def approve(self, *, session: AsyncSession, user: User, run_id: str, application_ids: list[str]) -> PipelineRunData:
+    async def approve(
+        self, *, session: AsyncSession, user: User, run_id: str, application_ids: list[str]
+    ) -> PipelineRunData:
         log_debug(
             logger,
             "pipeline.approve.start",
@@ -252,14 +253,14 @@ class PipelineService:
             requested_application_ids_count=len(application_ids),
         )
         pipeline_run = await self._get_run(session=session, user=user, run_id=run_id)
-        
+
         # Idempotency guard: Ensure we are currently paused at gate
         if pipeline_run.status != "paused_at_gate":
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Cannot approve pipeline run in '{pipeline_run.status}' state",
             )
-            
+
         applications = list(
             await session.scalars(
                 select(Application).where(
@@ -278,16 +279,19 @@ class PipelineService:
         if not self._settings.execute_pipeline_inline:
             pipeline_run.status = "resuming"
             pipeline_run.current_node = "approval_gate_node"
-            
+
         await session.commit()
         await session.refresh(pipeline_run)
-        
+
         if self._settings.execute_pipeline_inline:
-            await self._graph_runner.resume_after_approval(session=session, pipeline_run=pipeline_run, user=user, run_id=run_id)
+            await self._graph_runner.resume_after_approval(
+                session=session, pipeline_run=pipeline_run, user=user, run_id=run_id
+            )
             await session.refresh(pipeline_run)
             log_debug(logger, "pipeline.approve.inline_resume_complete", user_id=user.id, run_id=run_id)
         else:
             from app.tasks.pipeline_task import run_pipeline_resume_task
+
             try:
                 task = run_pipeline_resume_task.delay({"run_id": run_id, "user_id": user.id})
                 pipeline_run.celery_task_id = task.id
@@ -360,7 +364,9 @@ class PipelineService:
 
             await session.commit()
             result = RejectData(rejected_count=len(applications))
-            log_debug(logger, "pipeline.reject.complete", user_id=user.id, run_id=run_id, rejected_count=len(applications))
+            log_debug(
+                logger, "pipeline.reject.complete", user_id=user.id, run_id=run_id, rejected_count=len(applications)
+            )
             return result
         except Exception as error:
             log_exception(logger, "pipeline.reject.failed", error, user_id=user.id, run_id=run_id)
@@ -601,7 +607,9 @@ class PipelineService:
             notes = _load_notes(application.notes)
             variants = _ab_variants(notes)
             requested_variant = payload.variant_id.upper()
-            variant = next((item for item in variants if str(item.get("variant_id", "")).upper() == requested_variant), None)
+            variant = next(
+                (item for item in variants if str(item.get("variant_id", "")).upper() == requested_variant), None
+            )
             if variant is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="A/B variant not found")
 
@@ -725,7 +733,9 @@ class PipelineService:
         log_debug(logger, "pipeline.get_status_event.start", user_id=user.id, run_id=run_id)
         data = await self.get_results(session=session, user=user, run_id=run_id)
         payload = f"event: status\ndata: {json.dumps(data.model_dump(mode='json'))}\n\n"
-        log_debug(logger, "pipeline.get_status_event.complete", user_id=user.id, run_id=run_id, payload_length=len(payload))
+        log_debug(
+            logger, "pipeline.get_status_event.complete", user_id=user.id, run_id=run_id, payload_length=len(payload)
+        )
         return payload
 
     async def stream_status_events(
@@ -773,7 +783,9 @@ class PipelineService:
 
     async def _count_pending_approvals(self, *, session: AsyncSession, run_id: str) -> int:
         count = await session.scalar(
-            select(func.count()).select_from(Application).where(
+            select(func.count())
+            .select_from(Application)
+            .where(
                 Application.pipeline_run_id == run_id,
                 Application.status == "pending_approval",
             )

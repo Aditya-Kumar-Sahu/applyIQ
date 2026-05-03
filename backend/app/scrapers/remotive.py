@@ -11,6 +11,7 @@ from app.scrapers.base import BaseJobScraper, ScrapeQuery
 
 logger = structlog.get_logger(__name__)
 
+
 class RemotiveScraper(BaseJobScraper):
     source_name = "remotive"
     base_url = "https://remotive.com"
@@ -30,7 +31,7 @@ class RemotiveScraper(BaseJobScraper):
                 resp.raise_for_status()
             data = resp.json()
             jobs_results = data.get("jobs", [])
-            jobs_results = jobs_results[:query.limit_per_source]
+            jobs_results = jobs_results[: query.limit_per_source]
             return self._normalize(jobs_results)
         except Exception as e:
             logger.error("scraper.remotive.error", error=str(e), source=self.source_name)
@@ -54,7 +55,7 @@ class RemotiveScraper(BaseJobScraper):
                 self.log_missing_field("apply_url", "", item)
 
             job_id = item.get("id", f"remotive-{index}")
-            
+
             location = item.get("candidate_required_location")
             if not location:
                 self.log_missing_field("location", "Remote", item)

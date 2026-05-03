@@ -134,7 +134,7 @@ def test_ranked_jobs_can_be_scoped_to_fresh_scrape_batch(tmp_path: Path) -> None
                         "work_style_signals": [],
                         "summary_for_matching": "ML engineer with Python and FastAPI experience.",
                     },
-                    resume_embedding=[0.1] * 768
+                    resume_embedding=[0.1] * 768,
                 ),
                 search_preferences=SimpleNamespace(
                     target_roles=["ML Engineer"],
@@ -274,7 +274,7 @@ def test_ranked_jobs_update_existing_matches_without_duplicate_inserts(tmp_path:
                         "work_style_signals": [],
                         "summary_for_matching": "ML engineer with Python and FastAPI experience.",
                     },
-                    resume_embedding=[0.1] * 768
+                    resume_embedding=[0.1] * 768,
                 ),
                 search_preferences=SimpleNamespace(
                     target_roles=["ML Engineer"],

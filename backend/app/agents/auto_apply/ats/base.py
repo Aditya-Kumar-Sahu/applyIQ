@@ -49,4 +49,3 @@ class ATSStrategy(Protocol):
         job_url: str,
         screenshot_urls: list[str],
     ) -> BrowserApplyResult: ...
-

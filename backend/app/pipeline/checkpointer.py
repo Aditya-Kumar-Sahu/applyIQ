@@ -212,7 +212,9 @@ class PipelineCheckpointer(BaseCheckpointSaver[str]):
         try:
             anyio.run(self.adelete_thread, thread_id)
         except RuntimeError as error:
-            raise RuntimeError("pipeline checkpointer delete_thread() cannot run inside an active event loop") from error
+            raise RuntimeError(
+                "pipeline checkpointer delete_thread() cannot run inside an active event loop"
+            ) from error
 
     async def adelete_thread(self, thread_id: str) -> None:
         try:

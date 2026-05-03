@@ -7,9 +7,7 @@ from app.scrapers.base import ScrapeQuery
 def test_apify_linkedin_scraper_builds_live_actor_payload() -> None:
     scraper = ApifyLinkedInScraper()
 
-    payload = scraper._build_input_data(
-        ScrapeQuery(target_role="ML Engineer", location="Remote", limit_per_source=15)
-    )
+    payload = scraper._build_input_data(ScrapeQuery(target_role="ML Engineer", location="Remote", limit_per_source=15))
 
     assert payload["title"] == "ML Engineer"
     assert payload["location"] == "Remote"

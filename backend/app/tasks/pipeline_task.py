@@ -30,7 +30,9 @@ def _build_pipeline_user(user: User) -> SimpleNamespace:
     if user.resume_profile is not None:
         resume_profile = SimpleNamespace(
             parsed_profile=dict(user.resume_profile.parsed_profile or {}),
-            resume_embedding=list(user.resume_profile.resume_embedding) if user.resume_profile.resume_embedding is not None else None,
+            resume_embedding=list(user.resume_profile.resume_embedding)
+            if user.resume_profile.resume_embedding is not None
+            else None,
         )
 
     search_preferences = None
@@ -195,16 +197,16 @@ def run_pipeline_resume_task(payload: dict) -> dict:
 async def _sweep_stale():
     settings = get_settings()
     database = DatabaseManager(settings.database_url)
-    
+
     try:
         from datetime import datetime, timedelta
-        stale_threshold = datetime.now(UTC) - timedelta(days=7) # Assume 7 days timeout for a paused run
-        
+
+        stale_threshold = datetime.now(UTC) - timedelta(days=7)  # Assume 7 days timeout for a paused run
+
         async with database.session() as session:
             stale_runs = await session.scalars(
                 select(PipelineRun).where(
-                    PipelineRun.status == "paused_at_gate",
-                    PipelineRun.started_at < stale_threshold
+                    PipelineRun.status == "paused_at_gate", PipelineRun.started_at < stale_threshold
                 )
             )
             count = 0
@@ -217,7 +219,7 @@ async def _sweep_stale():
     finally:
         await database.dispose()
 
+
 @celery_app.task(name="applyiq.pipeline.sweep_stale")
 def run_pipeline_sweep_stale_task():
     return anyio.run(_sweep_stale)
-

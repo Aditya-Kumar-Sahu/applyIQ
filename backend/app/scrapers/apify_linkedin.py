@@ -80,7 +80,7 @@ class ApifyLinkedInScraper(BaseJobScraper):
                 self.log_missing_field("apply_url", "", item)
 
             posted_at = _parse_posted_at(item.get("datePosted"))
-            
+
             location = str(item.get("location") or "")
             if not location:
                 self.log_missing_field("location", "Remote", item)
@@ -104,6 +104,7 @@ class ApifyLinkedInScraper(BaseJobScraper):
             )
         return jobs
 
+
 def _parse_posted_at(value: object) -> datetime:
     if not value or (isinstance(value, str) and not value.strip()):
         logger.warning("scraper.apify.missing_date", value=value, message="Defaulting to current UTC time.")
@@ -118,6 +119,8 @@ def _parse_posted_at(value: object) -> datetime:
             parsed = datetime.fromisoformat(normalized)
             return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
         except ValueError as e:
-            logger.warning("scraper.apify.date_parse_error", value=value, error=str(e), message="Failed to parse date string.")
+            logger.warning(
+                "scraper.apify.date_parse_error", value=value, error=str(e), message="Failed to parse date string."
+            )
 
     return datetime.now(UTC)

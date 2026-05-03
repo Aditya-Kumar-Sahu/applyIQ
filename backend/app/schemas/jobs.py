@@ -27,7 +27,8 @@ class RawJob(BaseModel):
         # Base64 or highly nested identifiers exceeding 100 varchar restriction
         if len(value) > 100:
             import hashlib
-            hashed = hashlib.sha256(value.encode('utf-8')).hexdigest()
+
+            hashed = hashlib.sha256(value.encode("utf-8")).hexdigest()
             # Reserve enough chunk prefix, then affix the deterministic hash to prevent collisions
             return f"{value[:35]}_{hashed}"
         return value

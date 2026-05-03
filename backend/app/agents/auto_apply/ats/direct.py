@@ -61,4 +61,3 @@ class DirectApplyStrategy(ATSStrategy):
             status="manual_required",
             manual_required_reason="No supported apply control was found during browser automation. Complete this application manually.",
         )
-

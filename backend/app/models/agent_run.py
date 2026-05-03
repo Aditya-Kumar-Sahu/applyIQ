@@ -13,7 +13,9 @@ class AgentRun(Base):
     __tablename__ = "agent_runs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    pipeline_run_id: Mapped[str | None] = mapped_column(String, ForeignKey("pipeline_runs.id", ondelete="CASCADE"), nullable=True)
+    pipeline_run_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("pipeline_runs.id", ondelete="CASCADE"), nullable=True
+    )
     agent_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
     node: Mapped[str] = mapped_column(String, nullable=False)
     input_summary_hash: Mapped[str] = mapped_column(String, nullable=False)

@@ -11,7 +11,9 @@ def test_supported_ats_returns_success_with_audit_artifacts() -> None:
     service = AutoApplyService()
 
     class StubBrowserTool:
-        def run(self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]) -> BrowserApplyResult:
+        def run(
+            self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]
+        ) -> BrowserApplyResult:
             assert application_id == "app-1"
             assert ats_provider == "indeed_apply"
             assert len(screenshot_urls) == 2
@@ -84,7 +86,9 @@ def test_browser_mode_uses_real_browser_tool_when_available(monkeypatch) -> None
     monkeypatch.setenv("AUTO_APPLY_USE_BROWSER", "true")
 
     class StubBrowserTool:
-        def run(self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]) -> BrowserApplyResult:
+        def run(
+            self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]
+        ) -> BrowserApplyResult:
             assert application_id == "app-3"
             assert ats_provider == "greenhouse"
             assert len(screenshot_urls) == 2

@@ -161,7 +161,9 @@ class AutoApplyService:
                 ats_provider=ats_provider,
                 screenshot_urls=screenshot_urls,
             )
-            return self._map_browser_result(browser_result=browser_result, ats_provider=ats_provider, screenshot_urls=screenshot_urls)
+            return self._map_browser_result(
+                browser_result=browser_result, ats_provider=ats_provider, screenshot_urls=screenshot_urls
+            )
         except PlaywrightUnavailableError:
             log_debug(
                 logger,

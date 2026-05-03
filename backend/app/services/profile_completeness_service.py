@@ -27,8 +27,7 @@ class ProfileCompletenessService:
             score = int(round((len(checks) - len(missing_fields)) / len(checks) * 100))
 
             recommendations = [
-                f"Add or improve {field.replace('_', ' ')} to strengthen job matching."
-                for field in missing_fields
+                f"Add or improve {field.replace('_', ' ')} to strengthen job matching." for field in missing_fields
             ]
 
             log_debug(

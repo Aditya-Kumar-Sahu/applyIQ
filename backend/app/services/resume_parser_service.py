@@ -273,10 +273,7 @@ class ResumeParserService:
         if not self._gemini_client.is_configured:
             return None
 
-        prompt = (
-            "Parse this resume text and return JSON only.\n\n"
-            f"Resume Text:\n{normalized_text}"
-        )
+        prompt = f"Parse this resume text and return JSON only.\n\nResume Text:\n{normalized_text}"
         try:
             payload = self._gemini_client.generate_json(
                 prompt=prompt,
@@ -367,7 +364,7 @@ class ResumeParserService:
     def _extract_email(self, raw_text: str) -> str:
         email = ""
         for match in _EMAIL_PATTERN.findall(raw_text):
-            candidate = match.strip("<>[](){}.,;:\"")
+            candidate = match.strip('<>[](){}.,;:"')
             if not self._is_valid_email(candidate):
                 continue
             email = candidate.lower()
@@ -442,7 +439,9 @@ class ResumeParserService:
         source_lines = sections.get("skills") or [
             line
             for line in lines
-            if re.search(r"(?:technical\s+)?skills?|competencies|tech stack|tools|languages\s*:", line, flags=re.IGNORECASE)
+            if re.search(
+                r"(?:technical\s+)?skills?|competencies|tech stack|tools|languages\s*:", line, flags=re.IGNORECASE
+            )
         ]
         candidates: list[str] = []
 
@@ -611,10 +610,27 @@ class ResumeParserService:
             institution = ""
             for part in parts:
                 lowered = part.casefold()
-                if not degree and any(token in lowered for token in ("bachelor", "master", "phd", "b.tech", "mba", "b.e", "m.tech", "bs", "ms", "bsc", "msc")):
+                if not degree and any(
+                    token in lowered
+                    for token in (
+                        "bachelor",
+                        "master",
+                        "phd",
+                        "b.tech",
+                        "mba",
+                        "b.e",
+                        "m.tech",
+                        "bs",
+                        "ms",
+                        "bsc",
+                        "msc",
+                    )
+                ):
                     degree = part
                     continue
-                if not institution and any(token in lowered for token in ("university", "college", "institute", "school", "academy")):
+                if not institution and any(
+                    token in lowered for token in ("university", "college", "institute", "school", "academy")
+                ):
                     institution = part
 
             if not degree and parts:

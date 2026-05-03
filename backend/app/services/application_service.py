@@ -76,7 +76,9 @@ class ApplicationService:
             log_exception(logger, "applications.list.failed", error, user_id=user.id)
             raise
 
-    async def get_application_detail(self, *, session: AsyncSession, user: User, application_id: str) -> ApplicationDetailData:
+    async def get_application_detail(
+        self, *, session: AsyncSession, user: User, application_id: str
+    ) -> ApplicationDetailData:
         log_debug(logger, "applications.detail.start", user_id=user.id, application_id=application_id)
         try:
             application = await session.scalar(
@@ -180,7 +182,9 @@ class ApplicationService:
             )
             return ApplicationStatusUpdateData(application_id=application.id, status=application.status)
         except Exception as error:
-            log_exception(logger, "applications.update_status.failed", error, user_id=user.id, application_id=application_id)
+            log_exception(
+                logger, "applications.update_status.failed", error, user_id=user.id, application_id=application_id
+            )
             raise
 
     async def get_stats(self, *, session: AsyncSession, user: User) -> ApplicationsStatsData:
@@ -216,9 +220,7 @@ class ApplicationService:
             total_applications = len(applications)
             total_applied = len([application for application in applications if application.applied_at is not None])
             replied_applications = {
-                monitor.application_id
-                for monitor in monitors
-                if monitor.latest_classification != "no_action"
+                monitor.application_id for monitor in monitors if monitor.latest_classification != "no_action"
             }
             total_replied = len(replied_applications)
             response_rate = (total_replied / total_applied) if total_applied > 0 else 0.0
@@ -234,11 +236,7 @@ class ApplicationService:
                     continue
                 delta_hours = (monitor.created_at - application.applied_at).total_seconds() / 3600
                 reply_deltas.append(max(delta_hours, 0.0))
-            avg_hours_to_first_reply = (
-                sum(reply_deltas) / len(reply_deltas)
-                if len(reply_deltas) > 0
-                else None
-            )
+            avg_hours_to_first_reply = sum(reply_deltas) / len(reply_deltas) if len(reply_deltas) > 0 else None
 
             source_totals: dict[str, int] = defaultdict(int)
             source_replies: dict[str, int] = defaultdict(int)

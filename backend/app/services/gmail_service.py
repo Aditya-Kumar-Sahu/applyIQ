@@ -320,7 +320,11 @@ class GmailService:
         refresh_token = str(payload.get("refresh_token") or fallback_refresh_token or "")
         token_type = str(payload.get("token_type") or "Bearer")
         expires_in_raw = payload.get("expires_in")
-        expires_in = int(expires_in_raw) if isinstance(expires_in_raw, (int, float, str)) and str(expires_in_raw).isdigit() else 3600
+        expires_in = (
+            int(expires_in_raw)
+            if isinstance(expires_in_raw, (int, float, str)) and str(expires_in_raw).isdigit()
+            else 3600
+        )
         expires_at = datetime.now(UTC) + timedelta(seconds=expires_in)
         scope = str(payload.get("scope") or "")
         return {

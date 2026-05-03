@@ -36,7 +36,9 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path,
     app.state.redis = _InMemoryRedisClient()
 
     class StubBrowserTool:
-        def run(self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]) -> BrowserApplyResult:
+        def run(
+            self, *, application_id: str, job_url: str, ats_provider: str, screenshot_urls: list[str]
+        ) -> BrowserApplyResult:
             assert application_id
             assert ats_provider
             assert len(screenshot_urls) == 2

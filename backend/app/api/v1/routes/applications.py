@@ -50,7 +50,11 @@ async def get_application_detail(
     return Envelope(success=True, data=data, error=None)
 
 
-@router.patch("/{application_id}/status", response_model=Envelope[ApplicationStatusUpdateData], status_code=http_status.HTTP_200_OK)
+@router.patch(
+    "/{application_id}/status",
+    response_model=Envelope[ApplicationStatusUpdateData],
+    status_code=http_status.HTTP_200_OK,
+)
 async def update_application_status(
     application_id: str,
     payload: ApplicationStatusUpdatePayload,

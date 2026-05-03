@@ -13,4 +13,3 @@ def strategy_for_provider(ats_provider: str) -> ATSStrategy:
     if normalized == "lever":
         return LeverATSStrategy()
     return DirectApplyStrategy()
-

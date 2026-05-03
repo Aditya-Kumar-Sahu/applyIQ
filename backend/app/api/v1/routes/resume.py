@@ -104,7 +104,9 @@ async def upload_resume(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing file name")
     declared_format = _declared_resume_format(file.filename)
     if declared_format is None:
-        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Unsupported resume file extension")
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Unsupported resume file extension"
+        )
     if file.content_type not in _ALLOWED_UPLOAD_MIME_TYPES:
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Unsupported file content type")
 

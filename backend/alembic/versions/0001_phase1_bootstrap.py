@@ -4,6 +4,7 @@ Revision ID: 0001_phase1_bootstrap
 Revises:
 Create Date: 2026-03-23 20:05:00
 """
+
 from __future__ import annotations
 
 revision = "0001_phase1_bootstrap"

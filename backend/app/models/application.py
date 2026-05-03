@@ -16,7 +16,9 @@ class Application(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
     job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
-    pipeline_run_id: Mapped[str] = mapped_column(String(36), ForeignKey("pipeline_runs.id", ondelete="CASCADE"), index=True)
+    pipeline_run_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("pipeline_runs.id", ondelete="CASCADE"), index=True
+    )
     status: Mapped[str] = mapped_column(String(30), index=True, default="pending_approval")
     match_score: Mapped[float] = mapped_column(Float, default=0.0)
     cover_letter_text: Mapped[str] = mapped_column(Text, default="")

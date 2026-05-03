@@ -196,7 +196,9 @@ def test_auth_rate_limits_and_refresh_reuse_detection(tmp_path: Path) -> None:
             session_factory = async_sessionmaker(engine, expire_on_commit=False)
             async with session_factory() as session:
                 result = await session.scalar(
-                    select(func.count()).select_from(RefreshTokenSession).where(RefreshTokenSession.revoked_at.is_(None))
+                    select(func.count())
+                    .select_from(RefreshTokenSession)
+                    .where(RefreshTokenSession.revoked_at.is_(None))
                 )
                 return int(result or 0)
 

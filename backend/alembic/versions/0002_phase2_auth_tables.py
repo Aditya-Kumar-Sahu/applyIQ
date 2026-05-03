@@ -4,6 +4,7 @@ Revision ID: 0002_phase2_auth_tables
 Revises: 0001_phase1_bootstrap
 Create Date: 2026-03-23 22:30:00
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

@@ -138,7 +138,10 @@ def test_resume_upload_rejects_spoofed_extension(tmp_path: Path) -> None:
         )
 
         assert spoofed_upload_response.status_code == 400
-        assert spoofed_upload_response.json()["error"]["message"] == "Resume file content does not match the declared file extension"
+        assert (
+            spoofed_upload_response.json()["error"]["message"]
+            == "Resume file content does not match the declared file extension"
+        )
 
 
 def _build_resume_docx() -> bytes:

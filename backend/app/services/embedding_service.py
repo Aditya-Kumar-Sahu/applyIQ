@@ -111,8 +111,7 @@ class EmbeddingService:
                 return vectors
             if len(vectors) != len(normalized_texts):
                 raise GeminiApiError(
-                    "Gemini batch embedding response size mismatch: "
-                    f"{len(vectors)} != {len(normalized_texts)}"
+                    f"Gemini batch embedding response size mismatch: {len(vectors)} != {len(normalized_texts)}"
                 )
             self._dimensions = len(vectors[0]) if vectors else self._dimensions
             log_debug(

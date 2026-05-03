@@ -4,6 +4,7 @@ Revision ID: 0003_phase3_resume_tables
 Revises: 0002_phase2_auth_tables
 Create Date: 2026-03-23 23:10:00
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

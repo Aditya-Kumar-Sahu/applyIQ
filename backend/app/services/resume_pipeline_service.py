@@ -44,7 +44,9 @@ class ResumePipelineService:
         )
         try:
             raw_text = self._extraction_service.extract_text(filename, content)
-            log_debug(logger, "resume_pipeline.process_upload.extracted", user_id=user.id, raw_text_length=len(raw_text))
+            log_debug(
+                logger, "resume_pipeline.process_upload.extracted", user_id=user.id, raw_text_length=len(raw_text)
+            )
 
             parsed_profile = self._parser_service.parse(raw_text)
             log_debug(

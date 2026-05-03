@@ -58,3 +58,7 @@ logs:
 
 shell:
 	$(COMPOSE) exec backend python
+
+install-hooks:
+	pip install pre-commit
+	pre-commit install

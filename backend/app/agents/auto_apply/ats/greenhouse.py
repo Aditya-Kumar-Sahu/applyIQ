@@ -70,4 +70,3 @@ class GreenhouseATSStrategy(ATSStrategy):
                 "that are not safe to infer automatically."
             ),
         )
-

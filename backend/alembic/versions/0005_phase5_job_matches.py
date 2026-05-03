@@ -4,6 +4,7 @@ Revision ID: 0005_phase5_job_matches
 Revises: 0004_phase4_jobs_table
 Create Date: 2026-03-24 15:00:00
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

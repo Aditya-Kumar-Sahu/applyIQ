@@ -114,7 +114,7 @@ class MatchRankService:
         )
         try:
             query_embedding = self._embedding_service.embed_text(query)
-            
+
             # Use pgvector cosine_distance for direct DB-level semantic search
             stmt = (
                 select(Job)
@@ -123,25 +123,20 @@ class MatchRankService:
                 .limit(50)
             )
             jobs = list(await session.scalars(stmt))
-            
+
             # Now rank these top 50 semantic matches using the full scoring logic
             # This is much faster than ranking ALL jobs in Python
             resume_profile = user.resume_profile
             if not resume_profile:
                 return JobsListData(total=0, items=[])
-                
+
             resume = ParsedResumeProfile.model_validate(resume_profile.parsed_profile)
             preferences = self._serialize_preferences(user)
             resume_emb = resume_profile.resume_embedding or resume_summary_embedding(resume)
-            
+
             ranked_results = []
             for job in jobs:
-                result = self._score_job(
-                    job=job, 
-                    resume=resume, 
-                    preferences=preferences, 
-                    resume_embedding=resume_emb
-                )
+                result = self._score_job(job=job, resume=resume, preferences=preferences, resume_embedding=resume_emb)
                 ranked_results.append(result.item)
 
             log_debug(
@@ -182,7 +177,7 @@ class MatchRankService:
             resume_profile = user.resume_profile
             resume = ParsedResumeProfile.model_validate(resume_profile.parsed_profile)
             preferences = self._serialize_preferences(user)
-            
+
             resume_embedding = resume_profile.resume_embedding
             if not resume_embedding:
                 resume_embedding = resume_summary_embedding(resume)
@@ -196,10 +191,10 @@ class MatchRankService:
             # Optimizing Job Query: Select similarity as part of the query
             similarity_col = (1 - Job.description_embedding.cosine_distance(resume_embedding)).label("similarity")
             job_query = select(Job, similarity_col).where(Job.is_active.is_(True))
-            
+
             if apply_urls:
                 job_query = job_query.where(Job.apply_url.in_(apply_urls))
-            
+
             # If no specific URLs, limit to top 100 by similarity to avoid massive Python loops
             if not apply_urls:
                 job_query = job_query.order_by(Job.description_embedding.cosine_distance(resume_embedding)).limit(100)
@@ -207,8 +202,8 @@ class MatchRankService:
                 job_query = job_query.order_by(Job.scraped_at.desc())
 
             results = await session.execute(job_query)
-            job_rows = results.all() # list of (Job, similarity)
-            
+            job_rows = results.all()  # list of (Job, similarity)
+
             job_ids = [row[0].id for row in job_rows]
             existing_matches_by_job_id: dict[str, JobMatch] = {}
             if job_ids:
@@ -221,7 +216,7 @@ class MatchRankService:
                     )
                 )
                 existing_matches_by_job_id = {match.job_id: match for match in existing_matches}
-            
+
             log_debug(
                 logger,
                 "match_rank.rank_jobs.loaded_inputs",
@@ -233,7 +228,7 @@ class MatchRankService:
             for job, similarity in job_rows:
                 if job.id in seen_job_ids:
                     continue
-                
+
                 allowed, _ = self._passes_filters_with_reason(job=job, preferences=preferences)
                 if not allowed:
                     continue
@@ -241,11 +236,11 @@ class MatchRankService:
                 try:
                     # Pass pre-calculated similarity to avoid redundant Python math
                     result = self._score_job(
-                        job=job, 
-                        resume=resume, 
-                        preferences=preferences, 
+                        job=job,
+                        resume=resume,
+                        preferences=preferences,
                         resume_embedding=resume_embedding,
-                        precalculated_similarity=float(similarity or 0.0)
+                        precalculated_similarity=float(similarity or 0.0),
                     )
                     ranked_results.append(result)
                     await self._upsert_job_match(
@@ -299,10 +294,18 @@ class MatchRankService:
         ):
             return False, "location_mismatch"
 
-        if preferences.salary_min is not None and job.salary_max is not None and job.salary_max < preferences.salary_min:
+        if (
+            preferences.salary_min is not None
+            and job.salary_max is not None
+            and job.salary_max < preferences.salary_min
+        ):
             return False, "salary_below_min"
 
-        if preferences.salary_max is not None and job.salary_min is not None and job.salary_min > preferences.salary_max:
+        if (
+            preferences.salary_max is not None
+            and job.salary_min is not None
+            and job.salary_min > preferences.salary_max
+        ):
             return False, "salary_above_max"
 
         return True, "passed"
@@ -327,7 +330,7 @@ class MatchRankService:
             semantic_similarity = precalculated_similarity
         else:
             semantic_similarity = self._cosine_similarity(resume_embedding, job.description_embedding)
-            
+
         matched_skills, missing_skills, skills_coverage = self._skills_alignment(job=job, resume=resume)
         seniority_alignment = self._seniority_alignment(job=job, resume=resume, preferences=preferences)
         location_match = self._location_match(job=job, preferences=preferences)
@@ -361,7 +364,9 @@ class MatchRankService:
             salary_alignment=round(salary_alignment, 4),
         )
         recommendation = self._recommendation(match_score)
-        reason = self._build_reason(matched_skills=matched_skills, missing_skills=missing_skills, recommendation=recommendation)
+        reason = self._build_reason(
+            matched_skills=matched_skills, missing_skills=missing_skills, recommendation=recommendation
+        )
 
         item = RankedJobItem(
             job_id=job.id,
@@ -397,7 +402,9 @@ class MatchRankService:
         coverage = len(matched) / max(len(resume.skills.technical), 1)
         return matched, missing, min(max(coverage, 0.0), 1.0)
 
-    def _seniority_alignment(self, *, job: Job, resume: ParsedResumeProfile, preferences: SearchPreferencesPayload) -> float:
+    def _seniority_alignment(
+        self, *, job: Job, resume: ParsedResumeProfile, preferences: SearchPreferencesPayload
+    ) -> float:
         desired_level = preferences.seniority_level or resume.seniority_level
         desired_rank = _seniority_rank(desired_level)
         job_rank = _seniority_rank(job.title)
@@ -423,7 +430,9 @@ class MatchRankService:
 
         return 0.5
 
-    def _salary_alignment(self, *, job: Job, resume: ParsedResumeProfile, preferences: SearchPreferencesPayload) -> float:
+    def _salary_alignment(
+        self, *, job: Job, resume: ParsedResumeProfile, preferences: SearchPreferencesPayload
+    ) -> float:
         target_min = preferences.salary_min or resume.inferred_salary_range.min
         target_max = preferences.salary_max or resume.inferred_salary_range.max
         if job.salary_min is None or job.salary_max is None:
@@ -478,7 +487,9 @@ class MatchRankService:
         if normalized_job_location in normalized_preferred_locations:
             return True
 
-        if _contains_remote_keyword(job.location) and any(_is_remote_preference(location) for location in preferred_locations):
+        if _contains_remote_keyword(job.location) and any(
+            _is_remote_preference(location) for location in preferred_locations
+        ):
             return True
 
         return any(

@@ -175,7 +175,9 @@ async def approve_pipeline(
         run_id=run_id,
         approvals_count=len(payload.application_ids),
     )
-    data = await service.approve(session=session, user=current_user, run_id=run_id, application_ids=payload.application_ids)
+    data = await service.approve(
+        session=session, user=current_user, run_id=run_id, application_ids=payload.application_ids
+    )
     logger.info(
         "pipeline.approve.accepted",
         user_id=current_user.id,
@@ -196,7 +198,9 @@ async def reject_pipeline(
     encryption_service=Depends(get_encryption_service),
 ) -> Envelope[RejectData]:
     service = _build_pipeline_service(request, encryption_service)
-    data = await service.reject(session=session, user=current_user, run_id=run_id, application_ids=payload.application_ids)
+    data = await service.reject(
+        session=session, user=current_user, run_id=run_id, application_ids=payload.application_ids
+    )
     return Envelope(success=True, data=data, error=None)
 
 

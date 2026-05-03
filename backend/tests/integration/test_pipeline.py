@@ -110,9 +110,7 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         assert edit_response.json()["data"]["cover_letter_version"] == 3
         assert edit_response.json()["data"]["tone"] == "edited"
 
-        ab_test_response = client.post(
-            f"/api/v1/pipeline/{run_id}/application/{application_id}/cover-letter/ab-test"
-        )
+        ab_test_response = client.post(f"/api/v1/pipeline/{run_id}/application/{application_id}/cover-letter/ab-test")
 
         assert ab_test_response.status_code == 200
         ab_test_payload = ab_test_response.json()["data"]
@@ -120,7 +118,9 @@ def test_pipeline_start_pause_edit_approve_and_complete(tmp_path: Path) -> None:
         assert ab_test_payload["cover_letter_version"] == 3
         assert len(ab_test_payload["variants"]) == 2
         assert {variant["variant_id"] for variant in ab_test_payload["variants"]} == {"A", "B"}
-        assert ab_test_payload["variants"][0]["cover_letter_text"] != ab_test_payload["variants"][1]["cover_letter_text"]
+        assert (
+            ab_test_payload["variants"][0]["cover_letter_text"] != ab_test_payload["variants"][1]["cover_letter_text"]
+        )
         assert all(variant["word_count"] <= 250 for variant in ab_test_payload["variants"])
 
         select_variant_response = client.post(
@@ -271,7 +271,9 @@ def test_pipeline_approve_recovers_from_invalid_snapshot(tmp_path: Path) -> None
         assert results_response.status_code == 200
         results_payload = results_response.json()["data"]
         application_id = next(
-            application["id"] for application in results_payload["applications"] if application["status"] == "pending_approval"
+            application["id"]
+            for application in results_payload["applications"]
+            if application["status"] == "pending_approval"
         )
 
         approve_response = client.post(

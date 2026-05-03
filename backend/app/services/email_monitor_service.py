@@ -106,7 +106,9 @@ class EmailMonitorService:
             jobs_by_id = {
                 job.id: job
                 for job in list(
-                    await session.scalars(select(Job).where(Job.id.in_([application.job_id for application in applications])))
+                    await session.scalars(
+                        select(Job).where(Job.id.in_([application.job_id for application in applications]))
+                    )
                 )
             }
             notifications: list[NotificationItem] = []
@@ -177,7 +179,9 @@ class EmailMonitorService:
                 monitor.last_checked_at = datetime.now(UTC)
                 monitor.is_resolved = classification in {"rejection", "offer"}
 
-                matched_application.status = _application_status_for_classification(classification, matched_application.status)
+                matched_application.status = _application_status_for_classification(
+                    classification, matched_application.status
+                )
 
                 notifications.append(
                     NotificationItem(
@@ -262,13 +266,11 @@ class EmailMonitorService:
         applications = list(await session.scalars(select(Application).where(Application.user_id == user.id)))
         if not applications:
             return PollResult(polled=True, processed_messages=0, notifications=NotificationsData(items=[]))
-        jobs = list(await session.scalars(select(Job).where(Job.id.in_([application.job_id for application in applications]))))
+        jobs = list(
+            await session.scalars(select(Job).where(Job.id.in_([application.job_id for application in applications])))
+        )
         domains = sorted(
-            {
-                job.company_domain.lower().strip()
-                for job in jobs
-                if job.company_domain and job.company_domain.strip()
-            }
+            {job.company_domain.lower().strip() for job in jobs if job.company_domain and job.company_domain.strip()}
         )
         query = self._build_query(
             company_domains=domains,
@@ -356,7 +358,9 @@ class EmailMonitorService:
         log_debug(logger, "email_monitor.get_notifications_event.start", user_id=user.id)
         data = await self.get_notifications(session=session, user=user)
         payload = f"event: notifications\ndata: {json.dumps(data.model_dump(mode='json'))}\n\n"
-        log_debug(logger, "email_monitor.get_notifications_event.complete", user_id=user.id, payload_length=len(payload))
+        log_debug(
+            logger, "email_monitor.get_notifications_event.complete", user_id=user.id, payload_length=len(payload)
+        )
         return payload
 
     async def stream_notifications_events(
@@ -404,11 +408,7 @@ class EmailMonitorService:
         )
         try:
             payload = client.generate_json(
-                prompt=(
-                    "Classify the following recruiter email.\n"
-                    f"Subject: {subject}\n"
-                    f"Body: {body}\n"
-                ),
+                prompt=(f"Classify the following recruiter email.\nSubject: {subject}\nBody: {body}\n"),
                 system_instruction=_CLASSIFICATION_SYSTEM_INSTRUCTION,
                 schema=_CLASSIFICATION_SCHEMA,
                 temperature=0.0,
