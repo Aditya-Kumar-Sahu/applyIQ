@@ -12,6 +12,7 @@ from app.core.constants import (
     GEMINI_DEFAULT_EMBEDDING_MODEL,
 )
 from app.core.logging_safety import log_debug, log_exception, text_snapshot
+from app.core.resilience import circuit_breaker
 
 
 logger = structlog.get_logger(__name__)
@@ -153,6 +154,7 @@ class GeminiClient:
         log_debug(logger, "gemini.generate_json.complete", model=model_name, keys=list(parsed.keys()))
         return parsed
 
+    @circuit_breaker(name="gemini_api", failure_threshold=3, recovery_timeout=60.0)
     def _post_json(self, *, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         if not self._api_key:
             raise GeminiApiError("Gemini API key is not configured")

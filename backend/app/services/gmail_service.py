@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.logging_safety import log_debug, log_exception
 from app.models.credential_vault import CredentialVault
+from app.core.resilience import circuit_breaker
 
 import structlog
 
@@ -287,6 +288,7 @@ class GmailService:
     async def get_profile(self, *, access_token: str) -> dict[str, Any]:
         return await self._gmail_get(access_token=access_token, path="/profile")
 
+    @circuit_breaker(name="gmail_api", failure_threshold=3, recovery_timeout=60.0)
     async def _gmail_get(
         self,
         *,
@@ -302,6 +304,7 @@ class GmailService:
             payload = response.json()
             return payload if isinstance(payload, dict) else {}
 
+    @circuit_breaker(name="gmail_api", failure_threshold=3, recovery_timeout=60.0)
     async def _token_request(self, *, payload: dict[str, str]) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(self._GOOGLE_TOKEN_URL, data=payload)
