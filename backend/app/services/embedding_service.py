@@ -25,7 +25,9 @@ class EmbeddingService:
         resolved_settings = settings or get_settings()
         self._dimensions = dimensions
         self._gemini_client = gemini_client or GeminiClient(
-            api_key=resolved_settings.gemini_api_key,
+            api_key=(
+                resolved_settings.gemini_api_key.get_secret_value() if resolved_settings.gemini_api_key else None
+            ),
             chat_model=resolved_settings.gemini_chat_model,
             embedding_model=resolved_settings.gemini_embedding_model,
         )

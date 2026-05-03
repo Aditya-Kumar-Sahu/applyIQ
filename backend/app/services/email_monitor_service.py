@@ -402,7 +402,7 @@ class EmailMonitorService:
 
     def _classify_message_with_gemini(self, subject: str, body: str, settings: Settings) -> str:
         client = GeminiClient(
-            api_key=settings.gemini_api_key,
+            api_key=settings.gemini_api_key.get_secret_value(),
             chat_model=settings.gemini_chat_model,
             embedding_model=settings.gemini_embedding_model,
         )

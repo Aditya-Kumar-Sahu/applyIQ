@@ -28,7 +28,7 @@ class ApifyLinkedInScraper(BaseJobScraper):
             return []
 
         try:
-            jobs = await self._execute_apify_run(query, settings.apify_api_token)
+            jobs = await self._execute_apify_run(query, settings.apify_api_token.get_secret_value())
             return jobs[: query.limit_per_source]
         except Exception as e:
             logger.error("scraper.apify.error", error=str(e), source=self.source_name)

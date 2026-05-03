@@ -147,7 +147,7 @@ class HealthService:
             return NOT_CONFIGURED_STATUS
         is_up = await self._probe_url(
             "https://api.apify.com/v2/acts",
-            headers={"Authorization": f"Bearer {self._settings.apify_api_token}"},
+            headers={"Authorization": f"Bearer {self._settings.apify_api_token.get_secret_value()}"},
         )
         return UP_STATUS if is_up else DOWN_STATUS
 
@@ -156,7 +156,12 @@ class HealthService:
             return NOT_CONFIGURED_STATUS
         is_up = await self._probe_url(
             "https://serpapi.com/search",
-            params={"engine": "google_jobs", "q": "ping", "api_key": self._settings.serpapi_api_key, "num": 1},
+            params={
+                "engine": "google_jobs",
+                "q": "ping",
+                "api_key": self._settings.serpapi_api_key.get_secret_value(),
+                "num": 1,
+            },
         )
         return UP_STATUS if is_up else DOWN_STATUS
 
@@ -172,6 +177,6 @@ class HealthService:
             return NOT_CONFIGURED_STATUS
         is_up = await self._probe_url(
             "https://generativelanguage.googleapis.com/v1beta/models",
-            params={"key": self._settings.gemini_api_key, "pageSize": 1},
+            params={"key": self._settings.gemini_api_key.get_secret_value(), "pageSize": 1},
         )
         return UP_STATUS if is_up else DOWN_STATUS

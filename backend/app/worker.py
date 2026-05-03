@@ -21,8 +21,8 @@ configure_logging(
 
 celery_app = Celery(
     "applyiq",
-    broker=settings.celery_broker_url,
-    backend=settings.celery_result_backend,
+    broker=settings.celery_broker_url.get_secret_value(),
+    backend=settings.celery_result_backend.get_secret_value(),
 )
 
 celery_app.conf.update(

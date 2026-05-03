@@ -59,11 +59,11 @@ def _build_pipeline_user(user: User) -> SimpleNamespace:
 async def _run_start(payload: dict) -> dict:
     run_id = str(payload["run_id"])
     settings = get_settings()
-    database = DatabaseManager(settings.database_url)
-    redis_manager = RedisManager(settings.redis_url)
+    database = DatabaseManager(settings.database_url.get_secret_value())
+    redis_manager = RedisManager(settings.redis_url.get_secret_value())
     encryption_service = EncryptionService(
-        fernet_secret_key=settings.fernet_secret_key,
-        encryption_pepper=settings.encryption_pepper,
+        fernet_secret_key=settings.fernet_secret_key.get_secret_value() if settings.fernet_secret_key else None,
+        encryption_pepper=settings.encryption_pepper.get_secret_value() if settings.encryption_pepper else None,
     )
     cover_letter_service = CoverLetterService()
     graph_runner = PipelineGraphRunner(
@@ -123,11 +123,11 @@ async def _run_start(payload: dict) -> dict:
 async def _run_resume(payload: dict) -> dict:
     run_id = str(payload["run_id"])
     settings = get_settings()
-    database = DatabaseManager(settings.database_url)
-    redis_manager = RedisManager(settings.redis_url)
+    database = DatabaseManager(settings.database_url.get_secret_value())
+    redis_manager = RedisManager(settings.redis_url.get_secret_value())
     encryption_service = EncryptionService(
-        fernet_secret_key=settings.fernet_secret_key,
-        encryption_pepper=settings.encryption_pepper,
+        fernet_secret_key=settings.fernet_secret_key.get_secret_value() if settings.fernet_secret_key else None,
+        encryption_pepper=settings.encryption_pepper.get_secret_value() if settings.encryption_pepper else None,
     )
     cover_letter_service = CoverLetterService()
     graph_runner = PipelineGraphRunner(
@@ -196,7 +196,7 @@ def run_pipeline_resume_task(payload: dict) -> dict:
 
 async def _sweep_stale():
     settings = get_settings()
-    database = DatabaseManager(settings.database_url)
+    database = DatabaseManager(settings.database_url.get_secret_value())
 
     try:
         from datetime import datetime, timedelta

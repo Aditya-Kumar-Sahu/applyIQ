@@ -32,7 +32,7 @@ async def main():
         
     # 2. Test Real API Response & Normalization
     print("\n2. Testing Real Data Fetch and Normalization (Requires apify_api_token)")
-    if not scraper._settings.apify_api_token:
+    if not scraper._settings or not scraper._settings.apify_api_token:
         print("  [SKIPPED] No apify_api_token in settings")
         return
         

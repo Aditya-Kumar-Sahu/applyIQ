@@ -31,7 +31,7 @@ async def main():
         
     # 2. Test Real API Response & Normalization
     print("\n2. Testing Real Data Fetch and Normalization (Requires serpapi_api_key)")
-    if not scraper._settings.serpapi_api_key:
+    if not scraper._settings or not scraper._settings.serpapi_api_key:
         print("  [SKIPPED] No serpapi_api_key in settings")
         return
         

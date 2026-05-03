@@ -13,8 +13,8 @@ from app.worker import celery_app
 
 async def verify_health():
     settings = get_settings()
-    db = DatabaseManager(settings.database_url)
-    redis = RedisManager(settings.redis_url)
+    db = DatabaseManager(settings.database_url.get_secret_value())
+    redis = RedisManager(settings.redis_url.get_secret_value())
     
     health_service = HealthService(
         settings=settings,

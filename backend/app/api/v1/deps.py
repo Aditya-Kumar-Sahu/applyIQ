@@ -24,7 +24,8 @@ async def _load_current_user(*, request: Request, session: AsyncSession) -> User
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     try:
-        payload = decode_token(token, secret_key=settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+        jwt_key = settings.jwt_secret_key.get_secret_value() if settings.jwt_secret_key else None
+        payload = decode_token(token, secret_key=jwt_key, algorithm=settings.jwt_algorithm)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 
@@ -50,8 +51,8 @@ async def _load_current_user(*, request: Request, session: AsyncSession) -> User
 def get_encryption_service(request: Request) -> EncryptionService:
     settings = request.app.state.settings
     return EncryptionService(
-        fernet_secret_key=settings.fernet_secret_key,
-        encryption_pepper=settings.encryption_pepper,
+        fernet_secret_key=settings.fernet_secret_key.get_secret_value() if settings.fernet_secret_key else None,
+        encryption_pepper=settings.encryption_pepper.get_secret_value() if settings.encryption_pepper else None,
     )
 
 

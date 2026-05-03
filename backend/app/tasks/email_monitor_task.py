@@ -13,10 +13,10 @@ from app.worker import celery_app
 
 async def _poll_all_users() -> dict:
     settings = get_settings()
-    database = DatabaseManager(settings.database_url)
+    database = DatabaseManager(settings.database_url.get_secret_value())
     encryption_service = EncryptionService(
-        fernet_secret_key=settings.fernet_secret_key,
-        encryption_pepper=settings.encryption_pepper,
+        fernet_secret_key=settings.fernet_secret_key.get_secret_value() if settings.fernet_secret_key else None,
+        encryption_pepper=settings.encryption_pepper.get_secret_value() if settings.encryption_pepper else None,
     )
     service = EmailMonitorService()
     total_processed = 0

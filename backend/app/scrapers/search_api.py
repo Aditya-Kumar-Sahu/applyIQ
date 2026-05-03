@@ -29,7 +29,7 @@ class SerpApiGoogleJobsScraper(BaseJobScraper):
             return []
 
         try:
-            return await self._execute_serpapi_run(query, settings.serpapi_api_key)
+            return await self._execute_serpapi_run(query, settings.serpapi_api_key.get_secret_value())
         except Exception as error:
             logger.error("scraper.serpapi.error", error=str(error), source=self.source_name)
             raise RuntimeError(f"{self.source_name} scraping failed") from error

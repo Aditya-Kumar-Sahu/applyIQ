@@ -1,5 +1,6 @@
 .env
 .env.local
+.secrets.json
 .venv/
 __pycache__/
 *.pyc

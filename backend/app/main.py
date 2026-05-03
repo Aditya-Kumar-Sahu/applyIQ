@@ -38,8 +38,8 @@ def create_app(
     )
     configure_observability(resolved_settings)
     logger = structlog.get_logger(__name__)
-    database = DatabaseManager(resolved_settings.database_url)
-    redis = RedisManager(resolved_settings.redis_url)
+    database = DatabaseManager(resolved_settings.database_url.get_secret_value())
+    redis = RedisManager(resolved_settings.redis_url.get_secret_value())
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

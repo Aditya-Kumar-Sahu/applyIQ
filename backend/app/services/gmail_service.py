@@ -31,7 +31,7 @@ class GmailService:
         state_token = self._build_state_token(user_id=user_id, settings=settings)
         query = urlencode(
             {
-                "client_id": settings.google_client_id,
+                "client_id": settings.google_client_id.get_secret_value() if settings.google_client_id else None,
                 "redirect_uri": settings.google_redirect_uri,
                 "response_type": "code",
                 "scope": settings.gmail_oauth_scope,
@@ -45,7 +45,11 @@ class GmailService:
 
     def validate_state(self, *, state: str, settings: Settings) -> str:
         try:
-            payload = jwt.decode(state, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+            payload = jwt.decode(
+                state,
+                settings.jwt_secret_key.get_secret_value() if settings.jwt_secret_key else "",
+                algorithms=[settings.jwt_algorithm],
+            )
         except Exception as error:
             raise ValueError("Invalid OAuth state") from error
 
@@ -66,8 +70,8 @@ class GmailService:
         self._assert_oauth_configured(settings)
         payload = {
             "code": code,
-            "client_id": settings.google_client_id,
-            "client_secret": settings.google_client_secret,
+            "client_id": settings.google_client_id.get_secret_value() if settings.google_client_id else None,
+            "client_secret": settings.google_client_secret.get_secret_value() if settings.google_client_secret else None,
             "redirect_uri": settings.google_redirect_uri,
             "grant_type": "authorization_code",
         }
@@ -101,8 +105,8 @@ class GmailService:
 
         self._assert_oauth_configured(settings)
         payload = {
-            "client_id": settings.google_client_id,
-            "client_secret": settings.google_client_secret,
+            "client_id": settings.google_client_id.get_secret_value() if settings.google_client_id else None,
+            "client_secret": settings.google_client_secret.get_secret_value() if settings.google_client_secret else None,
             "refresh_token": refresh_token,
             "grant_type": "refresh_token",
         }
@@ -343,7 +347,11 @@ class GmailService:
             "iat": int(now.timestamp()),
             "exp": int((now + timedelta(minutes=15)).timestamp()),
         }
-        return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+        return jwt.encode(
+            payload,
+            settings.jwt_secret_key.get_secret_value() if settings.jwt_secret_key else "",
+            algorithm=settings.jwt_algorithm,
+        )
 
     def _assert_oauth_configured(self, settings: Settings) -> None:
         missing = [

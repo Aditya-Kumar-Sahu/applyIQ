@@ -39,17 +39,18 @@ def _build_auth_user(user: User) -> AuthUser:
 
 def _issue_tokens(request: Request, user_id: str) -> tuple[str, str]:
     settings = request.app.state.settings
+    jwt_key = settings.jwt_secret_key.get_secret_value() if settings.jwt_secret_key else None
     access_token = create_token(
         subject=user_id,
         token_type="access",
-        secret_key=settings.jwt_secret_key,
+        secret_key=jwt_key,
         algorithm=settings.jwt_algorithm,
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
     refresh_token = create_token(
         subject=user_id,
         token_type="refresh",
-        secret_key=settings.jwt_secret_key,
+        secret_key=jwt_key,
         algorithm=settings.jwt_algorithm,
         expires_delta=timedelta(days=settings.refresh_token_expire_days),
     )
@@ -262,7 +263,7 @@ async def refresh_token(
     try:
         payload = decode_token(
             refresh_token,
-            secret_key=settings.jwt_secret_key,
+            secret_key=settings.jwt_secret_key.get_secret_value() if settings.jwt_secret_key else None,
             algorithm=settings.jwt_algorithm,
         )
     except Exception as exc:
@@ -333,7 +334,7 @@ async def logout(
         try:
             payload = decode_token(
                 refresh_token,
-                secret_key=settings.jwt_secret_key,
+                secret_key=settings.jwt_secret_key.get_secret_value() if settings.jwt_secret_key else None,
                 algorithm=settings.jwt_algorithm,
             )
         except Exception:

@@ -15,7 +15,7 @@ from app.worker import celery_app
 async def _run_scrape(payload: dict) -> dict:
     request = ScrapeTestRequest.model_validate(payload)
     settings = get_settings()
-    database = DatabaseManager(settings.database_url)
+    database = DatabaseManager(settings.database_url.get_secret_value())
     service = ScrapeService(
         embedding_service=EmbeddingService(),
         deduplicator=JobDeduplicator(),

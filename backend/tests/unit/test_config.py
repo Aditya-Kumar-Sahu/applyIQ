@@ -28,6 +28,7 @@ def test_settings_defaults() -> None:
     assert settings.fernet_secret_key is None
     assert settings.encryption_pepper is None
     assert settings.gemini_api_key is None
+    assert settings.database_url.get_secret_value() == "postgresql+asyncpg://applyiq:password@db:5432/applyiq"
     assert settings.gemini_chat_model == "gemini-2.0-flash"
     assert settings.gemini_embedding_model == "text-embedding-004"
 

@@ -13,7 +13,7 @@ from pgvector.sqlalchemy import Vector
 
 async def verify_pgvector():
     settings = get_settings()
-    db_manager = DatabaseManager(settings.database_url)
+    db_manager = DatabaseManager(settings.database_url.get_secret_value())
     
     async with db_manager.session() as session:
         # 1. Check if we can query Job with embedding
