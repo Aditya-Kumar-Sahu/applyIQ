@@ -7,6 +7,7 @@ from typing import Any
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.routes.health import router as health_router
 from app.api.v1.router import router as api_v1_router
@@ -69,6 +70,9 @@ def create_app(
         allow_headers=["*"],
     )
     register_exception_handlers(app)
+
+    # Prometheus Instrumentation (Do not expose automatically)
+    Instrumentator().instrument(app)
 
     if health_reporter is None:
         app.state.health_reporter = app.state.health_service.get_report

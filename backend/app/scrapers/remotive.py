@@ -20,7 +20,7 @@ class RemotiveScraper(BaseJobScraper):
         self._settings = settings
 
     @circuit_breaker(name="remotive_scraper", failure_threshold=3, recovery_timeout=60.0, fallback=lambda *a, **kw: [])
-    async def fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
+    async def _fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
         params = {"search": query.target_role, "limit": query.limit_per_source}
         if query.location:
             params["location"] = query.location
