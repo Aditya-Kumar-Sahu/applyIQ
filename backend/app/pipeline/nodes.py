@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import inspect, select
+import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.application import Application
@@ -223,7 +224,8 @@ async def auto_apply_node(
                 site_names=[job.source, auto_apply_service.detect_ats(job)],
                 encryption_service=encryption_service,
             )
-            result = auto_apply_service.apply(
+            result = await asyncio.to_thread(
+                auto_apply_service.apply,
                 application=application,
                 job=job,
                 has_credentials=credential is not None,
