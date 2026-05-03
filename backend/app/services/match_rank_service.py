@@ -116,20 +116,44 @@ class MatchRankService:
             query_length=len(query),
         )
         try:
-            ranked = await self._rank_jobs(session=session, user=user)
             query_embedding = self._embedding_service.embed_text(query)
-            sorted_ranked = sorted(
-                ranked,
-                key=lambda result: self._cosine_similarity(query_embedding, result.job.description_embedding),
-                reverse=True,
+            
+            # Use pgvector cosine_distance for direct DB-level semantic search
+            stmt = (
+                select(Job)
+                .where(Job.is_active.is_(True))
+                .order_by(Job.description_embedding.cosine_distance(query_embedding))
+                .limit(50)
             )
+            jobs = list(await session.scalars(stmt))
+            
+            # Now rank these top 50 semantic matches using the full scoring logic
+            # This is much faster than ranking ALL jobs in Python
+            resume_profile = user.resume_profile
+            if not resume_profile:
+                return JobsListData(total=0, items=[])
+                
+            resume = ParsedResumeProfile.model_validate(resume_profile.parsed_profile)
+            preferences = self._serialize_preferences(user)
+            resume_emb = resume_profile.resume_embedding or resume_summary_embedding(resume)
+            
+            ranked_results = []
+            for job in jobs:
+                result = self._score_job(
+                    job=job, 
+                    resume=resume, 
+                    preferences=preferences, 
+                    resume_embedding=resume_emb
+                )
+                ranked_results.append(result.item)
+
             log_debug(
                 logger,
                 "match_rank.semantic_search.complete",
                 user_id=user_id,
-                total_ranked=len(sorted_ranked),
+                returned_count=len(ranked_results),
             )
-            return JobsListData(total=len(sorted_ranked), items=[result.item for result in sorted_ranked])
+            return JobsListData(total=len(ranked_results), items=ranked_results)
         except Exception as error:
             log_exception(
                 logger,
@@ -158,8 +182,13 @@ class MatchRankService:
             return []
 
         try:
-            resume = ParsedResumeProfile.model_validate(user.resume_profile.parsed_profile)
+            resume_profile = user.resume_profile
+            resume = ParsedResumeProfile.model_validate(resume_profile.parsed_profile)
             preferences = self._serialize_preferences(user)
+            
+            resume_embedding = resume_profile.resume_embedding
+            if not resume_embedding:
+                resume_embedding = resume_summary_embedding(resume)
 
             from app.models.application import Application
 
@@ -167,11 +196,23 @@ class MatchRankService:
                 (await session.scalars(select(Application.job_id).where(Application.user_id == user_id))).all()
             )
 
-            job_query = select(Job).where(Job.is_active.is_(True))
+            # Optimizing Job Query: Select similarity as part of the query
+            similarity_col = (1 - Job.description_embedding.cosine_distance(resume_embedding)).label("similarity")
+            job_query = select(Job, similarity_col).where(Job.is_active.is_(True))
+            
             if apply_urls:
                 job_query = job_query.where(Job.apply_url.in_(apply_urls))
-            jobs = list(await session.scalars(job_query.order_by(Job.scraped_at.desc())))
-            job_ids = [job.id for job in jobs]
+            
+            # If no specific URLs, limit to top 100 by similarity to avoid massive Python loops
+            if not apply_urls:
+                job_query = job_query.order_by(Job.description_embedding.cosine_distance(resume_embedding)).limit(100)
+            else:
+                job_query = job_query.order_by(Job.scraped_at.desc())
+
+            results = await session.execute(job_query)
+            job_rows = results.all() # list of (Job, similarity)
+            
+            job_ids = [row[0].id for row in job_rows]
             existing_matches_by_job_id: dict[str, JobMatch] = {}
             if job_ids:
                 existing_matches = list(
@@ -183,46 +224,32 @@ class MatchRankService:
                     )
                 )
                 existing_matches_by_job_id = {match.job_id: match for match in existing_matches}
+            
             log_debug(
                 logger,
                 "match_rank.rank_jobs.loaded_inputs",
                 user_id=user_id,
-                total_jobs=len(jobs),
-                existing_matches=len(existing_matches_by_job_id),
-                already_seen_jobs=len(seen_job_ids),
-                preference_locations_count=len(preferences.preferred_locations),
-                preference_excluded_companies_count=len(preferences.excluded_companies),
+                total_jobs=len(job_rows),
             )
-
-            filtered_jobs: list[Job] = []
-            filter_reasons: dict[str, int] = defaultdict(int)
-            for job in jobs:
-                if job.id in seen_job_ids:
-                    filter_reasons["already_applied"] += 1
-                    continue
-                allowed, reason = self._passes_filters_with_reason(job=job, preferences=preferences)
-                if not allowed:
-                    filter_reasons[reason] += 1
-                    continue
-                filtered_jobs.append(job)
-
-            log_debug(
-                logger,
-                "match_rank.rank_jobs.filtered",
-                user_id=user_id,
-                kept_jobs=len(filtered_jobs),
-                dropped_jobs=len(jobs) - len(filtered_jobs),
-                filter_reasons=dict(filter_reasons),
-            )
-
-            resume_embedding = user.resume_profile.resume_embedding
-            if not resume_embedding:
-                resume_embedding = resume_summary_embedding(resume)
 
             ranked_results: list[RankedJobResult] = []
-            for index, job in enumerate(filtered_jobs, start=1):
+            for job, similarity in job_rows:
+                if job.id in seen_job_ids:
+                    continue
+                
+                allowed, _ = self._passes_filters_with_reason(job=job, preferences=preferences)
+                if not allowed:
+                    continue
+
                 try:
-                    result = self._score_job(job=job, resume=resume, preferences=preferences, resume_embedding=resume_embedding)
+                    # Pass pre-calculated similarity to avoid redundant Python math
+                    result = self._score_job(
+                        job=job, 
+                        resume=resume, 
+                        preferences=preferences, 
+                        resume_embedding=resume_embedding,
+                        precalculated_similarity=float(similarity or 0.0)
+                    )
                     ranked_results.append(result)
                     await self._upsert_job_match(
                         session=session,
@@ -230,36 +257,12 @@ class MatchRankService:
                         result=result,
                         existing=existing_matches_by_job_id.get(job.id),
                     )
-                    log_debug(
-                        logger,
-                        "match_rank.rank_jobs.scored_job",
-                        user_id=user_id,
-                        job_id=job.id,
-                        ordinal=index,
-                        total=len(filtered_jobs),
-                        match_score=result.item.match_score,
-                        recommendation=result.item.recommendation,
-                    )
                 except Exception as error:
-                    log_exception(
-                        logger,
-                        "match_rank.rank_jobs.score_failed",
-                        error,
-                        user_id=user_id,
-                        job_id=job.id,
-                        job_title=job.title,
-                        company_name=job.company_name,
-                    )
+                    log_exception(logger, "match_rank.rank_jobs.score_failed", error, job_id=job.id)
                     raise
 
             await session.commit()
             ranked_results.sort(key=lambda result: result.item.match_score, reverse=True)
-            log_debug(
-                logger,
-                "match_rank.rank_jobs.complete",
-                user_id=user_id,
-                ranked_count=len(ranked_results),
-            )
             return ranked_results
         except Exception as error:
             log_exception(logger, "match_rank.rank_jobs.failed", error, user_id=user_id)
@@ -314,6 +317,7 @@ class MatchRankService:
         resume: ParsedResumeProfile,
         preferences: SearchPreferencesPayload,
         resume_embedding: list[float],
+        precalculated_similarity: float | None = None,
     ) -> RankedJobResult:
         log_debug(
             logger,
@@ -322,7 +326,11 @@ class MatchRankService:
             job_title=job.title,
             company_name=job.company_name,
         )
-        semantic_similarity = self._cosine_similarity(resume_embedding, job.description_embedding)
+        if precalculated_similarity is not None:
+            semantic_similarity = precalculated_similarity
+        else:
+            semantic_similarity = self._cosine_similarity(resume_embedding, job.description_embedding)
+            
         matched_skills, missing_skills, skills_coverage = self._skills_alignment(job=job, resume=resume)
         seniority_alignment = self._seniority_alignment(job=job, resume=resume, preferences=preferences)
         location_match = self._location_match(job=job, preferences=preferences)

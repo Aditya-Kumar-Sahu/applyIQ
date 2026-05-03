@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.types import JSON
+from pgvector.sqlalchemy import Vector
 
 from app.models.base import Base
 
@@ -25,7 +25,7 @@ class Job(Base):
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     description_text: Mapped[str] = mapped_column(Text)
-    description_embedding: Mapped[list[float]] = mapped_column(JSON, default=list)
+    description_embedding: Mapped[list[float]] = mapped_column(Vector(3072))
     apply_url: Mapped[str] = mapped_column(String(500))
     posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     scraped_at: Mapped[datetime] = mapped_column(

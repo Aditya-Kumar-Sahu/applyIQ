@@ -23,6 +23,4 @@ logs/
 .github/agents/
 celerybeat-schedule**
 backend/celerybeat-schedule**
-PLAN.md
-UI_plan.md
-designs/
+PRODUCTION_GAPS_AND_PLAN.md
