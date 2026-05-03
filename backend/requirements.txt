@@ -19,6 +19,8 @@ playwright==1.55.0
 playwright-stealth==2.0.0
 pgvector==0.3.6
 redis==6.4.0
+ruff==0.9.4
+pyright==1.1.393
 sqlalchemy==2.0.43
 sentry-sdk[fastapi]==2.35.0
 structlog==25.4.0

@@ -4,13 +4,13 @@ import asyncio
 import functools
 import threading
 import time
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 import structlog
 
 from app.core.logging_safety import log_debug
-
 
 logger = structlog.get_logger(__name__)
 

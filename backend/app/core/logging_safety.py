@@ -3,7 +3,6 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Any
 
-
 _REDACTED = "[REDACTED]"
 _SENSITIVE_KEYWORDS = {
     "password",

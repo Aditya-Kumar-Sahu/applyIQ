@@ -11,7 +11,6 @@ from app.core.constants import GEMINI_DEFAULT_EMBEDDING_DIMENSIONS
 from app.core.logging_safety import log_debug, log_exception, text_snapshot
 from app.services.gemini_client import GeminiApiError, GeminiClient
 
-
 logger = structlog.get_logger(__name__)
 
 

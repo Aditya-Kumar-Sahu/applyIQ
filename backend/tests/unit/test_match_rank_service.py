@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -94,7 +94,7 @@ def test_ranked_jobs_can_be_scoped_to_fresh_scrape_batch(tmp_path: Path) -> None
             description_text="Build ML systems with Python and FastAPI.",
             description_embedding=[0.2, 0.3, 0.4],
             apply_url="https://jobs.example.ai/1",
-            scraped_at=datetime.now(timezone.utc),
+            scraped_at=datetime.now(UTC),
         )
         job_two = Job(
             id="job-2",
@@ -110,7 +110,7 @@ def test_ranked_jobs_can_be_scoped_to_fresh_scrape_batch(tmp_path: Path) -> None
             description_text="Build data systems with Python and SQL.",
             description_embedding=[0.1, 0.2, 0.3],
             apply_url="https://jobs.example.ai/2",
-            scraped_at=datetime.now(timezone.utc),
+            scraped_at=datetime.now(UTC),
         )
 
         async with session_factory() as session:
@@ -214,7 +214,7 @@ def test_ranked_jobs_update_existing_matches_without_duplicate_inserts(tmp_path:
             description_text="Build ML systems with Python and FastAPI.",
             description_embedding=[0.2, 0.3, 0.4],
             apply_url="https://jobs.example.ai/1",
-            scraped_at=datetime.now(timezone.utc),
+            scraped_at=datetime.now(UTC),
         )
         job_two = Job(
             id="job-2",
@@ -230,7 +230,7 @@ def test_ranked_jobs_update_existing_matches_without_duplicate_inserts(tmp_path:
             description_text="Build data systems with Python and SQL.",
             description_embedding=[0.1, 0.2, 0.3],
             apply_url="https://jobs.example.ai/2",
-            scraped_at=datetime.now(timezone.utc),
+            scraped_at=datetime.now(UTC),
         )
 
         async with session_factory() as session:

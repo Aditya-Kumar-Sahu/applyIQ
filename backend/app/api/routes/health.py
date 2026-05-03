@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Awaitable, Callable, cast
+from collections.abc import Awaitable, Callable
+from typing import cast
 
 from fastapi import APIRouter, Request, Response, status
 
 from app.core.constants import DEGRADED_STATUS, DOWN_STATUS, HEALTHY_STATUS
 from app.schemas.health import HealthStatus
-
 
 HealthReporter = Callable[[], Awaitable[dict[str, str]]]
 

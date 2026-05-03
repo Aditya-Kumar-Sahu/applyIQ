@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import asyncio
+from datetime import UTC, datetime
 
 from sqlalchemy import inspect, select
-import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.application import Application
@@ -119,7 +119,7 @@ async def approval_gate_node(
         state["current_node"] = "track_applications_node"
         pipeline_run.status = "complete"
         pipeline_run.current_node = "track_applications_node"
-        pipeline_run.completed_at = datetime.now(timezone.utc)
+        pipeline_run.completed_at = datetime.now(UTC)
         pipeline_run.state_snapshot = encryption_service.encrypt_for_user(user_id, _serialize_state(state))
         await session.commit()
         await checkpointer.delete(pipeline_run_id)
@@ -201,7 +201,7 @@ async def auto_apply_node(
     errors = state.setdefault("errors", [])
     for application in applications:
         try:
-            application.approved_at = application.approved_at or datetime.now(timezone.utc)
+            application.approved_at = application.approved_at or datetime.now(UTC)
             job = await session.scalar(select(Job).where(Job.id == application.job_id))
             if job is None:
                 application.status = "failed"
@@ -241,7 +241,7 @@ async def auto_apply_node(
 
             if result.status == "success":
                 application.status = "applied"
-                application.applied_at = datetime.now(timezone.utc)
+                application.applied_at = datetime.now(UTC)
             elif result.status == "manual_required":
                 application.status = "manual_required"
             else:
@@ -297,7 +297,7 @@ async def track_applications_node(
     ]
     pipeline_run.status = "complete"
     pipeline_run.current_node = "track_applications_node"
-    pipeline_run.completed_at = datetime.now(timezone.utc)
+    pipeline_run.completed_at = datetime.now(UTC)
     await session.commit()
 
     state["current_node"] = "track_applications_node"

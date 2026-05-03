@@ -1,22 +1,20 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import json
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
 
 import httpx
 import jwt
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.logging_safety import log_debug, log_exception
-from app.models.credential_vault import CredentialVault
 from app.core.resilience import circuit_breaker
-
-import structlog
-
+from app.models.credential_vault import CredentialVault
 
 logger = structlog.get_logger(__name__)
 
@@ -92,9 +90,9 @@ class GmailService:
             return credentials, False
 
         if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
 
-        if expires_at > datetime.now(timezone.utc) + timedelta(seconds=60):
+        if expires_at > datetime.now(UTC) + timedelta(seconds=60):
             return credentials, False
 
         refresh_token = credentials.get("refresh_token")
@@ -143,7 +141,7 @@ class GmailService:
             user_id,
             json.dumps(credentials, separators=(",", ":"), sort_keys=True),
         )
-        credential_row.last_used_at = datetime.now(timezone.utc)
+        credential_row.last_used_at = datetime.now(UTC)
         await session.commit()
         await session.refresh(credential_row)
         log_debug(logger, "gmail.store_credentials.complete", user_id=user_id)
@@ -174,7 +172,7 @@ class GmailService:
             if current_hint is None:
                 credential_row.encrypted_username = encryption_service.encrypt_for_user(user_id, normalized_hint)
 
-        credential_row.last_used_at = datetime.now(timezone.utc)
+        credential_row.last_used_at = datetime.now(UTC)
         await session.commit()
         await session.refresh(credential_row)
         log_debug(logger, "gmail.touch_credentials.complete", user_id=user_id)
@@ -323,7 +321,7 @@ class GmailService:
         token_type = str(payload.get("token_type") or "Bearer")
         expires_in_raw = payload.get("expires_in")
         expires_in = int(expires_in_raw) if isinstance(expires_in_raw, (int, float, str)) and str(expires_in_raw).isdigit() else 3600
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        expires_at = datetime.now(UTC) + timedelta(seconds=expires_in)
         scope = str(payload.get("scope") or "")
         return {
             "access_token": access_token,
@@ -334,7 +332,7 @@ class GmailService:
         }
 
     def _build_state_token(self, *, user_id: str, settings: Settings) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": user_id,
             "type": "gmail_oauth",

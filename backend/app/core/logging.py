@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
@@ -13,7 +13,7 @@ import structlog
 def _render_with_timestamp_prefix(_: Any, __: str, event_dict: dict[str, Any]) -> str:
     prefix_timestamp = str(event_dict.pop("timestamp", "")).strip()
     if not prefix_timestamp:
-        prefix_timestamp = datetime.now(timezone.utc).isoformat()
+        prefix_timestamp = datetime.now(UTC).isoformat()
     payload = json.dumps(event_dict, ensure_ascii=True)
     return f"{prefix_timestamp} {payload}"
 

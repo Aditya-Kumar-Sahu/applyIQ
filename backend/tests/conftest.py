@@ -5,15 +5,14 @@ from pathlib import Path
 
 import pytest
 
-
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from app.agents.auto_apply.ats.base import BrowserApplyResult
 from app.api.v1.routes import pipeline as pipeline_routes
 from app.api.v1.routes import scrape as scrape_routes
-from app.agents.auto_apply.ats.base import BrowserApplyResult
 from app.services.auto_apply_service import AutoApplyService
 from app.services.scrape_service import ScrapeService as RealScrapeService
 from tests.helpers.scrape_fixtures import build_fixture_scrapers

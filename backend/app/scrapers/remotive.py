@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 import httpx
 import structlog
 
+from app.core.resilience import circuit_breaker
 from app.schemas.jobs import RawJob
 from app.scrapers.base import BaseJobScraper, ScrapeQuery
-from app.core.resilience import circuit_breaker
 
 logger = structlog.get_logger(__name__)
 
@@ -72,7 +73,7 @@ class RemotiveScraper(BaseJobScraper):
                     salary_max=None,
                     description_text=item.get("description", f"{title} at {company_name}"),
                     apply_url=apply_url,
-                    posted_at=datetime.now(timezone.utc),
+                    posted_at=datetime.now(UTC),
                 )
             )
         return jobs

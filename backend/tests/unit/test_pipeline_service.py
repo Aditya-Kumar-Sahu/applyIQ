@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import anyio
 
 from app.core.config import Settings
 from app.schemas.pipeline import PipelineApplicationItem, PipelineResultsData
-from app.services.pipeline_service import PipelineService
 from app.services.cover_letter_service import CoverLetterService
+from app.services.pipeline_service import PipelineService
 
 
 class _FakeDatabase:
@@ -59,8 +59,8 @@ def test_pipeline_status_stream_opens_a_fresh_session_per_poll(monkeypatch) -> N
             jobs_found=1,
             jobs_matched=1,
             applications_submitted=0,
-            started_at=datetime.now(timezone.utc),
-            completed_at=None if status != "complete" else datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
+            completed_at=None if status != "complete" else datetime.now(UTC),
             applications=[
                 PipelineApplicationItem(
                     id="application-1",

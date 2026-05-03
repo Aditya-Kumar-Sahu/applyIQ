@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.api.v1.deps import get_current_user, get_current_user_stream, get_db_session, get_encryption_service
 from app.core.rate_limit import RedisRateLimiter
@@ -32,7 +32,6 @@ from app.services.match_rank_service import MatchRankService
 from app.services.pipeline_service import PipelineService
 from app.services.scrape_service import ScrapeService
 from app.services.vault_service import VaultService
-
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 logger = structlog.get_logger(__name__)

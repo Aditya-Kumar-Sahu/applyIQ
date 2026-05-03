@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from cryptography.fernet import InvalidToken
 import pytest
+from cryptography.fernet import InvalidToken
 
 from app.core.security import EncryptionService, get_password_hash, verify_password
 

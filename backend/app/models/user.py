@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, String
@@ -18,27 +18,27 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
     )
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     subscription_tier: Mapped[str] = mapped_column(String(20), default="free")
 
-    credentials: Mapped[list["CredentialVault"]] = relationship(
+    credentials: Mapped[list[CredentialVault]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    resume_profile: Mapped["ResumeProfile | None"] = relationship(
-        back_populates="user",
-        cascade="all, delete-orphan",
-        uselist=False,
-    )
-    search_preferences: Mapped["SearchPreference | None"] = relationship(
+    resume_profile: Mapped[ResumeProfile | None] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         uselist=False,
     )
-    refresh_token_sessions: Mapped[list["RefreshTokenSession"]] = relationship(
+    search_preferences: Mapped[SearchPreference | None] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    refresh_token_sessions: Mapped[list[RefreshTokenSession]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )

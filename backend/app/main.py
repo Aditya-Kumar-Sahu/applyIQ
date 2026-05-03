@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import Awaitable, Callable
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import structlog
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.health import router as health_router
 from app.api.v1.router import router as api_v1_router
@@ -48,7 +48,7 @@ async def _probe_url(
 
 async def _probe_apify(token: str) -> str:
     is_up = await _probe_url(
-        url=f"https://api.apify.com/v2/acts",
+        url="https://api.apify.com/v2/acts",
         headers={"Authorization": f"Bearer {token}"},
     )
     return UP_STATUS if is_up else DOWN_STATUS

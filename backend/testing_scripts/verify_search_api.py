@@ -1,9 +1,10 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from app.scrapers.search_api import SerpApiGoogleJobsScraper, _parse_posted_at
-from app.scrapers.base import ScrapeQuery
 from app.core.config import get_settings
+from app.scrapers.base import ScrapeQuery
+from app.scrapers.search_api import SerpApiGoogleJobsScraper, _parse_posted_at
+
 
 async def main():
     print("=== Testing SerpAPI Google Jobs Scraper ===")
@@ -24,7 +25,7 @@ async def main():
         parsed = _parse_posted_at(d)
         is_fallback = False
         if d in ("invalid-date-string", None):
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             if abs((now - parsed).total_seconds()) < 60:
                 is_fallback = True
         print(f"  Input: {d!r:25} -> Output: {parsed.isoformat()} (Silent fallback: {is_fallback})")

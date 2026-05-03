@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user, get_db_session, get_encryption_service
@@ -8,7 +8,6 @@ from app.models.user import User
 from app.schemas.common import Envelope
 from app.schemas.vault import CredentialStorePayload, DeleteCredentialData, VaultCredentialItem, VaultCredentialListData
 from app.services.vault_service import VaultService
-
 
 router = APIRouter(prefix="/vault", tags=["vault"])
 

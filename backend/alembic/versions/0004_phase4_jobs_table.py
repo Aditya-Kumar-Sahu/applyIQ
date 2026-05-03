@@ -6,9 +6,9 @@ Create Date: 2026-03-24 13:30:00
 """
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0004_phase4_jobs_table"
 down_revision = "0003_phase3_resume_tables"

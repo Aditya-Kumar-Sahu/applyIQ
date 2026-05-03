@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import importlib
 import os
-from pathlib import Path
 import random
 import re
-from typing import Any, Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
 
 import structlog
 
 from app.agents.auto_apply.ats.base import BrowserApplyResult
 from app.agents.auto_apply.ats.detector import strategy_for_provider
 from app.core.logging_safety import log_debug
-
 
 logger = structlog.get_logger(__name__)
 
@@ -60,16 +60,15 @@ class PlaywrightApplyTool:
         screenshot_urls: list[str],
     ) -> BrowserApplyResult:
         strategy = strategy_for_provider(ats_provider)
-        with self._playwright_session() as playwright:
-            with self.browser_context(playwright) as (_, context):
-                page = self.stealth_page(context)
-                return strategy.apply(
-                    page=page,
-                    tool=self,
-                    application_id=application_id,
-                    job_url=job_url,
-                    screenshot_urls=screenshot_urls,
-                )
+        with self._playwright_session() as playwright, self.browser_context(playwright) as (_, context):
+            page = self.stealth_page(context)
+            return strategy.apply(
+                page=page,
+                tool=self,
+                application_id=application_id,
+                job_url=job_url,
+                screenshot_urls=screenshot_urls,
+            )
 
     @contextmanager
     def _playwright_session(self) -> Iterator[Any]:
@@ -82,7 +81,7 @@ class PlaywrightApplyTool:
             return self._runtime
         try:
             sync_api = importlib.import_module("playwright.sync_api")
-            self._runtime = getattr(sync_api, "sync_playwright")
+            self._runtime = sync_api.sync_playwright
             try:
                 stealth_module = importlib.import_module("playwright_stealth")
                 self._stealth_sync = getattr(stealth_module, "stealth_sync", None)

@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Awaitable, Callable
 from time import perf_counter
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from cryptography.fernet import InvalidToken
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
-from sqlalchemy import inspect
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent_run import AgentRun
@@ -18,7 +18,13 @@ from app.models.job import Job
 from app.models.pipeline_run import PipelineRun
 from app.models.user import User
 from app.pipeline.checkpointer import PipelineCheckpointer
-from app.pipeline.nodes import approval_gate_node, auto_apply_node, fetch_jobs_node, rank_jobs_node, track_applications_node
+from app.pipeline.nodes import (
+    approval_gate_node,
+    auto_apply_node,
+    fetch_jobs_node,
+    rank_jobs_node,
+    track_applications_node,
+)
 from app.pipeline.state import ApplyIQState
 from app.services.auto_apply_service import AutoApplyService
 from app.services.cover_letter_service import CoverLetterService

@@ -8,14 +8,13 @@ from app.api.v1.deps import get_current_user, get_db_session
 from app.models.user import User
 from app.schemas.applications import (
     ApplicationDetailData,
-    ApplicationStatusUpdateData,
-    ApplicationStatusUpdatePayload,
     ApplicationsListData,
     ApplicationsStatsData,
+    ApplicationStatusUpdateData,
+    ApplicationStatusUpdatePayload,
 )
 from app.schemas.common import Envelope
 from app.services.application_service import ApplicationService
-
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 

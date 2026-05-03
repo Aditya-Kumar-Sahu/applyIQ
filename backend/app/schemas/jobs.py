@@ -4,7 +4,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-
 SUPPORTED_SCRAPE_SOURCES = {"linkedin", "indeed", "remotive", "wellfound", "serpapi"}
 
 

@@ -7,7 +7,7 @@ from app.core.observability import configure_observability
 def test_configure_observability_is_noop_without_dsn(monkeypatch) -> None:
     called = {"value": False}
 
-    def fake_init(*args, **kwargs):  # noqa: ANN002, ANN003
+    def fake_init(*args, **kwargs):
         called["value"] = True
 
     monkeypatch.setattr("app.core.observability.sentry_sdk.init", fake_init)
@@ -18,7 +18,7 @@ def test_configure_observability_is_noop_without_dsn(monkeypatch) -> None:
 def test_configure_observability_initializes_sentry_when_dsn_present(monkeypatch) -> None:
     captured = {"dsn": None}
 
-    def fake_init(*args, **kwargs):  # noqa: ANN002, ANN003
+    def fake_init(*args, **kwargs):
         captured["dsn"] = kwargs.get("dsn")
 
     monkeypatch.setattr("app.core.observability.sentry_sdk.init", fake_init)

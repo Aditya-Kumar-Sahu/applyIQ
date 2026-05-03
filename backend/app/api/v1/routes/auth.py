@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.deps import get_current_user, get_db_session
 from app.core.rate_limit import RedisRateLimiter
 from app.core.security import create_token, decode_token, get_password_hash, hash_token, verify_password
-from app.models.refresh_token_session import RefreshTokenSession
 from app.models.pipeline_run import PipelineRun
+from app.models.refresh_token_session import RefreshTokenSession
 from app.models.user import User
 from app.schemas.auth import (
     AuthSessionData,
@@ -23,7 +23,6 @@ from app.schemas.auth import (
     TokenRefreshData,
 )
 from app.schemas.common import Envelope
-
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -59,7 +58,7 @@ def _issue_tokens(request: Request, user_id: str) -> tuple[str, str]:
 
 def _refresh_token_expires_at(request: Request) -> datetime:
     settings = request.app.state.settings
-    return datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
+    return datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
 
 
 def _set_auth_cookies(request: Request, response: Response, access_token: str, refresh_token: str) -> None:
@@ -134,7 +133,7 @@ async def _revoke_all_refresh_sessions(session: AsyncSession, *, user_id: str) -
             select(RefreshTokenSession).where(RefreshTokenSession.user_id == user_id)
         )
     )
-    revoked_at = datetime.now(timezone.utc)
+    revoked_at = datetime.now(UTC)
     for refresh_session in refresh_sessions:
         refresh_session.revoked_at = revoked_at
 
@@ -156,7 +155,7 @@ async def _persist_refresh_session(
     await session.flush()
 
     if replaced_from is not None:
-        replaced_from.revoked_at = datetime.now(timezone.utc)
+        replaced_from.revoked_at = datetime.now(UTC)
         replaced_from.replaced_by_token_hash = refresh_session.token_hash
 
     return refresh_session
@@ -229,7 +228,7 @@ async def login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     access_token, refresh_token = _issue_tokens(request, user.id)
-    user.last_login = datetime.now(timezone.utc)
+    user.last_login = datetime.now(UTC)
     await _persist_refresh_session(
         session=session,
         user_id=user.id,
@@ -295,9 +294,9 @@ async def refresh_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token already rotated")
     expires_at = refresh_session.expires_at
     if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
+        expires_at = expires_at.replace(tzinfo=UTC)
         
-    if expires_at <= datetime.now(timezone.utc):
+    if expires_at <= datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
 
     access_token, new_refresh_token = _issue_tokens(request, user.id)
@@ -351,7 +350,7 @@ async def logout(
                 )
             )
             if refresh_session is not None and refresh_session.revoked_at is None:
-                refresh_session.revoked_at = datetime.now(timezone.utc)
+                refresh_session.revoked_at = datetime.now(UTC)
                 await session.commit()
 
     _clear_auth_cookies(request, response)

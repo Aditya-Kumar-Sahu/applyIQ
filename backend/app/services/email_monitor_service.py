@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
 import re
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import anyio
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
-from app.core.database import DatabaseManager
 from app.core.config import Settings
+from app.core.database import DatabaseManager
 from app.core.logging_safety import log_debug, log_exception, text_snapshot
 from app.models.application import Application
 from app.models.email_monitor import EmailMonitor
@@ -22,7 +22,6 @@ from app.models.user import User
 from app.schemas.notifications import NotificationItem, NotificationsData
 from app.services.gemini_client import GeminiApiError, GeminiClient
 from app.services.gmail_service import GmailService
-
 
 logger = structlog.get_logger(__name__)
 
@@ -175,7 +174,7 @@ class EmailMonitorService:
                 monitor.subject = message.subject
                 monitor.snippet = message.snippet
                 monitor.latest_classification = classification
-                monitor.last_checked_at = datetime.now(timezone.utc)
+                monitor.last_checked_at = datetime.now(UTC)
                 monitor.is_resolved = classification in {"rejection", "offer"}
 
                 matched_application.status = _application_status_for_classification(classification, matched_application.status)

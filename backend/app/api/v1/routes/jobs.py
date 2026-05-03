@@ -10,7 +10,6 @@ from app.schemas.match import JobDetailData, JobsListData
 from app.services.embedding_service import EmbeddingService
 from app.services.match_rank_service import MatchRankService
 
-
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 

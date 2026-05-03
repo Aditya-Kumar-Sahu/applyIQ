@@ -6,7 +6,6 @@ from app.core.config import get_settings
 from app.schemas.common import Envelope
 from app.schemas.meta import MetaPayload
 
-
 router = APIRouter(tags=["system"])
 
 

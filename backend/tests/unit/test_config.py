@@ -47,6 +47,5 @@ def test_create_app_requires_secrets_before_startup() -> None:
 
     app = create_app(settings=settings, health_reporter=healthy_reporter)
 
-    with pytest.raises(RuntimeError, match="Missing required secrets"):
-        with TestClient(app):
-            pass
+    with pytest.raises(RuntimeError, match="Missing required secrets"), TestClient(app):
+        pass

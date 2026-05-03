@@ -1,9 +1,9 @@
 import asyncio
 import random
-from typing import Any, Callable
-import structlog
-import httpx
 from urllib.robotparser import RobotFileParser
+
+import httpx
+import structlog
 
 logger = structlog.get_logger(__name__)
 

@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+import structlog
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.core.logging_safety import log_debug, log_exception
 from app.models.credential_vault import CredentialVault
 from app.models.user import User
 from app.schemas.vault import CredentialStorePayload, DeleteCredentialData, VaultCredentialItem, VaultCredentialListData
-
 
 logger = structlog.get_logger(__name__)
 
@@ -128,7 +127,7 @@ class VaultService:
         for credential in credentials:
             if credential.site_name.lower() not in normalized_site_names:
                 continue
-            credential.last_used_at = datetime.now(timezone.utc)
+            credential.last_used_at = datetime.now(UTC)
             await session.commit()
             log_debug(
                 logger,

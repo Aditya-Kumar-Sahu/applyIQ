@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import anyio
@@ -55,7 +55,7 @@ def test_run_test_scrape_keeps_successful_sources_when_one_fails(tmp_path: Path)
                             salary_max=3500000,
                             description_text="Build ML systems with Python and FastAPI.",
                             apply_url="https://jobs.acme.ai/ml-engineer",
-                            posted_at=datetime(2026, 3, 20, 10, 0, tzinfo=timezone.utc),
+                            posted_at=datetime(2026, 3, 20, 10, 0, tzinfo=UTC),
                         ),
                         RawJob(
                             external_id="linkedin-2",
@@ -69,7 +69,7 @@ def test_run_test_scrape_keeps_successful_sources_when_one_fails(tmp_path: Path)
                             salary_max=3900000,
                             description_text="Pipeline role with strong data tooling.",
                             apply_url="https://northstar.dev/jobs/data-engineer",
-                            posted_at=datetime(2026, 3, 20, 11, 0, tzinfo=timezone.utc),
+                            posted_at=datetime(2026, 3, 20, 11, 0, tzinfo=UTC),
                         ),
                         RawJob(
                             external_id="linkedin-3",
@@ -83,7 +83,7 @@ def test_run_test_scrape_keeps_successful_sources_when_one_fails(tmp_path: Path)
                             salary_max=3600000,
                             description_text="MLOps and platform reliability.",
                             apply_url="https://cityai.example/jobs/mlops",
-                            posted_at=datetime(2026, 3, 20, 12, 0, tzinfo=timezone.utc),
+                            posted_at=datetime(2026, 3, 20, 12, 0, tzinfo=UTC),
                         ),
                         RawJob(
                             external_id="linkedin-4",
@@ -97,7 +97,7 @@ def test_run_test_scrape_keeps_successful_sources_when_one_fails(tmp_path: Path)
                             salary_max=1800000,
                             description_text="Below-preference sample role.",
                             apply_url="https://budget.example/jobs/platform",
-                            posted_at=datetime(2026, 3, 20, 13, 0, tzinfo=timezone.utc),
+                            posted_at=datetime(2026, 3, 20, 13, 0, tzinfo=UTC),
                         ),
                     ]
                 ),

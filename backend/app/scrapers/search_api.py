@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
 import re
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import structlog
 
 from app.core.config import Settings, get_settings
+from app.core.resilience import circuit_breaker
 from app.schemas.jobs import RawJob
 from app.scrapers.base import BaseJobScraper, ScrapeQuery
-from app.core.resilience import circuit_breaker
-
 
 logger = structlog.get_logger(__name__)
 
@@ -144,10 +143,10 @@ def _coerce_int(value: object) -> int | None:
 def _parse_posted_at(value: object) -> datetime:
     if not value or (isinstance(value, str) and not value.strip()):
         logger.warning("scraper.search_api.missing_date", value=value, message="Defaulting to current UTC time.")
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
     if isinstance(value, datetime):
-        return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
     if isinstance(value, str):
         val_lower = value.strip().lower()
@@ -156,7 +155,7 @@ def _parse_posted_at(value: object) -> datetime:
         if match:
             amount = int(match.group(1))
             unit = match.group(2)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             if unit == "minute": return now - timedelta(minutes=amount)
             if unit == "hour": return now - timedelta(hours=amount)
             if unit == "day": return now - timedelta(days=amount)
@@ -166,8 +165,8 @@ def _parse_posted_at(value: object) -> datetime:
         normalized = value.replace("Z", "+00:00")
         try:
             parsed = datetime.fromisoformat(normalized)
-            return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+            return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
         except ValueError as e:
             logger.warning("scraper.search_api.date_parse_error", value=value, error=str(e), message="Failed to parse date string.")
 
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

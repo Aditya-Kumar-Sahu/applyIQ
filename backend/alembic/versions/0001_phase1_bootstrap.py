@@ -6,7 +6,6 @@ Create Date: 2026-03-23 20:05:00
 """
 from __future__ import annotations
 
-
 revision = "0001_phase1_bootstrap"
 down_revision = None
 branch_labels = None

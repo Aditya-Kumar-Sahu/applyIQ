@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from io import BytesIO
 import zipfile
+from io import BytesIO
 
 import fitz
-from docx import Document
 import structlog
+from docx import Document
 
 from app.core.logging_safety import bytes_snapshot, log_debug, log_exception
-
 
 logger = structlog.get_logger(__name__)
 

@@ -8,13 +8,13 @@ from docx import Document
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.agents.auto_apply.ats.base import BrowserApplyResult
 from app.core.config import Settings
 from app.main import create_app
 from app.models.application import Application
 from app.models.base import Base
 from app.models.job import Job
 from app.models.user import User
-from app.agents.auto_apply.ats.base import BrowserApplyResult
 from app.services.auto_apply_service import AutoApplyService
 from app.services.email_monitor_service import EmailMessage, EmailMonitorService
 
@@ -266,7 +266,7 @@ class _InMemoryRedisClient:
         self._counters: dict[str, int] = {}
 
     @property
-    def client(self) -> "_InMemoryRedisClient":
+    def client(self) -> _InMemoryRedisClient:
         return self
 
     async def incr(self, key: str) -> int:

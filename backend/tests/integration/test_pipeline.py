@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import re
 from io import BytesIO
 from pathlib import Path
-import re
 
 import anyio
 from docx import Document
@@ -390,8 +390,8 @@ def test_pipeline_reset_removes_run_and_cached_state(tmp_path: Path) -> None:
         assert remaining_runs == 0
 
         async def count_applications() -> int:
+            from sqlalchemy import func, select
             from sqlalchemy.ext.asyncio import async_sessionmaker
-            from sqlalchemy import select, func
 
             session_factory = async_sessionmaker(app.state.database.engine, expire_on_commit=False)
             async with session_factory() as session:
@@ -407,8 +407,8 @@ async def _create_all_tables(engine) -> None:
 
 
 async def _count_agent_runs(engine) -> int:
+    from sqlalchemy import func, select
     from sqlalchemy.ext.asyncio import async_sessionmaker
-    from sqlalchemy import select, func
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
@@ -417,8 +417,8 @@ async def _count_agent_runs(engine) -> int:
 
 
 async def _count_pipeline_runs(engine) -> int:
+    from sqlalchemy import func, select
     from sqlalchemy.ext.asyncio import async_sessionmaker
-    from sqlalchemy import select, func
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
@@ -427,8 +427,8 @@ async def _count_pipeline_runs(engine) -> int:
 
 
 async def _tamper_pipeline_snapshot(engine, run_id: str) -> None:
-    from sqlalchemy.ext.asyncio import async_sessionmaker
     from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
@@ -452,7 +452,7 @@ class _InMemoryRedisClient:
         self._counters: dict[str, int] = {}
 
     @property
-    def client(self) -> "_InMemoryRedisClient":
+    def client(self) -> _InMemoryRedisClient:
         return self
 
     async def incr(self, key: str) -> int:

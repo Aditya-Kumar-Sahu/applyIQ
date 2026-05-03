@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
 import re
+from dataclasses import dataclass
 
 import structlog
 
@@ -11,7 +11,6 @@ from app.agents.auto_apply.tools import PlaywrightApplyTool, PlaywrightUnavailab
 from app.core.logging_safety import log_debug
 from app.models.application import Application
 from app.models.job import Job
-
 
 logger = structlog.get_logger(__name__)
 

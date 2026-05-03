@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from urllib.parse import urlencode
 
-from httpx import HTTPStatusError
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
+from httpx import HTTPStatusError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.api.v1.deps import get_current_user, get_db_session, get_encryption_service
 from app.models.email_monitor import EmailMonitor
@@ -16,7 +16,6 @@ from app.schemas.common import Envelope
 from app.schemas.gmail import GmailAuthUrlData, GmailPollData, GmailStatusData
 from app.services.email_monitor_service import EmailMonitorService
 from app.services.gmail_service import GmailService
-
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 logger = structlog.get_logger(__name__)

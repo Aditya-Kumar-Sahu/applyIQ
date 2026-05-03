@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-import anyio
+from datetime import UTC
 from types import SimpleNamespace
+
+import anyio
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -195,8 +197,8 @@ async def _sweep_stale():
     database = DatabaseManager(settings.database_url)
     
     try:
-        from datetime import datetime, timezone, timedelta
-        stale_threshold = datetime.now(timezone.utc) - timedelta(days=7) # Assume 7 days timeout for a paused run
+        from datetime import datetime, timedelta
+        stale_threshold = datetime.now(UTC) - timedelta(days=7) # Assume 7 days timeout for a paused run
         
         async with database.session() as session:
             stale_runs = await session.scalars(

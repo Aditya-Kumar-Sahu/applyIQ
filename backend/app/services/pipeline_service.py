@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
+from typing import Any
 
 import anyio
+import structlog
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
-from app.core.database import DatabaseManager
 from app.core.config import Settings
+from app.core.database import DatabaseManager
 from app.core.logging_safety import log_debug, log_exception
 from app.models.application import Application
 from app.models.job import Job
@@ -20,8 +21,6 @@ from app.models.pipeline_run import PipelineRun
 from app.models.user import User
 from app.pipeline.graph import PipelineGraphRunner
 from app.pipeline.state import ApplyIQState
-from app.schemas.resume import ParsedResumeProfile
-from app.services.cover_letter_service import CoverLetterService
 from app.schemas.pipeline import (
     CoverLetterABTestData,
     CoverLetterEditData,
@@ -36,7 +35,8 @@ from app.schemas.pipeline import (
     PipelineStartRequest,
     RejectData,
 )
-
+from app.schemas.resume import ParsedResumeProfile
+from app.services.cover_letter_service import CoverLetterService
 
 logger = structlog.get_logger(__name__)
 
@@ -537,7 +537,7 @@ class PipelineService:
 
             notes = _load_notes(application.notes)
             notes["ab_test"] = {
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
                 "selected_variant_id": _selected_variant_id(notes),
                 "variants": [variant.model_dump() for variant in variants],
             }

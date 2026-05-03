@@ -5,7 +5,6 @@ import structlog
 from app.core.logging_safety import log_debug, log_exception
 from app.schemas.resume import ParsedResumeProfile, ProfileCompletenessData
 
-
 logger = structlog.get_logger(__name__)
 
 

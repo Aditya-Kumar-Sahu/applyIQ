@@ -1,0 +1,16 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "ARG", "PTH", "RUF"]
+ignore = ["B008"] # Do not perform function call in argument defaults (standard FastAPI practice)
+
+[tool.pyright]
+include = ["app", "tests"]
+exclude = ["**/__pycache__"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedVariable = true

@@ -4,7 +4,7 @@ import base64
 import json
 import random
 from collections.abc import AsyncIterator, Iterator, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -12,12 +12,12 @@ import anyio
 import structlog
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import (
+    WRITES_IDX_MAP,
     BaseCheckpointSaver,
     ChannelVersions,
     Checkpoint,
     CheckpointMetadata,
     CheckpointTuple,
-    WRITES_IDX_MAP,
     get_checkpoint_id,
     get_checkpoint_metadata,
 )
@@ -25,7 +25,6 @@ from redis.exceptions import RedisError
 
 from app.core.redis import RedisManager
 from app.pipeline.state import ApplyIQState
-
 
 logger = structlog.get_logger(__name__)
 
@@ -40,7 +39,7 @@ class PipelineCheckpointer(BaseCheckpointSaver[str]):
         payload = json.dumps(
             {
                 "version": 1,
-                "saved_at": datetime.now(timezone.utc).isoformat(),
+                "saved_at": datetime.now(UTC).isoformat(),
                 "state": state,
             },
             default=_json_default,

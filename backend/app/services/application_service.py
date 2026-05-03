@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+import structlog
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.core.logging_safety import log_debug, log_exception
 from app.models.application import Application
@@ -15,15 +15,14 @@ from app.models.user import User
 from app.schemas.applications import (
     ApplicationDetailData,
     ApplicationListItem,
-    ApplicationStatusUpdateData,
-    ApplicationStatusUpdatePayload,
     ApplicationsListData,
     ApplicationsStatsData,
+    ApplicationStatusUpdateData,
+    ApplicationStatusUpdatePayload,
     EmailMonitorData,
     SourcePerformanceItem,
     TitlePerformanceItem,
 )
-
 
 logger = structlog.get_logger(__name__)
 

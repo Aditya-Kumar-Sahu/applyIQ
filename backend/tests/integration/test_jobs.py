@@ -4,9 +4,9 @@ from io import BytesIO
 from pathlib import Path
 
 import anyio
+import pytest
 from docx import Document
 from fastapi.testclient import TestClient
-import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 

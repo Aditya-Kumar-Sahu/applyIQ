@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-import structlog
+from datetime import UTC, datetime
+
 import httpx
+import structlog
 
 from app.core.config import Settings, get_settings
+from app.core.resilience import circuit_breaker
 from app.schemas.jobs import RawJob
 from app.scrapers.base import BaseJobScraper, ScrapeQuery
-from app.core.resilience import circuit_breaker
 
 logger = structlog.get_logger(__name__)
 
@@ -106,17 +107,17 @@ class ApifyLinkedInScraper(BaseJobScraper):
 def _parse_posted_at(value: object) -> datetime:
     if not value or (isinstance(value, str) and not value.strip()):
         logger.warning("scraper.apify.missing_date", value=value, message="Defaulting to current UTC time.")
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
     if isinstance(value, datetime):
-        return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
     if isinstance(value, str):
         normalized = value.replace("Z", "+00:00")
         try:
             parsed = datetime.fromisoformat(normalized)
-            return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+            return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
         except ValueError as e:
             logger.warning("scraper.apify.date_parse_error", value=value, error=str(e), message="Failed to parse date string.")
 
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

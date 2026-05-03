@@ -13,7 +13,6 @@ from app.scrapers.deduplicator import JobDeduplicator
 from app.services.embedding_service import EmbeddingService
 from app.services.scrape_service import ScrapeService
 
-
 router = APIRouter(prefix="/scrape", tags=["scrape"])
 
 

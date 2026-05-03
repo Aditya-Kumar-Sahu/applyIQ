@@ -15,7 +15,6 @@ from app.services.file_extraction_service import FileExtractionService
 from app.services.profile_completeness_service import ProfileCompletenessService
 from app.services.resume_parser_service import ResumeParserService
 
-
 logger = structlog.get_logger(__name__)
 
 

@@ -6,9 +6,9 @@ Create Date: 2026-03-23 23:10:00
 """
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0003_phase3_resume_tables"
 down_revision = "0002_phase2_auth_tables"

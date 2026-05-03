@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from cryptography.fernet import Fernet
 import jwt
+from cryptography.fernet import Fernet
 from passlib.context import CryptContext
-
 
 PASSWORD_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -31,7 +30,7 @@ def create_token(
     expires_delta: timedelta,
 ) -> str:
     import uuid
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": subject,
         "type": token_type,
@@ -58,7 +57,7 @@ class EncryptionService:
     def _build_fernet(self, user_id: str) -> Fernet:
         digest = hmac.new(
             self._encryption_pepper.encode("utf-8"),
-            msg=f"{self._fernet_secret_key}:{user_id}".encode("utf-8"),
+            msg=f"{self._fernet_secret_key}:{user_id}".encode(),
             digestmod=hashlib.sha256,
         ).digest()
         derived_key = base64.urlsafe_b64encode(digest)

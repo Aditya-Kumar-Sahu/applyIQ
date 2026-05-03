@@ -7,7 +7,6 @@ from app.api.v1.deps import get_current_user_stream
 from app.models.user import User
 from app.services.email_monitor_service import EmailMonitorService
 
-
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 

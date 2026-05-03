@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import structlog
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-import structlog
 
 from app.core.logging_safety import log_exception, sanitize_for_logging
 

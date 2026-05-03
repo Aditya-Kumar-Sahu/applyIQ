@@ -1,8 +1,9 @@
 import asyncio
 
-from app.scrapers.remotive import RemotiveScraper
-from app.scrapers.base import ScrapeQuery
 from app.core.config import get_settings
+from app.scrapers.base import ScrapeQuery
+from app.scrapers.remotive import RemotiveScraper
+
 
 async def main():
     print("=== Testing Remotive Scraper ===")

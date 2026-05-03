@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
-from datetime import datetime
 import re
+from datetime import datetime
+from typing import Any
 
 import structlog
 
@@ -17,7 +17,6 @@ from app.schemas.resume import (
     SkillGroups,
 )
 from app.services.gemini_client import GeminiApiError, GeminiClient
-
 
 logger = structlog.get_logger(__name__)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.schemas.jobs import RawJob
 from app.scrapers.base import ScrapeQuery
@@ -118,5 +118,5 @@ def _make_job(
             f"and production ML systems."
         ),
         apply_url=apply_url,
-        posted_at=datetime.now(timezone.utc) - timedelta(hours=index),
+        posted_at=datetime.now(UTC) - timedelta(hours=index),
     )

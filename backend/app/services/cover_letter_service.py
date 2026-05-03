@@ -3,13 +3,11 @@ from __future__ import annotations
 import re
 
 import structlog
-
 from pydantic import BaseModel
 
 from app.core.logging_safety import log_debug, log_exception
 from app.models.job import Job
 from app.schemas.resume import ParsedResumeProfile
-
 
 logger = structlog.get_logger(__name__)
 
@@ -106,7 +104,7 @@ class CoverLetterService:
         focus_options = [
             f"build production ML systems on a {self._stack_phrase(matched_skills)} stack",
             f"turn platform engineering into a real advantage for {job.title.lower()} teams",
-            f"pair backend reliability with machine learning execution at scale",
+            "pair backend reliability with machine learning execution at scale",
         ]
         index = (variant - 1) % len(focus_options)
         focus = focus_options[index]

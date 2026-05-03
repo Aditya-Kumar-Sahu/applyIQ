@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from collections import defaultdict
 import math
 import re
 from dataclasses import dataclass
 
-from sqlalchemy import inspect
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+from sqlalchemy import inspect, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging_safety import log_debug, log_exception
 from app.models.job import Job
@@ -17,7 +15,6 @@ from app.models.user import User
 from app.schemas.match import JobDetailData, JobsListData, RankedJobItem, RankedJobScoreBreakdown
 from app.schemas.resume import ParsedResumeProfile, SearchPreferencesPayload
 from app.services.embedding_service import EmbeddingService
-
 
 _REMOTE_LOCATION_KEYWORDS = {"remote", "wfh", "anywhere", "worldwide"}
 

@@ -12,8 +12,8 @@ from sqlalchemy import select
 from app.core.config import Settings
 from app.core.security import EncryptionService
 from app.main import create_app
-from app.models.credential_vault import CredentialVault
 from app.models.base import Base
+from app.models.credential_vault import CredentialVault
 from app.models.user import User
 from app.services.gmail_service import GmailService
 
@@ -23,7 +23,7 @@ class _FakeRedisClient:
         self.counters: dict[str, int] = {}
 
     @property
-    def client(self) -> "_FakeRedisClient":
+    def client(self) -> _FakeRedisClient:
         return self
 
     async def incr(self, key: str) -> int:

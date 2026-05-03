@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from app.core.config import Settings
 from app.core.logging_safety import log_debug, log_exception
@@ -18,7 +18,6 @@ from app.scrapers.remotive import RemotiveScraper
 from app.scrapers.serpapi_jobs import SerpApiJobsScraper
 from app.scrapers.wellfound import WellfoundScraper
 from app.services.embedding_service import EmbeddingService
-
 
 logger = structlog.get_logger(__name__)
 

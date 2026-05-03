@@ -8,7 +8,7 @@ from app.core.rate_limit import RedisRateLimiter
 
 class _FailingRedisClient:
     @property
-    def client(self) -> "_FailingRedisClient":
+    def client(self) -> _FailingRedisClient:
         return self
 
     async def incr(self, key: str) -> int:

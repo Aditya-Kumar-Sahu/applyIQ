@@ -4,12 +4,12 @@ from pathlib import Path
 
 import anyio
 from fastapi.testclient import TestClient
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
 from app.core.config import Settings
 from app.main import create_app
-from app.models.refresh_token_session import RefreshTokenSession
 from app.models.base import Base
+from app.models.refresh_token_session import RefreshTokenSession
 
 
 class _FakeRedisClient:
@@ -18,7 +18,7 @@ class _FakeRedisClient:
         self.deleted_keys: list[str] = []
 
     @property
-    def client(self) -> "_FakeRedisClient":
+    def client(self) -> _FakeRedisClient:
         return self
 
     async def incr(self, key: str) -> int:

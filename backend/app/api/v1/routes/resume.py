@@ -22,7 +22,6 @@ from app.services.profile_completeness_service import ProfileCompletenessService
 from app.services.resume_parser_service import ResumeParserService
 from app.services.resume_pipeline_service import ResumePipelineService
 
-
 router = APIRouter(prefix="/resume", tags=["resume"])
 
 _ALLOWED_UPLOAD_MIME_TYPES = {
