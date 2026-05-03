@@ -18,6 +18,9 @@ from app.schemas.resume import (
 )
 from app.services.gemini_client import GeminiApiError, GeminiClient
 
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.services.usage_service import UsageTrackingService
+
 logger = structlog.get_logger(__name__)
 
 
@@ -213,11 +216,13 @@ class ResumeParserService:
             embedding_model=resolved_settings.gemini_embedding_model,
         )
 
-    def parse(self, raw_text: str) -> ParsedResumeProfile:
+    async def parse(
+        self, raw_text: str, *, session: AsyncSession | None = None, user_id: str | None = None
+    ) -> ParsedResumeProfile:
         normalized_text = self._normalize_text(raw_text)
         log_debug(logger, "resume_parser.parse.start", raw_text=text_snapshot(normalized_text))
 
-        llm_profile = self._parse_with_gemini(normalized_text)
+        llm_profile = await self._parse_with_gemini(normalized_text, session=session, user_id=user_id)
         if llm_profile is not None:
             log_debug(logger, "resume_parser.parse.gemini_success")
             return llm_profile
@@ -271,20 +276,27 @@ class ResumeParserService:
             log_exception(logger, "resume_parser.parse.failed", error, raw_text=text_snapshot(normalized_text))
             raise
 
-    def _parse_with_gemini(self, normalized_text: str) -> ParsedResumeProfile | None:
+    async def _parse_with_gemini(
+        self, normalized_text: str, *, session: AsyncSession | None = None, user_id: str | None = None
+    ) -> ParsedResumeProfile | None:
         if not self._gemini_client.is_configured:
             return None
 
         prompt = f"Parse this resume text and return JSON only.\n\nResume Text:\n{normalized_text}"
         try:
-            payload = self._gemini_client.generate_json(
+            response = self._gemini_client.generate_json(
                 prompt=prompt,
                 system_instruction=_RESUME_SYSTEM_INSTRUCTION,
                 schema=_RESUME_JSON_SCHEMA,
                 temperature=0.0,
                 model=self._gemini_model,
             )
-            profile = ParsedResumeProfile.model_validate(payload)
+
+            # Record Usage
+            if session:
+                await UsageTrackingService.log_llm_usage(session=session, response=response, user_id=user_id)
+
+            profile = ParsedResumeProfile.model_validate(response.data)
             return profile
         except (GeminiApiError, ValueError) as error:
             log_debug(logger, "resume_parser.parse.gemini_failed", reason=str(error))

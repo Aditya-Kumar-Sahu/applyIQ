@@ -179,7 +179,8 @@ class MatchRankService:
             preferences = self._serialize_preferences(user)
 
             resume_embedding = resume_profile.resume_embedding
-            if not resume_embedding:
+            # Avoid ambiguous truth value checks for sequences (e.g., numpy arrays)
+            if resume_embedding is None or (hasattr(resume_embedding, "__len__") and len(resume_embedding) == 0):
                 resume_embedding = resume_summary_embedding(resume)
 
             from app.models.application import Application
@@ -514,7 +515,10 @@ class MatchRankService:
         return "Relevant profile alignment with manageable gaps."
 
     def _cosine_similarity(self, left: list[float], right: list[float]) -> float:
-        if not left or not right:
+        # Avoid ambiguous truth value evaluation for array-like inputs (e.g., numpy arrays)
+        if left is None or right is None:
+            return 0.0
+        if (hasattr(left, "__len__") and len(left) == 0) or (hasattr(right, "__len__") and len(right) == 0):
             return 0.0
         numerator = sum(left_value * right_value for left_value, right_value in zip(left, right))
         left_magnitude = math.sqrt(sum(value * value for value in left)) or 1.0

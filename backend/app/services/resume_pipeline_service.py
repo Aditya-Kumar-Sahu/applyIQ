@@ -15,6 +15,8 @@ from app.services.file_extraction_service import FileExtractionService
 from app.services.profile_completeness_service import ProfileCompletenessService
 from app.services.resume_parser_service import ResumeParserService
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 logger = structlog.get_logger(__name__)
 
 
@@ -34,7 +36,9 @@ class ResumePipelineService:
         self._completeness_service = completeness_service
         self._encryption_service = encryption_service
 
-    def process_upload(self, *, user: User, filename: str, content: bytes) -> tuple[ResumeProfile, ParsedResumeProfile]:
+    async def process_upload(
+        self, *, session: AsyncSession, user: User, filename: str, content: bytes
+    ) -> tuple[ResumeProfile, ParsedResumeProfile]:
         log_debug(
             logger,
             "resume_pipeline.process_upload.start",
@@ -48,7 +52,7 @@ class ResumePipelineService:
                 logger, "resume_pipeline.process_upload.extracted", user_id=user.id, raw_text_length=len(raw_text)
             )
 
-            parsed_profile = self._parser_service.parse(raw_text)
+            parsed_profile = await self._parser_service.parse(raw_text, session=session, user_id=user.id)
             log_debug(
                 logger,
                 "resume_pipeline.process_upload.parsed",
@@ -124,14 +128,14 @@ class ResumePipelineService:
             log_exception(logger, "resume_pipeline.upsert_preferences.failed", error, user_id=user.id)
             raise
 
-    def reparse_existing_profile(self, *, user: User) -> ParsedResumeProfile:
+    async def reparse_existing_profile(self, *, session: AsyncSession, user: User) -> ParsedResumeProfile:
         if user.resume_profile is None:
             raise ValueError("Resume profile not found")
 
         log_debug(logger, "resume_pipeline.reparse_existing.start", user_id=user.id)
         try:
             raw_text = self._encryption_service.decrypt_for_user(user.id, user.resume_profile.raw_text)
-            parsed_profile = self._parser_service.parse(raw_text)
+            parsed_profile = await self._parser_service.parse(raw_text, session=session, user_id=user.id)
             embedding = self._embedding_service.embed_text(parsed_profile.summary_for_matching)
 
             user.resume_profile.parsed_profile = parsed_profile.model_dump()

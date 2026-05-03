@@ -126,7 +126,8 @@ async def upload_resume(
     pipeline = _build_pipeline_service(encryption_service)
 
     try:
-        resume_profile, parsed_profile = pipeline.process_upload(
+        resume_profile, parsed_profile = await pipeline.process_upload(
+            session=session,
             user=current_user,
             filename=file.filename,
             content=content,
@@ -161,7 +162,7 @@ async def get_resume(
     pipeline = _build_pipeline_service(encryption_service)
     profile = ParsedResumeProfile.model_validate(current_user.resume_profile.parsed_profile)
     if _should_reparse_profile(profile):
-        profile = pipeline.reparse_existing_profile(user=current_user)
+        profile = await pipeline.reparse_existing_profile(session=session, user=current_user)
         session.add(current_user.resume_profile)
         await session.commit()
         await session.refresh(current_user.resume_profile)

@@ -14,3 +14,7 @@ GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 GEMINI_DEFAULT_CHAT_MODEL = "gemini-2.0-flash"
 GEMINI_DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
 GEMINI_DEFAULT_EMBEDDING_DIMENSIONS = 3072
+
+# LLM Pricing (USD per 1M tokens) - Gemini 2.0 Flash
+GEMINI_2_FLASH_INPUT_PRICE_PER_1M = 0.10
+GEMINI_2_FLASH_OUTPUT_PRICE_PER_1M = 0.40

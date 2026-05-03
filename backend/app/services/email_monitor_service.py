@@ -23,6 +23,8 @@ from app.schemas.notifications import NotificationItem, NotificationsData
 from app.services.gemini_client import GeminiApiError, GeminiClient
 from app.services.gmail_service import GmailService
 
+from app.services.usage_service import UsageTrackingService
+
 logger = structlog.get_logger(__name__)
 
 
@@ -115,6 +117,8 @@ class EmailMonitorService:
 
             for index, message in enumerate(messages, start=1):
                 classification = await self._classify_message(
+                    session=session,
+                    user=user,
                     subject=message.subject,
                     body=message.body,
                     settings=settings,
@@ -389,32 +393,57 @@ class EmailMonitorService:
 
             await anyio.sleep(poll_interval_seconds)
 
-    async def _classify_message(self, *, subject: str, body: str, settings: Settings | None) -> str:
+    async def _classify_message(
+        self, 
+        *, 
+        session: AsyncSession, 
+        user: User, 
+        subject: str, 
+        body: str, 
+        settings: Settings | None
+    ) -> str:
         if settings is None or not settings.gemini_api_key or settings.environment.lower() == "test":
             return self._classify_message_deterministic(subject=subject, body=body)
 
-        return await anyio.to_thread.run_sync(
-            self._classify_message_with_gemini,
-            subject,
-            body,
-            settings,
+        return await self._classify_message_with_gemini(
+            session=session,
+            user=user,
+            subject=subject,
+            body=body,
+            settings=settings,
         )
 
-    def _classify_message_with_gemini(self, subject: str, body: str, settings: Settings) -> str:
+    async def _classify_message_with_gemini(
+        self, 
+        *, 
+        session: AsyncSession, 
+        user: User, 
+        subject: str, 
+        body: str, 
+        settings: Settings
+    ) -> str:
         client = GeminiClient(
             api_key=settings.gemini_api_key.get_secret_value(),
             chat_model=settings.gemini_chat_model,
             embedding_model=settings.gemini_embedding_model,
         )
         try:
-            payload = client.generate_json(
+            response = client.generate_json(
                 prompt=(f"Classify the following recruiter email.\nSubject: {subject}\nBody: {body}\n"),
                 system_instruction=_CLASSIFICATION_SYSTEM_INSTRUCTION,
                 schema=_CLASSIFICATION_SCHEMA,
                 temperature=0.0,
                 model=settings.gemini_chat_model,
             )
-            classification = _normalize_classification(str(payload.get("classification") or ""))
+            
+            # Record Usage
+            await UsageTrackingService.log_llm_usage(
+                session=session,
+                response=response,
+                user_id=user.id
+            )
+
+            classification = _normalize_classification(str(response.data.get("classification") or ""))
             log_debug(
                 logger,
                 "email_monitor.classify_message.gemini_success",

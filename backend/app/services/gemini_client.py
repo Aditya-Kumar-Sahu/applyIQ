@@ -13,8 +13,11 @@ from app.core.constants import (
 )
 from app.core.logging_safety import log_debug, log_exception, text_snapshot
 from app.core.resilience import circuit_breaker
+from app.schemas.llm import GeminiResponse, UsageMetadata
+
 
 logger = structlog.get_logger(__name__)
+
 
 
 class GeminiApiError(RuntimeError):
@@ -121,7 +124,7 @@ class GeminiClient:
         schema: dict[str, Any] | None = None,
         temperature: float = 0.0,
         model: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> GeminiResponse:
         if not self.is_configured:
             raise GeminiApiError("Gemini API key is not configured")
 
@@ -150,8 +153,22 @@ class GeminiClient:
             raise GeminiApiError("Gemini response did not include text output")
 
         parsed = _parse_json_payload(raw_text)
-        log_debug(logger, "gemini.generate_json.complete", model=model_name, keys=list(parsed.keys()))
-        return parsed
+        usage_data = response.get("usageMetadata", {})
+        usage = UsageMetadata(
+            prompt_tokens=usage_data.get("promptTokenCount", 0),
+            completion_tokens=usage_data.get("candidatesTokenCount", 0),
+            total_tokens=usage_data.get("totalTokenCount", 0),
+        )
+
+        log_debug(
+            logger,
+            "gemini.generate_json.complete",
+            model=model_name,
+            keys=list(parsed.keys()),
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+        )
+        return GeminiResponse(data=parsed, usage=usage, model=model_name)
 
     @circuit_breaker(name="gemini_api", failure_threshold=3, recovery_timeout=60.0)
     def _post_json(self, *, path: str, payload: dict[str, Any]) -> dict[str, Any]:
