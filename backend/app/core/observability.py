@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import Any, Callable, TypeVar
-
-import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.celery import CeleryIntegration
-from prometheus_client import Counter, Histogram
 
 # --- Python 3.12+ Compatibility Fix for OTEL ---
 import sys
+from collections.abc import Callable
 from types import ModuleType
+from typing import Any, TypeVar
+
+import sentry_sdk
+from prometheus_client import Counter, Histogram
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 try:
     import pkg_resources
@@ -32,16 +33,15 @@ if not hasattr(pkg_resources, "parse_requirements"):
     pkg_resources.parse_requirements = lambda x: []
 # -----------------------------------------------
 
-from opentelemetry import trace, context
-from opentelemetry.sdk.trace import TracerProvider, Span
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry import context, trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import Span, TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from app.core.config import Settings
-
 
 T = TypeVar("T")
 

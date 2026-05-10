@@ -8,8 +8,8 @@ import structlog
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.logging_safety import log_debug, log_exception
 from app.core.cache import cached
+from app.core.logging_safety import log_debug, log_exception
 from app.models.job import Job
 from app.models.job_match import JobMatch
 from app.models.user import User
@@ -522,7 +522,7 @@ class MatchRankService:
             return 0.0
         if (hasattr(left, "__len__") and len(left) == 0) or (hasattr(right, "__len__") and len(right) == 0):
             return 0.0
-        numerator = sum(left_value * right_value for left_value, right_value in zip(left, right))
+        numerator = sum(left_value * right_value for left_value, right_value in zip(left, right, strict=False))
         left_magnitude = math.sqrt(sum(value * value for value in left)) or 1.0
         right_magnitude = math.sqrt(sum(value * value for value in right)) or 1.0
         return max(min(numerator / (left_magnitude * right_magnitude), 1.0), 0.0)

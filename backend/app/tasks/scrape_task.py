@@ -4,13 +4,13 @@ import anyio
 
 from app.core.config import get_settings
 from app.core.database import DatabaseManager
+from app.core.observability import otel_anyio_run
 from app.schemas.jobs import ScrapeTestData, ScrapeTestRequest
 from app.scrapers.base import ScrapeQuery
 from app.scrapers.deduplicator import JobDeduplicator
 from app.services.embedding_service import EmbeddingService
 from app.services.scrape_service import ScrapeService
 from app.worker import celery_app
-from app.core.observability import otel_anyio_run
 
 
 async def _run_scrape(payload: dict) -> dict:

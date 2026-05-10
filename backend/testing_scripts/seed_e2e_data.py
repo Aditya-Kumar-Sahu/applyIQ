@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 # Add parent directory to sys.path to import app modules
 # Script location: backend/testing_scripts/seed_e2e_data.py
@@ -9,16 +9,26 @@ from datetime import datetime, UTC
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import delete
+
 from app.core.config import get_settings
 from app.core.database import DatabaseManager
 from app.core.redis import init_redis
 from app.core.security import get_password_hash
 from app.models import (
-    User, Job, JobMatch, ResumeProfile, Application, 
-    CredentialVault, EmailMonitor, PipelineRun, 
-    AgentRun, RefreshTokenSession, SearchPreference,
-    LLMUsageLog
+    AgentRun,
+    Application,
+    CredentialVault,
+    EmailMonitor,
+    Job,
+    JobMatch,
+    LLMUsageLog,
+    PipelineRun,
+    RefreshTokenSession,
+    ResumeProfile,
+    SearchPreference,
+    User,
 )
+
 
 async def seed_data():
     settings = get_settings()

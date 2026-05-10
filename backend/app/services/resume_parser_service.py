@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.constants import GEMINI_DEFAULT_CHAT_MODEL
@@ -17,8 +18,6 @@ from app.schemas.resume import (
     SkillGroups,
 )
 from app.services.gemini_client import GeminiApiError, GeminiClient
-
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.usage_service import UsageTrackingService
 
 logger = structlog.get_logger(__name__)

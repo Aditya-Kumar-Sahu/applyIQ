@@ -15,7 +15,6 @@ from app.core.logging_safety import log_debug, log_exception, text_snapshot
 from app.core.resilience import circuit_breaker
 from app.schemas.llm import GeminiResponse, UsageMetadata
 
-
 logger = structlog.get_logger(__name__)
 
 

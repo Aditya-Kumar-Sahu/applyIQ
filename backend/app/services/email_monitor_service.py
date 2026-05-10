@@ -22,7 +22,6 @@ from app.models.user import User
 from app.schemas.notifications import NotificationItem, NotificationsData
 from app.services.gemini_client import GeminiApiError, GeminiClient
 from app.services.gmail_service import GmailService
-
 from app.services.usage_service import UsageTrackingService
 
 logger = structlog.get_logger(__name__)
