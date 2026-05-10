@@ -7,7 +7,7 @@ from pathlib import Path
 
 import structlog
 
-from app.core.logging import configure_logging
+from app.core.logging_config import configure_logging
 
 
 def _read_log(path: Path) -> str:

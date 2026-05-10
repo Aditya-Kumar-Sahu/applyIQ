@@ -14,7 +14,7 @@ from app.api.v1.router import router as api_v1_router
 from app.core.config import Settings, get_settings
 from app.core.database import DatabaseManager
 from app.core.exceptions import register_exception_handlers
-from app.core.logging import configure_logging
+from app.core.logging_config import configure_logging
 from app.core.observability import configure_observability
 from app.core.redis import init_redis
 from app.services.health_service import HealthService

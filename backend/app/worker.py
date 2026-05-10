@@ -6,7 +6,7 @@ from celery import Celery
 from celery.schedules import crontab
 
 from app.core.config import get_settings
-from app.core.logging import configure_logging
+from app.core.logging_config import configure_logging
 from app.core.observability import configure_observability
 
 settings = get_settings()
