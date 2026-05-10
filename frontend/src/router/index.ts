@@ -1,15 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 
-import ApplicationsView  from "../views/ApplicationsView.vue";
-import ApprovalGateView  from "../views/ApprovalGateView.vue";
-import DashboardView     from "../views/DashboardView.vue";
-import LoginView         from "../views/LoginView.vue";
 import HomeView          from "../views/HomeView.vue";
-import JobsView          from "../views/JobsView.vue";
-import PipelineView      from "../views/PipelineView.vue";
-import ProfileView       from "../views/ProfileView.vue";
-import RegisterView      from "../views/RegisterView.vue";
-import SettingsView      from "../views/SettingsView.vue";
+import LoginView         from "../views/LoginView.vue";
 import { store }         from "../store";
 
 export const router = createRouter({
@@ -24,43 +16,43 @@ export const router = createRouter({
     {
       path: "/dashboard",
       name: "dashboard",
-      component: DashboardView,
+      component: () => import("../views/DashboardView.vue"),
       meta: { requiresAuth: true },
     },
     {
       path: "/pipeline",
       name: "pipeline",
-      component: PipelineView,
+      component: () => import("../views/PipelineView.vue"),
       meta: { requiresAuth: true },
     },
     {
       path: "/jobs",
       name: "jobs",
-      component: JobsView,
+      component: () => import("../views/JobsView.vue"),
       meta: { requiresAuth: true },
     },
     {
       path: "/applications",
       name: "applications",
-      component: ApplicationsView,
+      component: () => import("../views/ApplicationsView.vue"),
       meta: { requiresAuth: true },
     },
     {
       path: "/approval",
       name: "approval",
-      component: ApprovalGateView,
+      component: () => import("../views/ApprovalGateView.vue"),
       meta: { requiresAuth: true },
     },
     {
       path: "/profile",
       name: "profile",
-      component: ProfileView,
+      component: () => import("../views/ProfileView.vue"),
       meta: { requiresAuth: true },
     },
     {
       path: "/settings",
       name: "settings",
-      component: SettingsView,
+      component: () => import("../views/SettingsView.vue"),
       meta: { requiresAuth: true },
     },
     {
@@ -72,7 +64,7 @@ export const router = createRouter({
     {
       path: "/register",
       name: "register",
-      component: RegisterView,
+      component: () => import("../views/RegisterView.vue"),
       meta: { guestOnly: true },
     },
     // Legacy redirects so old routes still work

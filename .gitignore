@@ -25,3 +25,7 @@ logs/
 celerybeat-schedule**
 backend/celerybeat-schedule**
 PRODUCTION_GAPS_AND_PLAN.md
+e2e-plan.md
+
+frontend/playwright-report
+frontend/test-results

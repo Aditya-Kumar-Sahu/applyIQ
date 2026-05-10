@@ -9,6 +9,7 @@ from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging_safety import log_debug, log_exception
+from app.core.cache import cached
 from app.models.job import Job
 from app.models.job_match import JobMatch
 from app.models.user import User
@@ -56,6 +57,7 @@ class MatchRankService:
     def __init__(self, *, embedding_service: EmbeddingService) -> None:
         self._embedding_service = embedding_service
 
+    @cached(ttl=3600, namespace="user:{user}:rankings")
     async def list_ranked_jobs(
         self,
         *,

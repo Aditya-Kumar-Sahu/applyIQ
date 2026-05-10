@@ -16,7 +16,7 @@ from app.core.database import DatabaseManager
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.observability import configure_observability
-from app.core.redis import RedisManager
+from app.core.redis import init_redis
 from app.services.health_service import HealthService
 from app.worker import celery_app
 
@@ -39,7 +39,7 @@ def create_app(
     )
     logger = structlog.get_logger(__name__)
     database = DatabaseManager(resolved_settings.database_url.get_secret_value())
-    redis = RedisManager(resolved_settings.redis_url.get_secret_value())
+    redis = init_redis(resolved_settings.redis_url.get_secret_value())
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

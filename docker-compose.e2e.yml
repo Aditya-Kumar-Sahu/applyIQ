@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  db-test:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: applyiq_test
+      POSTGRES_USER: applyiq_test
+      POSTGRES_PASSWORD: applyiq_test_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U applyiq_test -d applyiq_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis-test:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - APP_NAME=ApplyIQ E2E
+      - ENVIRONMENT=test
+      - DATABASE_URL=postgresql+asyncpg://applyiq_test:applyiq_test_password@db-test:5432/applyiq_test
+      - REDIS_URL=redis://redis-test:6379/0
+      - CELERY_BROKER_URL=redis://redis-test:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis-test:6379/2
+      - JWT_SECRET_KEY=e2e-test-secret-key-that-is-at-least-thirty-two-characters-long
+      - JWT_ALGORITHM=HS256
+      - FERNET_SECRET_KEY=3j9X7p_Vv8G_rL6J9_wK8fB8_3L_Z8_mN9oP0qR1sT2=
+      - ENCRYPTION_PEPPER=e2e-test-pepper
+      - PGVECTOR_ENABLED=true
+      - GEMINI_API_KEY=mock-key
+      - PLAYWRIGHT_ENABLED=true
+      - ENABLE_AUTO_APPLY=false
+      - LOG_FILE_NAME=backend-e2e.log
+      - AUTH_LOGIN_RATE_LIMIT=100
+      - AUTH_REGISTER_RATE_LIMIT=100
+      - CORS_ORIGINS=["http://frontend-test:3000", "http://localhost:3000"]
+    depends_on:
+      db-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    command: >
+      sh -c "alembic upgrade head && 
+             python testing_scripts/seed_e2e_data.py &&
+             python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - VITE_API_URL=
+    depends_on:
+      backend-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget -qO- http://localhost:3000 > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    command: npm run dev -- --host 0.0.0.0 --port 3000
+
+  worker-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - ENVIRONMENT=test
+      - DATABASE_URL=postgresql+asyncpg://applyiq_test:applyiq_test_password@db-test:5432/applyiq_test
+      - REDIS_URL=redis://redis-test:6379/0
+      - CELERY_BROKER_URL=redis://redis-test:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis-test:6379/2
+      - JWT_SECRET_KEY=e2e-test-secret-key-that-is-at-least-thirty-two-characters-long
+      - FERNET_SECRET_KEY=3j9X7p_Vv8G_rL6J9_wK8fB8_3L_Z8_mN9oP0qR1sT2=
+      - ENCRYPTION_PEPPER=e2e-test-pepper
+      - PGVECTOR_ENABLED=true
+      - GEMINI_API_KEY=mock-key
+    depends_on:
+      db-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    command: celery -A app.worker:celery_app worker --loglevel=info
+
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.59.1-jammy
+    working_dir: /app/frontend
+    volumes:
+      - .:/app
+    environment:
+      - BASE_URL=http://frontend-test:3000
+    depends_on:
+      - frontend-test
+    entrypoint: /bin/bash -c "sleep infinity"

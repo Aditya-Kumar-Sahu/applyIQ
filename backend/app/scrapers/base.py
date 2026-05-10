@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from app.schemas.jobs import RawJob
 from app.core.observability import SCRAPER_REQUESTS_TOTAL, SCRAPER_DURATION_SECONDS
+from app.core.cache import cached
 
 log = logging.getLogger(__name__)
 
@@ -20,7 +21,9 @@ class ScrapeQuery:
 
 class BaseJobScraper(ABC):
     source_name: str
+    ttl: int = 43200
 
+    @cached(namespace="scraper")
     async def fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
         """
         Public template method that handles metrics and instrumentation.

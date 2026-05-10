@@ -14,6 +14,7 @@ from app.services.embedding_service import EmbeddingService
 from app.services.file_extraction_service import FileExtractionService
 from app.services.profile_completeness_service import ProfileCompletenessService
 from app.services.resume_parser_service import ResumeParserService
+from app.core.redis import get_redis_manager
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,6 +86,11 @@ class ResumePipelineService:
                 file_hash_prefix=file_hash[:12],
                 updated_existing=bool(user.resume_profile),
             )
+
+            # Invalidate rankings cache
+            redis = get_redis_manager()
+            await redis.delete_pattern(f"applyiq:cache:v1:user:{user.id}:rankings:*")
+
             return resume_profile, parsed_profile
         except Exception as error:
             log_exception(
@@ -123,6 +129,11 @@ class ResumePipelineService:
                 excluded_companies_count=len(payload.excluded_companies),
                 is_active=payload.is_active,
             )
+
+            # Invalidate rankings cache (sync)
+            redis = get_redis_manager()
+            redis.delete_pattern_sync(f"applyiq:cache:v1:user:{user.id}:rankings:*")
+
             return preferences
         except Exception as error:
             log_exception(logger, "resume_pipeline.upsert_preferences.failed", error, user_id=user.id)
@@ -148,6 +159,11 @@ class ResumePipelineService:
                 skills_count=len(parsed_profile.skills.technical),
                 experience_entries=len(parsed_profile.experience),
             )
+
+            # Invalidate rankings cache
+            redis = get_redis_manager()
+            await redis.delete_pattern(f"applyiq:cache:v1:user:{user.id}:rankings:*")
+
             return parsed_profile
         except Exception as error:
             log_exception(logger, "resume_pipeline.reparse_existing.failed", error, user_id=user.id)

@@ -125,6 +125,24 @@ docker compose run --rm --build backend python -m pytest tests
 docker compose run --rm --build frontend npm run build
 ```
 
+### Run E2E tests
+
+End-to-end tests run in an isolated environment using Playwright.
+
+```powershell
+# Start the E2E environment (database, backend, frontend, and runner)
+docker compose -f docker-compose.e2e.yml up -d
+
+# Run the tests
+docker compose -f docker-compose.e2e.yml exec e2e npx playwright test
+
+# View the report (if running on a machine with a browser)
+# docker compose -f docker-compose.e2e.yml exec e2e npx playwright show-report
+
+# Shut down the E2E environment
+docker compose -f docker-compose.e2e.yml down
+```
+
 ### Build production images
 
 ```powershell

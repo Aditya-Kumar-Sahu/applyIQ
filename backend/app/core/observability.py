@@ -64,6 +64,12 @@ LLM_TOKEN_USAGE_TOTAL = Counter(
     "Total number of tokens used per model",
     ["model", "type"] # type: prompt, completion
 )
+
+CACHE_HIT_MISS_TOTAL = Counter(
+    "cache_hit_miss_total",
+    "Total number of cache hits and misses",
+    ["namespace", "result"] # result: hit, miss
+)
 # ----------------------
 
 # --- PII Redaction ---

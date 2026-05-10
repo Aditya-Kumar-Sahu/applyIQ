@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, String, UniqueConstraint, Index, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -12,7 +12,10 @@ from app.models.base import Base
 
 class JobMatch(Base):
     __tablename__ = "job_matches"
-    __table_args__ = (UniqueConstraint("user_id", "job_id", name="uq_job_matches_user_job"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "job_id", name="uq_job_matches_user_job"),
+        Index("ix_job_matches_user_score", "user_id", text("match_score DESC")),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
