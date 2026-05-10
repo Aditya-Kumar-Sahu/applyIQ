@@ -12,8 +12,8 @@ from typing import Any, TypeVar
 import structlog
 from pydantic import BaseModel
 
-from app.core.redis import get_redis_manager
 from app.core.observability import CACHE_HIT_MISS_TOTAL
+from app.core.redis import get_redis_manager
 
 logger = structlog.get_logger(__name__)
 
@@ -116,7 +116,7 @@ def _deserialize(data: Any, return_type: Any) -> Any:
 
     # Handle list of Pydantic models
     origin = typing.get_origin(return_type)
-    if origin is list or origin is typing.List:
+    if origin is list or origin is list:
         args = typing.get_args(return_type)
         if args and hasattr(args[0], "model_validate"):
             return [args[0].model_validate(item) for item in data]

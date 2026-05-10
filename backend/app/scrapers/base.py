@@ -5,9 +5,9 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from app.schemas.jobs import RawJob
-from app.core.observability import SCRAPER_REQUESTS_TOTAL, SCRAPER_DURATION_SECONDS
 from app.core.cache import cached
+from app.core.observability import SCRAPER_DURATION_SECONDS, SCRAPER_REQUESTS_TOTAL
+from app.schemas.jobs import RawJob
 
 log = logging.getLogger(__name__)
 

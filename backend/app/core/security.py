@@ -6,9 +6,9 @@ import hmac
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import bcrypt
 import jwt
 from cryptography.fernet import Fernet
-import bcrypt
 from passlib.context import CryptContext
 
 # Fix for passlib/bcrypt incompatibility in newer versions (Python 3.12+)

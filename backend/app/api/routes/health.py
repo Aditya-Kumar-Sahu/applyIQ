@@ -3,12 +3,12 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
-from fastapi import APIRouter, Request, Response, status, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
+from app.core.config import get_settings
 from app.core.constants import HEALTHY_STATUS
 from app.schemas.health import HealthStatus
-from app.core.config import get_settings
 
 HealthReporter = Callable[[], Awaitable[dict[str, Any]]]
 
@@ -45,9 +45,7 @@ async def _verify_metrics_secret(request: Request):
     provided_auth = request.headers.get("Authorization")
     
     is_valid = False
-    if provided_custom == expected:
-        is_valid = True
-    elif provided_auth == f"Bearer {expected}":
+    if provided_custom == expected or provided_auth == f"Bearer {expected}":
         is_valid = True
         
     if not request.app.state.settings.is_non_production and not is_valid:

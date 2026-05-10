@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging_safety import bytes_snapshot, log_debug, log_exception
+from app.core.redis import get_redis_manager
 from app.core.security import EncryptionService
 from app.models.resume_profile import ResumeProfile
 from app.models.search_preference import SearchPreference
@@ -14,9 +16,6 @@ from app.services.embedding_service import EmbeddingService
 from app.services.file_extraction_service import FileExtractionService
 from app.services.profile_completeness_service import ProfileCompletenessService
 from app.services.resume_parser_service import ResumeParserService
-from app.core.redis import get_redis_manager
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
