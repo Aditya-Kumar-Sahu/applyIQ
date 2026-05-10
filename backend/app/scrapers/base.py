@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+
+import structlog
 
 from app.core.cache import cached
 from app.core.observability import SCRAPER_DURATION_SECONDS, SCRAPER_REQUESTS_TOTAL
 from app.schemas.jobs import RawJob
 
-log = logging.getLogger(__name__)
+log = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -48,8 +49,14 @@ class BaseJobScraper(ABC):
         """
         raise NotImplementedError
 
-    def _log_field_fallback(self, field_name: str, job_id: str, fallback_value: str) -> None:
+    def log_missing_field(self, field_name: str, fallback_value: str, raw_item: dict) -> None:
+        """
+        Standardized logging for missing fields in scraped data.
+        """
         log.warning(
-            "scraper.%s.missing_field: Using fallback '%s' for field '%s' for job '%s'. Falling back to '%s'.", 
-            self.source_name, field_name, job_id, fallback_value
+            "scraper.%s.missing_field",
+            self.source_name,
+            field=field_name,
+            fallback=fallback_value,
+            item_summary={k: v for k, v in raw_item.items() if k in {"id", "jobId", "url", "title"}},
         )

@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import UTC
 from types import SimpleNamespace
 
-import anyio
 from opentelemetry import trace
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -65,7 +64,7 @@ async def _run_start(payload: dict) -> dict:
     with tracer.start_as_current_span("pipeline.run_start") as span:
         span.set_attribute("run_id", run_id)
         set_scrubbed_attribute(span, "pipeline.payload", payload)
-        
+
         settings = get_settings()
         database = DatabaseManager(settings.database_url.get_secret_value())
         redis_manager = RedisManager(settings.redis_url.get_secret_value())

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
+from typing import ClassVar
 
 import structlog
 
@@ -28,7 +29,7 @@ class AutoApplyResult:
 
 
 class AutoApplyService:
-    _CLICK_SELECTORS = [
+    _CLICK_SELECTORS: ClassVar[list[str]] = [
         "button:has-text('Easy Apply')",
         "button:has-text('Apply now')",
         "button:has-text('Apply')",

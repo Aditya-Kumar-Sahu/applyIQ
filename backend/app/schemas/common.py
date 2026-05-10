@@ -12,7 +12,7 @@ class ErrorDetail(BaseModel):
     message: str
 
 
-class Envelope(BaseModel, Generic[DataT]):
+class Envelope[DataT](BaseModel):
     success: bool
     data: DataT | None
     error: ErrorDetail | None

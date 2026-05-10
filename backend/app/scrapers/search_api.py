@@ -21,7 +21,7 @@ class SerpApiGoogleJobsScraper(BaseJobScraper):
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings
 
-    @circuit_breaker(name="serpapi_scraper", failure_threshold=3, recovery_timeout=60.0, fallback=lambda *a, **kw: [])
+    @circuit_breaker(name="serpapi_scraper", failure_threshold=3, recovery_timeout=60.0, fallback=lambda *_, **__: [])
     async def _fetch_jobs(self, query: ScrapeQuery) -> list[RawJob]:
         settings = self._settings or get_settings()
         if not settings.serpapi_api_key:

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 from app.agents.auto_apply.ats.base import ATSStrategy, BrowserApplyResult, BrowserPage, BrowserTool
 
 
 class DirectApplyStrategy(ATSStrategy):
-    provider_name = "direct_form"
-    _CLICK_SELECTORS = [
+    provider_name: ClassVar[str] = "direct_form"
+    _CLICK_SELECTORS: ClassVar[list[str]] = [
         "button:has-text('Easy Apply')",
         "button:has-text('Apply now')",
         "button:has-text('Apply')",
@@ -14,7 +16,11 @@ class DirectApplyStrategy(ATSStrategy):
         "a:has-text('Apply now')",
         "a:has-text('Apply')",
     ]
-    _CONFIRMATION_MARKERS = ("application submitted", "thank you for applying", "thanks for applying")
+    _CONFIRMATION_MARKERS: ClassVar[tuple[str, ...]] = (
+        "application submitted",
+        "thank you for applying",
+        "thanks for applying",
+    )
 
     def apply(
         self,

@@ -61,7 +61,7 @@ def create_app(
         redis=redis,
         celery=celery_app,
     )
-    
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=resolved_settings.cors_origins,

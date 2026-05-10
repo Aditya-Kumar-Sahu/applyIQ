@@ -51,7 +51,7 @@ def sanitize_for_logging(value: Any, *, max_items: int = 20, max_depth: int = 5,
     if _depth >= max_depth:
         return "<max_depth_reached>"
 
-    if value is None or isinstance(value, (bool, int, float)):
+    if value is None or isinstance(value, bool | int | float):
         return value
 
     if isinstance(value, str):
@@ -78,7 +78,7 @@ def sanitize_for_logging(value: Any, *, max_items: int = 20, max_depth: int = 5,
                 )
         return sanitized
 
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         values = list(value)
         sanitized_list = [
             sanitize_for_logging(item, max_items=max_items, max_depth=max_depth, _depth=_depth + 1)

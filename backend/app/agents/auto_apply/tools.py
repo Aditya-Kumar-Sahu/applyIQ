@@ -7,7 +7,7 @@ import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import structlog
 
@@ -23,7 +23,7 @@ class PlaywrightUnavailableError(RuntimeError):
 
 
 class PlaywrightApplyTool:
-    _CAPTCHA_SELECTORS = [
+    _CAPTCHA_SELECTORS: ClassVar[list[str]] = [
         "iframe[src*='recaptcha']",
         "iframe[src*='hcaptcha']",
         ".g-recaptcha",
@@ -33,7 +33,7 @@ class PlaywrightApplyTool:
         ".cf-turnstile",
         "input[name='cf-turnstile-response']",
     ]
-    _CAPTCHA_TEXT_MARKERS = (
+    _CAPTCHA_TEXT_MARKERS: ClassVar[tuple[str, ...]] = (
         "captcha",
         "recaptcha",
         "hcaptcha",
@@ -41,7 +41,7 @@ class PlaywrightApplyTool:
         "cloudflare",
         "attention required",
     )
-    _USER_AGENTS = [
+    _USER_AGENTS: ClassVar[list[str]] = [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
     ]

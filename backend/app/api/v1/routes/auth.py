@@ -39,7 +39,10 @@ def _build_auth_user(user: User) -> AuthUser:
 
 def _issue_tokens(request: Request, user_id: str) -> tuple[str, str]:
     settings = request.app.state.settings
-    jwt_key = settings.jwt_secret_key.get_secret_value() if settings.jwt_secret_key else None
+    if not settings.jwt_secret_key:
+        raise RuntimeError("JWT_SECRET_KEY not configured")
+
+    jwt_key = settings.jwt_secret_key.get_secret_value()
     access_token = create_token(
         subject=user_id,
         token_type="access",
@@ -261,9 +264,11 @@ async def refresh_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
 
     try:
+        if not settings.jwt_secret_key:
+            raise ValueError("JWT_SECRET_KEY not configured")
         payload = decode_token(
             refresh_token,
-            secret_key=settings.jwt_secret_key.get_secret_value() if settings.jwt_secret_key else None,
+            secret_key=settings.jwt_secret_key.get_secret_value(),
             algorithm=settings.jwt_algorithm,
         )
     except Exception as exc:
@@ -332,9 +337,11 @@ async def logout(
 
     if refresh_token is not None:
         try:
+            if not settings.jwt_secret_key:
+                raise ValueError("JWT_SECRET_KEY not configured")
             payload = decode_token(
                 refresh_token,
-                secret_key=settings.jwt_secret_key.get_secret_value() if settings.jwt_secret_key else None,
+                secret_key=settings.jwt_secret_key.get_secret_value(),
                 algorithm=settings.jwt_algorithm,
             )
         except Exception:

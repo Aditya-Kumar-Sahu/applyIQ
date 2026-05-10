@@ -46,5 +46,5 @@ def _patch_integration_scrape_services(monkeypatch, request):
                 confirmation_number=f"CONF-{application_id[:8].upper()}",
             )
 
-    monkeypatch.setattr(AutoApplyService, "_build_browser_tool", lambda self: _StubBrowserTool())
+    monkeypatch.setattr(AutoApplyService, "_build_browser_tool", lambda *_, **__: _StubBrowserTool())
     yield

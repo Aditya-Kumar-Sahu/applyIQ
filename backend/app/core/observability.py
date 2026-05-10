@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import re
 
 # --- Python 3.12+ Compatibility Fix for OTEL ---
@@ -23,14 +22,17 @@ except ImportError:
 # Ensure all attributes required by OTEL instrumentors are present
 for attr in ["Distribution", "DistributionNotFound", "RequirementParseError", "VersionConflict"]:
     if not hasattr(pkg_resources, attr):
-        class MockAttr(Exception): pass
-        setattr(pkg_resources, attr, MockAttr)
+
+        class MockAttrError(Exception):
+            pass
+
+        setattr(pkg_resources, attr, MockAttrError)
 
 if not hasattr(pkg_resources, "get_distribution"):
-    pkg_resources.get_distribution = lambda x: None
+    pkg_resources.get_distribution = lambda *_, **__: None
 
 if not hasattr(pkg_resources, "parse_requirements"):
-    pkg_resources.parse_requirements = lambda x: []
+    pkg_resources.parse_requirements = lambda *_, **__: []
 # -----------------------------------------------
 
 from opentelemetry import context, trace
@@ -46,58 +48,56 @@ from app.core.config import Settings
 T = TypeVar("T")
 
 # --- Custom Metrics ---
-SCRAPER_REQUESTS_TOTAL = Counter(
-    "scraper_requests_total",
-    "Total number of scraper requests",
-    ["source", "status"]
-)
+SCRAPER_REQUESTS_TOTAL = Counter("scraper_requests_total", "Total number of scraper requests", ["source", "status"])
 
 SCRAPER_DURATION_SECONDS = Histogram(
-    "scraper_duration_seconds",
-    "Time spent scraping jobs",
-    ["source"],
-    buckets=(1, 5, 10, 30, 60, 120, 300)
+    "scraper_duration_seconds", "Time spent scraping jobs", ["source"], buckets=(1, 5, 10, 30, 60, 120, 300)
 )
 
 LLM_TOKEN_USAGE_TOTAL = Counter(
     "llm_token_usage_total",
     "Total number of tokens used per model",
-    ["model", "type"] # type: prompt, completion
+    ["model", "type"],  # type: prompt, completion
 )
 
 CACHE_HIT_MISS_TOTAL = Counter(
     "cache_hit_miss_total",
     "Total number of cache hits and misses",
-    ["namespace", "result"] # result: hit, miss
+    ["namespace", "result"],  # result: hit, miss
 )
 # ----------------------
 
 # --- PII Redaction ---
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 _SENSITIVE_FIELDS = {
-    "resume_profile", "cover_letter_text", "raw_text", 
-    "parsed_profile", "access_token", "refresh_token"
+    "resume_profile",
+    "cover_letter_text",
+    "raw_text",
+    "parsed_profile",
+    "access_token",
+    "refresh_token",
 }
+
 
 def scrub_pii(data: Any) -> Any:
     if isinstance(data, str):
         return _EMAIL_RE.sub("[REDACTED_EMAIL]", data)
     if isinstance(data, dict):
-        return {
-            k: ("[REDACTED_FIELD]" if k in _SENSITIVE_FIELDS else scrub_pii(v))
-            for k, v in data.items()
-        }
+        return {k: ("[REDACTED_FIELD]" if k in _SENSITIVE_FIELDS else scrub_pii(v)) for k, v in data.items()}
     if isinstance(data, list):
         return [scrub_pii(v) for v in data]
     return data
 
+
 def set_scrubbed_attribute(span: Span, key: str, value: Any) -> None:
     scrubbed = scrub_pii(value)
-    if not isinstance(scrubbed, (str, bool, int, float)):
-        import json
+    if not isinstance(scrubbed, str | bool | int | float):
         scrubbed = str(scrubbed)
     span.set_attribute(key, scrubbed)
+
+
 # ---------------------
+
 
 def configure_observability(settings: Settings, app: Any = None) -> None:
     # 1. Sentry (Error Tracking Only)
@@ -106,29 +106,31 @@ def configure_observability(settings: Settings, app: Any = None) -> None:
             dsn=settings.sentry_dsn_backend,
             environment=settings.environment,
             release=settings.release_version,
-            traces_sample_rate=0.0, # Handled by OTEL
+            traces_sample_rate=0.0,  # Handled by OTEL
             integrations=[
                 FastApiIntegration(),
-                CeleryIntegration(propagate_traces=False) # Handled by OTEL
+                CeleryIntegration(propagate_traces=False),  # Handled by OTEL
             ],
             send_default_pii=False,
         )
 
     # 2. OpenTelemetry (Tracing)
-    resource = Resource.create({
-        "service.name": settings.project_slug,
-        "environment": settings.environment,
-    })
-    
+    resource = Resource.create(
+        {
+            "service.name": settings.project_slug,
+            "environment": settings.environment,
+        }
+    )
+
     provider = TracerProvider(resource=resource)
-    
+
     # Configure OTLP Exporter with timeout
     exporter = OTLPSpanExporter(timeout=5)
-    
+
     # Non-blocking batch processor with explicit performance tuning
     processor = BatchSpanProcessor(
         exporter,
-        schedule_delay_millis=5000, # 5s delay to batch spans
+        schedule_delay_millis=5000,  # 5s delay to batch spans
         max_export_batch_size=512,
     )
     provider.add_span_processor(processor)
@@ -137,7 +139,7 @@ def configure_observability(settings: Settings, app: Any = None) -> None:
     # 3. Auto-Instrumentation
     if app:
         FastAPIInstrumentor().instrument_app(app)
-    
+
     CeleryInstrumentor().instrument()
 
 
@@ -146,10 +148,10 @@ async def otel_anyio_run(func: Callable[..., Any], *args: Any, **kwargs: Any) ->
     Wraps anyio.run to propagate OTEL context into the new event loop.
     """
     import anyio
-    
+
     # Capture current context
     current_ctx = context.get_current()
-    
+
     async def _wrapped():
         # Attach context to new event loop thread
         token = context.attach(current_ctx)
@@ -157,5 +159,5 @@ async def otel_anyio_run(func: Callable[..., Any], *args: Any, **kwargs: Any) ->
             return await func(*args, **kwargs)
         finally:
             context.detach(token)
-            
+
     return await anyio.run(_wrapped)

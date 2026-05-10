@@ -17,7 +17,9 @@ def _production_like_settings(**overrides: object) -> Settings:
     return Settings(**defaults)
 
 
-def _patch_core_dependency_pings(monkeypatch, *, db_ok: bool, redis_ok: bool, broker_ok: bool = True, workers_ok: bool = True) -> None:
+def _patch_core_dependency_pings(
+    monkeypatch, *, db_ok: bool, redis_ok: bool, broker_ok: bool = True, workers_ok: bool = True
+) -> None:
     async def fake_db_ping(self) -> bool:
         return db_ok
 
@@ -136,35 +138,36 @@ def test_health_endpoint_returns_503_when_required_credentials_are_missing(monke
 
     # In HealthService, probes return NOT_CONFIGURED_STATUS if settings are missing
     # In production-like environment, any DOWN_STATUS triggers DEGRADED_STATUS
-    # but NOT_CONFIGURED_STATUS is allowed if it's NOT a required API? 
+    # but NOT_CONFIGURED_STATUS is allowed if it's NOT a required API?
     # Actually, current logic says:
     # elif any(s == DOWN_STATUS for s in external_probes.values() if s != NOT_CONFIGURED_STATUS):
     #     status = DEGRADED_STATUS
-    
-    # So NOT_CONFIGURED doesn't trigger DEGRADED? 
+
+    # So NOT_CONFIGURED doesn't trigger DEGRADED?
     # Wait, the prompt says:
     # 'degraded': If Workers or External APIs are down.
-    
+
     # Let's check my implementation of status logic in HealthService.
     # if workers_status == DOWN_STATUS: status = DEGRADED_STATUS
     # elif any(s == DOWN_STATUS for s in external_probes.values() if s != NOT_CONFIGURED_STATUS): status = DEGRADED_STATUS
 
     # If I want to test missing credentials, I should see what happens.
-    
+
     app = create_app(settings=_production_like_settings(apify_api_token=None, serpapi_api_key=None))
     client = TestClient(app)
-    
+
     # We need to monkeypatch the actual probes or the cache probe to return NOT_CONFIGURED
     async def fake_probe(self, name, *args, **kwargs) -> str:
         if name in ["apify", "serpapi"]:
             return "not_configured"
         return "up"
+
     monkeypatch.setattr("app.services.health_service.HealthService._probe_with_cache", fake_probe)
 
     response = client.get("/health")
 
     # If status is OK even if some are not_configured
-    assert response.status_code == 200 
+    assert response.status_code == 200
     assert response.json()["apify"] == "not_configured"
 
 
@@ -182,13 +185,7 @@ def test_health_endpoint_skips_external_api_checks_in_non_production(monkeypatch
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "status": "ok",
-        "db": "up",
-        "redis": "up",
-        "celery_broker": "up",
-        "celery_workers": "up"
-    }
+    assert response.json() == {"status": "ok", "db": "up", "redis": "up", "celery_broker": "up", "celery_workers": "up"}
 
 
 def test_versioned_meta_endpoint_returns_standard_envelope() -> None:

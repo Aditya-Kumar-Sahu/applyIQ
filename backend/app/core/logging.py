@@ -10,7 +10,7 @@ from typing import Any
 import structlog
 
 
-def _render_with_timestamp_prefix(_: Any, __: str, event_dict: dict[str, Any]) -> str:
+def _render_with_timestamp_prefix(_: Any, __: str, event_dict: Any) -> str:
     prefix_timestamp = str(event_dict.pop("timestamp", "")).strip()
     if not prefix_timestamp:
         prefix_timestamp = datetime.now(UTC).isoformat()
@@ -18,7 +18,7 @@ def _render_with_timestamp_prefix(_: Any, __: str, event_dict: dict[str, Any]) -
     return f"{prefix_timestamp} {payload}"
 
 
-def _add_logger_name(logger: Any, _: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+def _add_logger_name(logger: Any, _: str, event_dict: Any) -> Any:
     logger_name = None
     if logger is not None:
         logger_name = getattr(logger, "name", None)

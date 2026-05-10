@@ -14,8 +14,10 @@ from passlib.context import CryptContext
 # Fix for passlib/bcrypt incompatibility in newer versions (Python 3.12+)
 if not hasattr(bcrypt, "__about__"):
     print("DEBUG: Patching bcrypt.__about__ for passlib compatibility")
+
     class About:
         __version__ = getattr(bcrypt, "__version__", "4.0.0")
+
     bcrypt.__about__ = About()
 
 PASSWORD_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")

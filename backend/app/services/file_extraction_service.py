@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import zipfile
 from io import BytesIO
+from typing import ClassVar
 
 import fitz
 import structlog
@@ -13,7 +14,7 @@ logger = structlog.get_logger(__name__)
 
 
 class FileExtractionService:
-    ALLOWED_EXTENSIONS = {".pdf", ".docx"}
+    ALLOWED_EXTENSIONS: ClassVar[set[str]] = {".pdf", ".docx"}
 
     def detect_content_format(self, content: bytes) -> str:
         if content.startswith(b"%PDF-"):

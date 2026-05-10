@@ -26,15 +26,9 @@ class UsageTrackingService:
         Logs LLM token usage to Prometheus and the Database.
         """
         # 1. Update Prometheus Metrics
-        LLM_TOKEN_USAGE_TOTAL.labels(
-            model=response.model, 
-            type="prompt"
-        ).inc(response.usage.prompt_tokens)
-        
-        LLM_TOKEN_USAGE_TOTAL.labels(
-            model=response.model, 
-            type="completion"
-        ).inc(response.usage.completion_tokens)
+        LLM_TOKEN_USAGE_TOTAL.labels(model=response.model, type="prompt").inc(response.usage.prompt_tokens)
+
+        LLM_TOKEN_USAGE_TOTAL.labels(model=response.model, type="completion").inc(response.usage.completion_tokens)
 
         # 2. Calculate Estimated Cost
         estimated_cost = UsageTrackingService._calculate_cost(
@@ -56,13 +50,13 @@ class UsageTrackingService:
             )
             session.add(log_entry)
             await session.commit()
-            
+
             structlog.get_logger(__name__).debug(
                 "usage_tracker.log_success",
                 model=response.model,
                 total_tokens=response.usage.total_tokens,
                 cost_usd=estimated_cost,
-                user_id=user_id
+                user_id=user_id,
             )
         except Exception as e:
             structlog.get_logger(__name__).error("usage_tracker.log_failed", error=str(e))
@@ -74,5 +68,5 @@ class UsageTrackingService:
         # In a multi-model system, this would be a lookup table
         input_price = GEMINI_2_FLASH_INPUT_PRICE_PER_1M / 1_000_000
         output_price = GEMINI_2_FLASH_OUTPUT_PRICE_PER_1M / 1_000_000
-        
+
         return (prompt_tokens * input_price) + (completion_tokens * output_price)

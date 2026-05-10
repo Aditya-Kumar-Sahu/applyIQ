@@ -6,9 +6,7 @@ from typing import Any, cast
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from app.core.config import get_settings
-from app.core.constants import HEALTHY_STATUS
-from app.schemas.health import HealthStatus
+from app.schemas.health import CeleryStatus, HealthStatus
 
 HealthReporter = Callable[[], Awaitable[dict[str, Any]]]
 
@@ -21,33 +19,27 @@ async def healthcheck(request: Request, response: Response) -> HealthStatus:
 
     try:
         payload = await reporter()
-        
+
         if payload.get("is_hard_failure", False):
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        
+
         return HealthStatus.model_validate(payload)
-        
+
     except Exception:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return HealthStatus(
-            status="down",
-            db="down",
-            redis="down",
-            celery={"broker": "down", "workers": "down"}
-        )
+        return HealthStatus(status="down", db="down", redis="down", celery=CeleryStatus(broker="down", workers="down"))
 
 
 async def _verify_metrics_secret(request: Request):
-    settings = get_settings()
     # Support both Bearer and custom header for flexibility
     expected = request.app.state.settings.project_slug + "-metrics-secret"
     provided_custom = request.headers.get("X-Metrics-Secret")
     provided_auth = request.headers.get("Authorization")
-    
+
     is_valid = False
     if provided_custom == expected or provided_auth == f"Bearer {expected}":
         is_valid = True
-        
+
     if not request.app.state.settings.is_non_production and not is_valid:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized metrics access")
 

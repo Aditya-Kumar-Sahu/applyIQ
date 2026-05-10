@@ -393,13 +393,7 @@ class EmailMonitorService:
             await anyio.sleep(poll_interval_seconds)
 
     async def _classify_message(
-        self, 
-        *, 
-        session: AsyncSession, 
-        user: User, 
-        subject: str, 
-        body: str, 
-        settings: Settings | None
+        self, *, session: AsyncSession, user: User, subject: str, body: str, settings: Settings | None
     ) -> str:
         if settings is None or not settings.gemini_api_key or settings.environment.lower() == "test":
             return self._classify_message_deterministic(subject=subject, body=body)
@@ -413,13 +407,7 @@ class EmailMonitorService:
         )
 
     async def _classify_message_with_gemini(
-        self, 
-        *, 
-        session: AsyncSession, 
-        user: User, 
-        subject: str, 
-        body: str, 
-        settings: Settings
+        self, *, session: AsyncSession, user: User, subject: str, body: str, settings: Settings
     ) -> str:
         client = GeminiClient(
             api_key=settings.gemini_api_key.get_secret_value(),
@@ -434,13 +422,9 @@ class EmailMonitorService:
                 temperature=0.0,
                 model=settings.gemini_chat_model,
             )
-            
+
             # Record Usage
-            await UsageTrackingService.log_llm_usage(
-                session=session,
-                response=response,
-                user_id=user.id
-            )
+            await UsageTrackingService.log_llm_usage(session=session, response=response, user_id=user.id)
 
             classification = _normalize_classification(str(response.data.get("classification") or ""))
             log_debug(

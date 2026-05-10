@@ -20,6 +20,7 @@ __all__ = [
     "EmailMonitor",
     "Job",
     "JobMatch",
+    "LLMUsageLog",
     "PipelineRun",
     "RefreshTokenSession",
     "ResumeProfile",

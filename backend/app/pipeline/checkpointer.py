@@ -1,3 +1,4 @@
+# ruff: noqa: A002
 from __future__ import annotations
 
 import base64
@@ -5,7 +6,7 @@ import json
 import random
 from collections.abc import AsyncIterator, Iterator, Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 import anyio
@@ -56,8 +57,8 @@ class PipelineCheckpointer(BaseCheckpointSaver[str]):
                 return None
             parsed = json.loads(payload)
             if isinstance(parsed, dict) and "state" in parsed:
-                return parsed["state"]
-            return parsed
+                return cast(ApplyIQState, parsed["state"])
+            return cast(ApplyIQState, parsed)
         except RedisError as error:
             logger.warning("pipeline.checkpoint.redis_load_failed", run_id=run_id, error=str(error))
             return None
@@ -144,7 +145,7 @@ class PipelineCheckpointer(BaseCheckpointSaver[str]):
             "checkpoint_ns": checkpoint_ns,
             "checkpoint": self._encode_typed(checkpoint),
             "metadata": self._encode_typed(get_checkpoint_metadata(config, metadata)),
-            "parent_checkpoint_id": config["configurable"].get("checkpoint_id"),
+            "parent_checkpoint_id": config.get("configurable", {}).get("checkpoint_id"),
             "pending_writes": existing_entry.get("pending_writes", {}),
         }
         if checkpoint_id not in namespace_bucket["order"]:
@@ -240,7 +241,7 @@ class PipelineCheckpointer(BaseCheckpointSaver[str]):
 
     def prune(self, thread_ids: Sequence[str], *, strategy: str = "keep_latest") -> None:
         try:
-            anyio.run(self.aprune, thread_ids, strategy=strategy)
+            anyio.run(lambda: self.aprune(thread_ids, strategy=strategy))
         except RuntimeError as error:
             raise RuntimeError("pipeline checkpointer prune() cannot run inside an active event loop") from error
 
@@ -306,7 +307,7 @@ class PipelineCheckpointer(BaseCheckpointSaver[str]):
         results: list[CheckpointTuple] = []
         namespaces = bucket.get("namespaces", {}) if isinstance(bucket, dict) else {}
         namespaces_to_scan = [checkpoint_ns] if checkpoint_ns is not None else list(namespaces.keys())
-        before_checkpoint_id = before["configurable"].get("checkpoint_id") if before else None
+        before_checkpoint_id = before.get("configurable", {}).get("checkpoint_id") if before else None
 
         for namespace in namespaces_to_scan:
             namespace_bucket = namespaces.get(namespace, {})
@@ -382,10 +383,7 @@ class PipelineCheckpointer(BaseCheckpointSaver[str]):
         )
 
     def _metadata_matches(self, metadata: dict[str, Any], filter_values: dict[str, Any]) -> bool:
-        for key, expected in filter_values.items():
-            if metadata.get(key) != expected:
-                return False
-        return True
+        return all(metadata.get(key) == expected for key, expected in filter_values.items())
 
     def _encode_typed(self, value: Any) -> dict[str, str]:
         type_name, payload = self.serde.dumps_typed(value)
@@ -398,8 +396,8 @@ class PipelineCheckpointer(BaseCheckpointSaver[str]):
         return self.serde.loads_typed((payload["type"], base64.b64decode(payload["data"])))
 
     def _thread_and_ns(self, config: RunnableConfig) -> tuple[str, str]:
-        configurable = config["configurable"]
-        return str(configurable["thread_id"]), str(configurable.get("checkpoint_ns", ""))
+        configurable = config.get("configurable", {})
+        return str(configurable.get("thread_id", "")), str(configurable.get("checkpoint_ns", ""))
 
     def _snapshot_key(self, run_id: str) -> str:
         return f"pipeline_run_state:{run_id}"
@@ -449,5 +447,4 @@ def _json_default(value: Any) -> Any:
         return value.isoformat()
     if isinstance(value, UUID):
         return str(value)
-    raise TypeError(f"Type {type(value)!r} is not JSON serializable")
     raise TypeError(f"Type {type(value)!r} is not JSON serializable")

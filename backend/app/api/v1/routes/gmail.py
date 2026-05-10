@@ -23,10 +23,7 @@ logger = structlog.get_logger(__name__)
 
 def _settings_redirect_url(settings, *, query: dict[str, str] | None = None) -> str:
     base = (settings.cors_origins[0] if settings.cors_origins else "").rstrip("/")
-    if not base:
-        base = "/settings"
-    else:
-        base = f"{base}/settings"
+    base = "/settings" if not base else f"{base}/settings"
     if query:
         return f"{base}?{urlencode(query)}"
     return base

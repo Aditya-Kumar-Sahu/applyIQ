@@ -48,7 +48,7 @@ def test_applications_and_notifications_reflect_detected_replies(tmp_path: Path,
                 confirmation_number=f"CONF-{application_id[:8].upper()}",
             )
 
-    monkeypatch.setattr(AutoApplyService, "_build_browser_tool", lambda self: StubBrowserTool())
+    monkeypatch.setattr(AutoApplyService, "_build_browser_tool", lambda *_, **__: StubBrowserTool())
 
     with TestClient(app) as client:
         anyio.run(_create_all_tables, app.state.database.engine)

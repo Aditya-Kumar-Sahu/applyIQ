@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import anyio
-
 from app.core.config import get_settings
 from app.core.database import DatabaseManager
 from app.core.observability import otel_anyio_run

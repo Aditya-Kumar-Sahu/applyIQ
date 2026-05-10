@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 from app.agents.auto_apply.ats.base import ATSStrategy, BrowserApplyResult, BrowserPage, BrowserTool
 
 
 class LeverATSStrategy(ATSStrategy):
-    provider_name = "lever"
-    _SUBMIT_SELECTORS = [
+    provider_name: ClassVar[str] = "lever"
+    _SUBMIT_SELECTORS: ClassVar[list[str]] = [
         "button[type='submit']",
         "button:has-text('Submit Application')",
         "button:has-text('Apply')",
         "input[type='submit']",
     ]
-    _CONFIRMATION_MARKERS = ("application submitted", "thanks for applying", "thank you for applying")
+    _CONFIRMATION_MARKERS: ClassVar[tuple[str, ...]] = (
+        "application submitted",
+        "thanks for applying",
+        "thank you for applying",
+    )
 
     def apply(
         self,

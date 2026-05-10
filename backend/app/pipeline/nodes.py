@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, datetime
+from typing import cast
 
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +13,13 @@ from app.models.job import Job
 from app.models.pipeline_run import PipelineRun
 from app.models.user import User
 from app.pipeline.checkpointer import PipelineCheckpointer
-from app.pipeline.state import ApplyIQState
+from app.pipeline.state import (
+    AppliedApplication,
+    ApplyIQState,
+    ApprovedApplication,
+    PendingApproval,
+    RankedJob,
+)
 from app.schemas.resume import ParsedResumeProfile
 from app.scrapers.base import ScrapeQuery
 from app.services.cover_letter_service import CoverLetterService
@@ -90,7 +98,7 @@ async def rank_jobs_node(
     pipeline_run.current_node = "rank_jobs_node"
     await session.commit()
 
-    state["ranked_jobs"] = [item.model_dump(mode="json") for item in ranked_jobs.items[:5]]
+    state["ranked_jobs"] = cast(list[RankedJob], [item.model_dump(mode="json") for item in ranked_jobs.items[:5]])
     state["current_node"] = "rank_jobs_node"
     return state
 
@@ -166,7 +174,7 @@ async def approval_gate_node(
             }
         )
 
-    state["pending_approvals"] = pending_approvals
+    state["pending_approvals"] = cast(list[PendingApproval], pending_approvals)
     state["current_node"] = "approval_gate_node"
     pipeline_run.status = "paused_at_gate"
     pipeline_run.current_node = "approval_gate_node"
@@ -270,7 +278,7 @@ async def auto_apply_node(
     pipeline_run.applications_submitted = len([item for item in approved_items if item["status"] == "applied"])
     await session.commit()
 
-    state["approved_applications"] = approved_items
+    state["approved_applications"] = cast(list[ApprovedApplication], approved_items)
     state["current_node"] = "auto_apply_node"
     return state
 
@@ -301,11 +309,10 @@ async def track_applications_node(
     await session.commit()
 
     state["current_node"] = "track_applications_node"
-    state["applied_applications"] = applied_applications
+    state["applied_applications"] = cast(list[AppliedApplication], applied_applications)
     return state
 
 
 def _serialize_state(state: ApplyIQState) -> str:
-    import json
 
     return json.dumps(state)

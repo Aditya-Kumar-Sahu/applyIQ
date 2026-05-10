@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 
 import httpx
@@ -17,7 +16,6 @@ from app.core.constants import (
     UP_STATUS,
 )
 from app.core.database import DatabaseManager
-from app.core.logging_safety import log_debug
 from app.core.redis import RedisManager
 
 logger = structlog.get_logger(__name__)
@@ -62,7 +60,7 @@ class HealthService:
 
         # Determine overall status
         any_soft_failure = any(s == DOWN_STATUS for s in api_statuses.values())
-        
+
         status = HEALTHY_STATUS
         if is_hard_failure:
             status = DOWN_STATUS
@@ -116,11 +114,11 @@ class HealthService:
             self._probe_with_cache("ai_provider", self._probe_gemini),
         ]
         results = await asyncio.gather(*tasks)
-        return {name: status for name, status in results}
+        return dict(results)
 
     async def _probe_with_cache(self, name: str, probe_func: callable) -> tuple[str, str]:
         cache_key = f"{self._cache_prefix}{name}"
-        
+
         # Check cache
         cached_status = await self._redis.get(cache_key)
         if cached_status:
@@ -128,12 +126,12 @@ class HealthService:
 
         # Perform probe
         status = await probe_func()
-        
+
         # Cache result
         await self._redis.set(cache_key, status, ex=self._cache_ttl)
         return name, status
 
-    async def _probe_url(self, url: str, params: dict = None, headers: dict = None) -> bool:
+    async def _probe_url(self, url: str, params: dict | None = None, headers: dict | None = None) -> bool:
         try:
             async with httpx.AsyncClient(timeout=3.0) as client:
                 response = await client.get(url, params=params, headers=headers)

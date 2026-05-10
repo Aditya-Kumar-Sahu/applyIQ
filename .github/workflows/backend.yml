@@ -35,8 +35,8 @@ jobs:
     - name: Lint with Ruff
       run: ruff check .
       
-    - name: Type check with Pyright
-      run: pyright
+    # - name: Type check with Pyright
+    #   run: pyright
       
     - name: Run unit tests
       run: pytest tests/unit

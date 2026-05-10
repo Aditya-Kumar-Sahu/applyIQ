@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import ClassVar, Protocol
 
 
 @dataclass
@@ -38,7 +38,7 @@ class BrowserTool(Protocol):
 
 
 class ATSStrategy(Protocol):
-    provider_name: str
+    provider_name: ClassVar[str]
 
     def apply(
         self,

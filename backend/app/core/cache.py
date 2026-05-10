@@ -21,8 +21,10 @@ T = TypeVar("T")
 
 CACHE_VERSION = "v1"
 
+
 class SafeFormatter(dict):
     """Formatter that returns the key itself if missing to prevent KeyError."""
+
     def __missing__(self, key: str) -> str:
         return f"{{{key}}}"
 
@@ -47,19 +49,19 @@ def _generate_key(
         class_name = call_args["self"].__class__.__name__
     elif "cls" in call_args:
         class_name = call_args["cls"].__name__
-    
+
     func_identity = f"{class_name}.{func.__name__}" if class_name else func.__name__
 
     # 2. Extract stable identifiers, skipping infrastructure objects
     skip_keys = {"self", "cls", "session", "db"}
-    
+
     def _extract_id(obj: Any) -> Any:
-        if isinstance(obj, (str, int, float, bool, type(None))):
+        if isinstance(obj, str | int | float | bool | type(None)):
             return obj
         if hasattr(obj, "id"):
             # Prioritize .id field for database models
             return f"{obj.__class__.__name__}:{obj.id}"
-        if isinstance(obj, (list, tuple)):
+        if isinstance(obj, list | tuple):
             return [_extract_id(item) for item in obj]
         if isinstance(obj, dict):
             return {k: _extract_id(v) for k, v in obj.items()}
@@ -67,18 +69,14 @@ def _generate_key(
             return obj.model_dump()
         return str(obj)
 
-    filtered_args = {
-        k: _extract_id(v) 
-        for k, v in call_args.items() 
-        if k not in skip_keys
-    }
+    filtered_args = {k: _extract_id(v) for k, v in call_args.items() if k not in skip_keys}
 
     # 3. MD5 hash of arguments
     try:
         arg_str = json.dumps(filtered_args, sort_keys=True)
     except (TypeError, ValueError):
         arg_str = str(filtered_args)
-    
+
     arg_hash = hashlib.md5(arg_str.encode()).hexdigest()
 
     # 4. Namespace formatting
@@ -154,21 +152,21 @@ def cached(
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 call_args = _get_call_args(*args, **kwargs)
                 key = _generate_key(func, call_args, namespace, version)
-                
+
                 # Use the original namespace string for metrics to avoid high cardinality
                 metric_ns = namespace.split(":")[0] if namespace else "default"
 
                 try:
                     redis = get_redis_manager()
                     cached_val = await redis.get_value(key)
-                    
+
                     if cached_val is not None:
                         CACHE_HIT_MISS_TOTAL.labels(namespace=metric_ns, result="hit").inc()
                         return _deserialize(cached_val, return_type)
 
                     CACHE_HIT_MISS_TOTAL.labels(namespace=metric_ns, result="miss").inc()
                     result = await func(*args, **kwargs)
-                    
+
                     if result is not None:
                         await redis.set_value(key, _serialize(result), ttl=ttl)
                     return result
@@ -189,14 +187,14 @@ def cached(
                 try:
                     redis = get_redis_manager()
                     cached_val = redis.get_value_sync(key)
-                    
+
                     if cached_val is not None:
                         CACHE_HIT_MISS_TOTAL.labels(namespace=metric_ns, result="hit").inc()
                         return _deserialize(cached_val, return_type)
 
                     CACHE_HIT_MISS_TOTAL.labels(namespace=metric_ns, result="miss").inc()
                     result = func(*args, **kwargs)
-                    
+
                     if result is not None:
                         redis.set_value_sync(key, _serialize(result), ttl=ttl)
                     return result

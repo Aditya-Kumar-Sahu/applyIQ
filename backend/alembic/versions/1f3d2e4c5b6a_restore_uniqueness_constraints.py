@@ -112,10 +112,10 @@ def _drop_unique_constraint(
 
     if bind.dialect.name == "sqlite":
         with op.batch_alter_table(table_name) as batch_op:
-            batch_op.drop_constraint(existing_constraint["name"], type_="unique")
+            batch_op.drop_constraint(str(existing_constraint["name"]), type_="unique")
         return
 
-    op.drop_constraint(existing_constraint["name"], table_name, type_="unique")
+    op.drop_constraint(str(existing_constraint["name"]), table_name, type_="unique")
 
 
 def _find_unique_constraint(

@@ -71,7 +71,9 @@ class GmailService:
         payload = {
             "code": code,
             "client_id": settings.google_client_id.get_secret_value() if settings.google_client_id else None,
-            "client_secret": settings.google_client_secret.get_secret_value() if settings.google_client_secret else None,
+            "client_secret": settings.google_client_secret.get_secret_value()
+            if settings.google_client_secret
+            else None,
             "redirect_uri": settings.google_redirect_uri,
             "grant_type": "authorization_code",
         }
@@ -106,7 +108,9 @@ class GmailService:
         self._assert_oauth_configured(settings)
         payload = {
             "client_id": settings.google_client_id.get_secret_value() if settings.google_client_id else None,
-            "client_secret": settings.google_client_secret.get_secret_value() if settings.google_client_secret else None,
+            "client_secret": settings.google_client_secret.get_secret_value()
+            if settings.google_client_secret
+            else None,
             "refresh_token": refresh_token,
             "grant_type": "refresh_token",
         }
@@ -326,7 +330,7 @@ class GmailService:
         expires_in_raw = payload.get("expires_in")
         expires_in = (
             int(expires_in_raw)
-            if isinstance(expires_in_raw, (int, float, str)) and str(expires_in_raw).isdigit()
+            if isinstance(expires_in_raw, int | float | str) and str(expires_in_raw).isdigit()
             else 3600
         )
         expires_at = datetime.now(UTC) + timedelta(seconds=expires_in)

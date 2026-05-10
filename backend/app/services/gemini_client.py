@@ -18,7 +18,6 @@ from app.schemas.llm import GeminiResponse, UsageMetadata
 logger = structlog.get_logger(__name__)
 
 
-
 class GeminiApiError(RuntimeError):
     pass
 

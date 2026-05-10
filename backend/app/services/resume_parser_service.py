@@ -208,9 +208,7 @@ class ResumeParserService:
         resolved_settings = settings or get_settings()
         self._gemini_model = resolved_settings.gemini_chat_model or GEMINI_DEFAULT_CHAT_MODEL
         self._gemini_client = gemini_client or GeminiClient(
-            api_key=(
-                resolved_settings.gemini_api_key.get_secret_value() if resolved_settings.gemini_api_key else None
-            ),
+            api_key=(resolved_settings.gemini_api_key.get_secret_value() if resolved_settings.gemini_api_key else None),
             chat_model=self._gemini_model,
             embedding_model=resolved_settings.gemini_embedding_model,
         )
@@ -360,9 +358,7 @@ class ResumeParserService:
         if any(char.isdigit() for char in line):
             return False
         lowered = line.lower()
-        if any(token in lowered for token in ("engineer", "developer", "manager", "analyst", "resume")):
-            return False
-        return True
+        return not any(token in lowered for token in ("engineer", "developer", "manager", "analyst", "resume"))
 
     def _looks_like_contact_line(self, line: str) -> bool:
         lowered = line.lower()
@@ -543,9 +539,12 @@ class ResumeParserService:
             highlights: list[str] = []
             if index + 1 < len(source_lines):
                 candidate = source_lines[index + 1]
-                if not self._parse_experience_line(candidate) and not self._contains_education_signal(candidate):
-                    if len(candidate.split()) >= 5:
-                        highlights = [candidate]
+                if (
+                    not self._parse_experience_line(candidate)
+                    and not self._contains_education_signal(candidate)
+                    and len(candidate.split()) >= 5
+                ):
+                    highlights = [candidate]
 
             entries.append(entry.model_copy(update={"highlights": highlights}))
 

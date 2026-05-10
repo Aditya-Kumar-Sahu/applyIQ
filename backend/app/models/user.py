@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    from app.models.credential_vault import CredentialVault
+    from app.models.refresh_token_session import RefreshTokenSession
+    from app.models.resume_profile import ResumeProfile
+    from app.models.search_preference import SearchPreference
 
 
 class User(Base):
@@ -28,16 +35,19 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+
     resume_profile: Mapped[ResumeProfile | None] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         uselist=False,
     )
+
     search_preferences: Mapped[SearchPreference | None] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         uselist=False,
     )
+
     refresh_token_sessions: Mapped[list[RefreshTokenSession]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",

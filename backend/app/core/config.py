@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from functools import lru_cache
@@ -43,15 +44,13 @@ class SecretsManagerSettingsSource(PydanticBaseSettingsSource):
         # 1. AWS Secrets Manager Integration
         if provider == "aws":
             secrets.update(self._fetch_from_aws())
-        
+
         # 2. Local Simulation: Look for .secrets.json in the project root
         # We check local even if provider is AWS as a developer convenience override
         secrets_file = Path(".secrets.json")
         if secrets_file.exists():
-            try:
+            with contextlib.suppress(Exception):
                 secrets.update(json.loads(secrets_file.read_text()))
-            except Exception:
-                pass
 
         self._cache = secrets
         self._loaded = True
@@ -64,14 +63,14 @@ class SecretsManagerSettingsSource(PydanticBaseSettingsSource):
         """
         region_name = os.getenv("AWS_REGION", "us-east-1")
         secret_name = os.getenv("SECRETS_NAME", f"{PROJECT_SLUG}/{os.getenv('ENVIRONMENT', 'dev')}")
-        
+
         try:
             import boto3
             from botocore.exceptions import ClientError
-            
+
             client = boto3.client("secretsmanager", region_name=region_name)
             response = client.get_secret_value(SecretId=secret_name)
-            
+
             if "SecretString" in response:
                 return json.loads(response["SecretString"])
             return {}
@@ -90,19 +89,14 @@ class SecretsManagerSettingsSource(PydanticBaseSettingsSource):
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env", 
-        env_file_encoding="utf-8", 
-        extra="ignore",
-        case_sensitive=False
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", case_sensitive=False)
 
     # Metadata
     app_name: str = APP_NAME
     project_slug: str = PROJECT_SLUG
     environment: str = DEFAULT_ENVIRONMENT
     release_version: str = "dev"
-    
+
     # Server Config
     api_v1_prefix: str = API_V1_PREFIX
     app_host: str = "0.0.0.0"
@@ -148,7 +142,7 @@ class Settings(BaseSettings):
 
     # OpenTelemetry
     otel_service_name: str = PROJECT_SLUG
-    otel_exporter_otlp_endpoint: str | None = None # e.g. "http://collector:4317"
+    otel_exporter_otlp_endpoint: str | None = None  # e.g. "http://collector:4317"
     otel_traces_sampler: str = "parentbased_always_on"
     otel_traces_sample_rate: float = 1.0
 
@@ -169,7 +163,7 @@ class Settings(BaseSettings):
     gmail_poll_max_messages: int = 25
 
     # Provider Config
-    secrets_provider: str = "local" # local, aws
+    secrets_provider: str = "local"  # local, aws
 
     @classmethod
     def settings_customise_sources(
@@ -218,7 +212,7 @@ class Settings(BaseSettings):
             )
             if value is None or not str(value).strip()
         ]
-        
+
         if missing_secrets:
             raise RuntimeError(
                 f"Missing required secrets: {', '.join(missing_secrets)}. "
@@ -228,13 +222,13 @@ class Settings(BaseSettings):
         if not self.is_non_production:
             if not self.secure_cookies:
                 raise RuntimeError("Secure cookies must be enabled outside non-production environments")
-            
+
             # HARDENING: In production, we MUST NOT use the local provider
             if self.secrets_provider == "local":
-                 raise RuntimeError(
-                     "Security Violation: Local secrets provider detected in production environment. "
-                     "SECRETS_PROVIDER must be set to 'aws' or another managed service."
-                 )
+                raise RuntimeError(
+                    "Security Violation: Local secrets provider detected in production environment. "
+                    "SECRETS_PROVIDER must be set to 'aws' or another managed service."
+                )
 
 
 @lru_cache(maxsize=1)
